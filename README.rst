@@ -1,4 +1,4 @@
-Pymatgen-analysis-myaddon
+Pymatgen-io-validation
 =========================
 
 This is a template for writing an add-on for pymatgen. From v2022.0.3, pymatgen, pymatgen.analysis, pymatgen.ext and
