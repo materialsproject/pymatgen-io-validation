@@ -338,7 +338,6 @@ def _check_potcars(reasons, warnings, calcs_reversed, calc_type, valid_potcar_ha
     """
     
     ### TODO: Update potcar checks. Whether using hashing or not!
-    ##################################### TODO: Only create a warning for NSCF / dielectric / DFPT / any other NSCF calc types
 
     try:
         potcar_details = calcs_reversed[0]["input"]["potcar_spec"]
