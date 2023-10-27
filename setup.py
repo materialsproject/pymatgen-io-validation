@@ -12,18 +12,18 @@ with open(os.path.join(SETUP_PTH, "README.rst")) as f:
 
 
 setup(
-    name="pymatgen-analysis-myaddon",
-    packages=find_namespace_packages(include=["pymatgen.analysis.*"]),
+    name="pymatgen-io-validation",
+    packages=find_namespace_packages(include=["pymatgen.io.*"]),
     version="0.0.1",
     install_requires=["pymatgen>=2022.0.3"],
     extras_require={},
     package_data={},
-    author="materials virtual lab",
-    author_email="ongsp@eng.ucsd.edu",
-    maintainer="materials virtual lab",
-    url="https://github.com/materialsproject/pymatgen-addon-template",
+    author="Matthew Kuner, Janosh Riebesell, Jason Munro, Aaron Kaplan",
+    author_email="mckuner@lbl.gov",
+    maintainer="Matthew Kuner",
+    url="https://github.com/matthewkuner/pymatgen-io-validation",
     license="BSD",
-    description="A template for creating add-ons for pymatgen.",
+    description="A comprehensive I/O validator for electronic structure calculations",
     long_description=desc,
     keywords=["pymatgen"],
     classifiers=[
