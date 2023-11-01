@@ -10,7 +10,8 @@ from monty.serialization import loadfn
 
 from pymatgen.io.vasp.sets import VaspInputSet
 
-# TODO: why MPMetalRelaxSet
+# TODO: AK: why MPMetalRelaxSet 
+# TODO: MK: because more kpoints are needed for metals given the more complicated Fermi surfaces, and MPMetalRelaxSet uses more kpoints
 from pymatgen.io.vasp.sets import MPMetalRelaxSet
 from pymatgen.io.vasp.inputs import Potcar
 
@@ -64,33 +65,36 @@ class ValidationDoc(EmmetBaseModel):
     def from_task_doc(
         cls,
         task_doc: TaskDocument,
-        kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
-        kspacing_tolerance: float = SETTINGS.VASP_KSPACING_TOLERANCE,  # TODO Usused currently,needed?
-        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
-        LDAU_fields: List[str] = SETTINGS.VASP_CHECKED_LDAU_FIELDS,  # TODO Usused currently,needed?
-        max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
+        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,        
         potcar_summary_stats: Dict[str, ImportString] = _pmg_potcar_summary_stats,
+        kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
+        allow_kpoint_shifts: bool = SETTINGS.VASP_ALLOW_KPT_SHIFT,
+        allow_explicit_kpoint_mesh: Union[str, bool] = SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
+        fft_grid_tolerance: float = SETTINGS.VASP_FFT_GRID_TOLERANCE,
+        num_ionic_steps_to_avg_drift_over: float = SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
+        max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
     ) -> "ValidationDoc":
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
 
         Args:
             task_doc: the task document to process
-            kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
-            kspacing_tolerance:  the tolerance to allow kspacing to lag behind the input set settings
             input_sets: a dictionary of task_types -> pymatgen input set for validation
-            pseudo_dir: directory of pseudopotential directory to ensure correct hashes
-            LDAU_fields: LDAU fields to check for consistency
+            potcar_summary_stats: Dictionary of potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.
+            kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
+            allow_kpoint_shifts: Whether to consider a task valid if kpoints are shifted by the user
+            allow_explicit_kpoint_mesh: Whether to consider a task valid if the user defines an explicit kpoint mesh
+            fft_grid_tolerance: Relative tolerance for FFT grid parameters to still be a valid
+            num_ionic_steps_to_avg_drift_over: Number of ionic steps to average over when validating drift forces
             max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
                 initial equillibriation period. Note this is in eV per atom.
-            potcar_summary_stats: Dictionary of potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.
         """
 
         bandgap = task_doc.output.bandgap
         calcs_reversed = task_doc.calcs_reversed
         calcs_reversed = [
             calc.dict() for calc in calcs_reversed
-        ]  # convert to dictionary to use built-in `.get()` method       ###################################################
+        ]  # convert to dictionary to use built-in `.get()` method
 
         parameters = (
             task_doc.input.parameters
@@ -118,13 +122,6 @@ class ValidationDoc(EmmetBaseModel):
         calc_type = _get_calc_type(calcs_reversed, orig_inputs)
         task_type = _get_task_type(calcs_reversed, orig_inputs)
         run_type = _get_run_type(calcs_reversed)
-
-        # maybe move following to settings -->
-        num_ionic_steps_to_avg_drift_over = 3
-        fft_grid_tolerance = 0.9
-        allow_kpoint_shifts = False
-        allow_explicit_kpoint_mesh = "auto"  # could also be True or False
-        # <--
 
         if allow_explicit_kpoint_mesh == "auto":
             if "NSCF" in calc_type.name:
@@ -169,15 +166,15 @@ class ValidationDoc(EmmetBaseModel):
             )
         elif valid_input_set:
             # Get subset of POTCAR summary stats to validate calculation
-            allowed_potcar_stats = {}
+            valid_potcar_summary_stats = {}
             for valid_potcar in valid_input_set.potcar:
                 titel_no_spc = valid_potcar.TITEL.replace(" ", "")
-                allowed_potcar_stats[titel_no_spc] = potcar_summary_stats[
+                valid_potcar_summary_stats[titel_no_spc] = potcar_summary_stats[
                     valid_input_set._config_dict["POTCAR_FUNCTIONAL"]
                 ][titel_no_spc].copy()
 
             if potcar_summary_stats:
-                _check_potcars(reasons, warnings, potcar, calc_type, allowed_potcar_stats)
+                _check_potcars(reasons, warnings, potcar, valid_potcar_summary_stats)
 
             # TODO: check for surface/slab calculations!!!!!!
 
@@ -249,26 +246,29 @@ class ValidationDoc(EmmetBaseModel):
     def from_directory(
         cls,
         dir_name: Union[Path, str],
-        kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
-        kspacing_tolerance: float = SETTINGS.VASP_KSPACING_TOLERANCE,
-        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
-        LDAU_fields: List[str] = SETTINGS.VASP_CHECKED_LDAU_FIELDS,  # TODO Unused
-        max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
+        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,        
         potcar_summary_stats: Dict[str, ImportString] = _pmg_potcar_summary_stats,
+        kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
+        allow_kpoint_shifts: bool = SETTINGS.VASP_ALLOW_KPT_SHIFT,
+        allow_explicit_kpoint_mesh: Union[str, bool] = SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
+        fft_grid_tolerance: float = SETTINGS.VASP_FFT_GRID_TOLERANCE,
+        num_ionic_steps_to_avg_drift_over: float = SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
+        max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
     ) -> "ValidationDoc":
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
 
         Args:
             dir_name: the directory containing the calculation files to process
-            kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
-            kspacing_tolerance:  the tolerance to allow kspacing to lag behind the input set settings
             input_sets: a dictionary of task_types -> pymatgen input set for validation
-            pseudo_dir: directory of pseudopotential directory to ensure correct hashes
-            LDAU_fields: LDAU fields to check for consistency
+            potcar_summary_stats: Dictionary of potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.
+            kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
+            allow_kpoint_shifts: Whether to consider a task valid if kpoints are shifted by the user
+            allow_explicit_kpoint_mesh: Whether to consider a task valid if the user defines an explicit kpoint mesh
+            fft_grid_tolerance: Relative tolerance for FFT grid parameters to still be a valid
+            num_ionic_steps_to_avg_drift_over: Number of ionic steps to average over when validating drift forces
             max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
                 initial equillibriation period. Note this is in eV per atom.
-            potcar_summary_stats: Dictionary of potcar hash data. Mapping is calculation type -> potcar symbol -> hash value.
         """
         try:
             task_doc = TaskDoc.from_directory(
@@ -278,12 +278,14 @@ class ValidationDoc(EmmetBaseModel):
 
             validation_doc = ValidationDoc.from_task_doc(
                 task_doc=task_doc,
-                kpts_tolerance=kpts_tolerance,
-                kspacing_tolerance=kspacing_tolerance,
                 input_sets=input_sets,
-                LDAU_fields=LDAU_fields,  # TODO Unused
-                max_allowed_scf_gradient=max_allowed_scf_gradient,
                 potcar_summary_stats=potcar_summary_stats,
+                kpts_tolerance=kpts_tolerance,
+                allow_kpoint_shifts=allow_kpoint_shifts,
+                allow_explicit_kpoint_mesh=allow_explicit_kpoint_mesh,
+                fft_grid_tolerance=fft_grid_tolerance,
+                num_ionic_steps_to_avg_drift_over=num_ionic_steps_to_avg_drift_over,
+                max_allowed_scf_gradient=max_allowed_scf_gradient,
             )
 
             return validation_doc
@@ -308,7 +310,7 @@ def _get_input_set(run_type, task_type, calc_type, structure, input_sets, bandga
         CalcType.PBE_U_Structure_Optimization,
     ]
 
-    # Ensure inputsets get proper additional input values
+    # Ensure input sets get proper additional input values
     if "SCAN" in run_type.value:
         valid_input_set: VaspInputSet = input_sets[str(calc_type)](structure, bandgap=bandgap)  # type: ignore
 
@@ -343,7 +345,6 @@ def _check_potcars(
     reasons,
     warnings,
     potcars: Potcar,
-    calc_type,
     valid_potcar_summary_stats: Dict[str, ImportString],
     data_match_tol: float = 1e-6,
 ):
@@ -351,9 +352,6 @@ def _check_potcars(
     Checks to make sure the POTCAR is equivalent to the correct POTCAR from the
     pymatgen input set.
     """
-
-    # TODO: Update potcar checks. Whether using hashing or not!
-    # AK - added summary stats check, removed hash check
 
     if potcars is None:
         reasons.append(
