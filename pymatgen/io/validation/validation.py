@@ -16,7 +16,7 @@ from pymatgen.io.vasp.sets import MPMetalRelaxSet
 from pymatgen.io.vasp.inputs import Potcar
 
 from emmet.core.tasks import TaskDoc
-from emmet.core.settings import EmmetSettings
+# from emmet.core.settings import EmmetSettings
 from emmet.core.base import EmmetBaseModel
 from emmet.core.mpid import MPID
 from emmet.core.vasp.task_valid import TaskDocument
@@ -26,9 +26,11 @@ from emmet.core.vasp.calc_types import RunType, calc_type, run_type, task_type
 from pymatgen.io.validation.check_incar import _check_incar
 from pymatgen.io.validation.check_common_errors import _check_common_errors
 from pymatgen.io.validation.check_kpoints_kspacing import _check_kpoints_kspacing
+from pymatgen.io.validation.settings import IOValidationSettings
 
+SETTINGS = IOValidationSettings()
 
-SETTINGS = EmmetSettings()
+# SETTINGS = EmmetSettings()
 _pmg_potcar_summary_stats = loadfn(resource_filename("pymatgen.io.vasp", "potcar_summary_stats.json.gz"))
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
