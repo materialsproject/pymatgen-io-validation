@@ -5,7 +5,6 @@ from pkg_resources import resource_filename  # type: ignore
 from pydantic import Field
 from pydantic.types import ImportString  # replacement for PyObject
 from pathlib import Path
-from monty.os.path import zpath
 from monty.serialization import loadfn
 
 from pymatgen.io.vasp.sets import VaspInputSet
@@ -111,12 +110,7 @@ class ValidationDoc(EmmetBaseModel):
         ionic_steps = calcs_reversed[0]["output"]["ionic_steps"]
         nionic_steps = len(ionic_steps)
 
-        potcar_path = zpath("POTCAR")
-        # for potcar_spec in task_doc.calcs_reversed[0].input.potcar_spec:
-        if Path.is_file(Path(potcar_path)):
-            potcar = Potcar.from_file(potcar_path)
-        else:
-            potcar = None
+        potcars = calcs_reversed[0]["input"]["potcar_spec"]
 
         calc_type = _get_calc_type(calcs_reversed, orig_inputs)
         task_type = _get_task_type(calcs_reversed, orig_inputs)
@@ -173,7 +167,7 @@ class ValidationDoc(EmmetBaseModel):
                 ][titel_no_spc].copy()
 
             if potcar_summary_stats:
-                _check_potcars(reasons, warnings, potcar, valid_potcar_summary_stats)
+                _check_potcars(reasons, warnings, potcars, valid_potcar_summary_stats)
 
             # TODO: check for surface/slab calculations!!!!!!
 
@@ -217,7 +211,7 @@ class ValidationDoc(EmmetBaseModel):
                 nionic_steps,
                 parameters,
                 incar,
-                potcar,
+                potcars,
                 vasp_major_version,
                 vasp_minor_version,
                 vasp_patch_version,
@@ -363,18 +357,18 @@ def _check_potcars(
     try:
         incorrect_potcars = []
         for potcar in potcars:
-            reference_summary_stats = valid_potcar_summary_stats.get(potcar.TITEL.replace(" ", ""), [])
+            reference_summary_stats = valid_potcar_summary_stats.get(potcar["TITEL"].replace(" ", ""), [])
 
             key_match = False
             data_match = False
             for ref_psp in reference_summary_stats:
                 key_match = all(
-                    set(ref_psp["keywords"][key]) == set(potcar._summary_stats["keywords"][key])  # type: ignore
+                    set(ref_psp["keywords"][key]) == set(potcar["_summary_stats"]["keywords"][key])  # type: ignore
                     for key in ["header", "data"]
                 )
 
                 data_diff = [
-                    abs(ref_psp["stats"][key][stat] - potcar._summary_stats["stats"][key][stat])  # type: ignore
+                    abs(ref_psp["stats"][key][stat] - potcar["_summary_stats"]["stats"][key][stat])  # type: ignore
                     for stat in ["MEAN", "ABSMEAN", "VAR", "MIN", "MAX"]
                     for key in ["header", "data"]
                 ]
@@ -383,7 +377,7 @@ def _check_potcars(
                     break
 
             if (not key_match) or (not data_match):
-                incorrect_potcars.append(potcar.symbol)
+                incorrect_potcars.append(potcar["symbol"])
 
         if len(incorrect_potcars) > 0:
             # format error string
