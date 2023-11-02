@@ -9,17 +9,14 @@ from monty.os.path import zpath
 from monty.serialization import loadfn
 
 from pymatgen.io.vasp.sets import VaspInputSet
-
 # TODO: AK: why MPMetalRelaxSet 
 # TODO: MK: because more kpoints are needed for metals given the more complicated Fermi surfaces, and MPMetalRelaxSet uses more kpoints
 from pymatgen.io.vasp.sets import MPMetalRelaxSet
 from pymatgen.io.vasp.inputs import Potcar
 
 from emmet.core.tasks import TaskDoc
-# from emmet.core.settings import EmmetSettings
 from emmet.core.base import EmmetBaseModel
 from emmet.core.mpid import MPID
-from emmet.core.vasp.task_valid import TaskDocument
 from emmet.core.vasp.calc_types.enums import CalcType, TaskType
 from emmet.core.vasp.calc_types import RunType, calc_type, run_type, task_type
 
@@ -30,7 +27,6 @@ from pymatgen.io.validation.settings import IOValidationSettings
 
 SETTINGS = IOValidationSettings()
 
-# SETTINGS = EmmetSettings()
 _pmg_potcar_summary_stats = loadfn(resource_filename("pymatgen.io.vasp", "potcar_summary_stats.json.gz"))
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
@@ -66,7 +62,7 @@ class ValidationDoc(EmmetBaseModel):
     @classmethod
     def from_task_doc(
         cls,
-        task_doc: TaskDocument,
+        task_doc: TaskDoc,
         input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,        
         potcar_summary_stats: Dict[str, ImportString] = _pmg_potcar_summary_stats,
         kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
