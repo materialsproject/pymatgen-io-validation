@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, List, Union
 import numpy as np
-from pkg_resources import resource_filename
+from pkg_resources import resource_filename  # type: ignore
 from pydantic import Field
 from pydantic.types import ImportString  # replacement for PyObject
 from pathlib import Path
