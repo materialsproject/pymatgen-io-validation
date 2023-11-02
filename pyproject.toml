@@ -1,21 +1,110 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools >= 65.0.0", "versioningit ~= 1.0", "wheel"]
+
+[project]
+authors = [
+  { name = "Matthew Kuner", email = "matthewkuner@gmail.com" },
+  { name = "Janosh Riebesell"},
+  { name = "Jason Munro"},
+  { name = "Aaron Kaplan"},
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+  "pymatgen",
+  "numpy"
+]
+description = "A comprehensive I/O validator for electronic structure calculations"
+dynamic = ["version"]
+keywords = ["io", "validation", "dft", "vasp"]
+license = { text = "modified BSD" }
+name = "pymatgen-io-validation"
+readme = "README.rst"
+requires-python = '>=3.8'
+
+[project.optional-dependencies]
+dev = ["pre-commit>=2.12.1"]
+#docs = ["jupyter-book>=0.13.1",]
+
+
+tests = ["pytest==7.4.2", "pytest-cov==4.1.0"]
+
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.rst"] }
+
+#[project.urls]
+#repository = "https://github.com/materialsproject/pymatgen-io-validation"
+
+[tool.setuptools.packages.find]
+exclude = ["tests"]
+where = ["./"]
+
+[tool.versioningit.vcs]
+default-tag = "0.0.1"
+method = "git"
+
+[tool.isort]
+profile = "black"
+
 [tool.black]
 line-length = 120
-target-version = ['py38']
-include = '\.pyi?$'
-exclude = '''
 
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-)
-'''
+[tool.blacken-docs]
+line-length = 120
+
+[tool.flake8]
+extend-ignore = "E203, W503, E501, F401, RST21"
+max-line-length = 120
+max-doc-length = 120
+min-python-version = "3.8.0"
+rst-roles = "class, func, ref, obj"
+select = "C, E, F, W, B, B950"
+
+[tool.mypy]
+ignore_missing_imports = true
+no_strict_optional = true
+
+[tool.coverage.run]
+branch = true
+include = ["pymatgen/*"]
+parallel = true
+
+[tool.coverage.paths]
+source = ["pymatgen/"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.pydocstyle]
+convention = 'google'
+match = '^pymatgen/(?!_).*\.py'
+inherit = false
+add-ignore = "D107, "
+
+[tool.autoflake]
+in-place = true
+remove-unused-variables = true
+remove-all-unused-imports = true
+expand-star-imports = true
+ignore-init-module-imports = true
+
+
+[tool.setuptools.packages.find]
+exclude = ["tests"]
+where = ["./"]
