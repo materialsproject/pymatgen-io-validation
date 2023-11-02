@@ -9,7 +9,8 @@ from monty.os.path import zpath
 from monty.serialization import loadfn
 
 from pymatgen.io.vasp.sets import VaspInputSet
-# TODO: AK: why MPMetalRelaxSet 
+
+# TODO: AK: why MPMetalRelaxSet
 # TODO: MK: because more kpoints are needed for metals given the more complicated Fermi surfaces, and MPMetalRelaxSet uses more kpoints
 from pymatgen.io.vasp.sets import MPMetalRelaxSet
 from pymatgen.io.vasp.inputs import Potcar
@@ -63,7 +64,7 @@ class ValidationDoc(EmmetBaseModel):
     def from_task_doc(
         cls,
         task_doc: TaskDoc,
-        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,        
+        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
         potcar_summary_stats: Dict[str, ImportString] = _pmg_potcar_summary_stats,
         kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
         allow_kpoint_shifts: bool = SETTINGS.VASP_ALLOW_KPT_SHIFT,
@@ -244,7 +245,7 @@ class ValidationDoc(EmmetBaseModel):
     def from_directory(
         cls,
         dir_name: Union[Path, str],
-        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,        
+        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
         potcar_summary_stats: Dict[str, ImportString] = _pmg_potcar_summary_stats,
         kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
         allow_kpoint_shifts: bool = SETTINGS.VASP_ALLOW_KPT_SHIFT,
@@ -388,9 +389,9 @@ def _check_potcars(
             # format error string
             incorrect_potcars = [potcar.split("_")[0] for potcar in incorrect_potcars]
             if len(incorrect_potcars) == 2:
-                incorrect_potcars = ", ".join(incorrect_potcars[:-1]) + f" and {incorrect_potcars[-1]}"
+                incorrect_potcars = ", ".join(incorrect_potcars[:-1]) + f" and {incorrect_potcars[-1]}"  # type: ignore
             elif len(incorrect_potcars) >= 3:
-                incorrect_potcars = ", ".join(incorrect_potcars[:-1]) + "," + f" and {incorrect_potcars[-1]}"
+                incorrect_potcars = ", ".join(incorrect_potcars[:-1]) + "," + f" and {incorrect_potcars[-1]}"  # type: ignore
 
             reasons.append(
                 f"PSEUDOPOTENTIALS --> Incorrect POTCAR files were used for {incorrect_potcars}. "
