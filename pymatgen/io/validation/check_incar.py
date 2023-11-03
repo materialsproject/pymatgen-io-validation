@@ -24,7 +24,7 @@ def _check_incar(
     # # Any cases where that is not done is just to make the code more readable. I didn't think that would be necessary here.
     _check_chemical_shift_params(reasons, parameters, valid_input_set)
     _check_dipol_correction_params(reasons, parameters, valid_input_set)
-    _check_electronic_params(reasons, parameters, valid_input_set, structure, potcar)
+    _check_electronic_params(reasons, parameters, valid_input_set, calcs_reversed, structure, potcar)
     _check_electronic_projector_params(reasons, parameters, incar, valid_input_set)
     _check_fft_params(reasons, parameters, incar, valid_input_set, structure, fft_grid_tolerance)
     _check_hybrid_functional_params(reasons, parameters, valid_input_set)
@@ -84,21 +84,21 @@ def _get_default_nbands(structure, parameters, nelect):
     return int(default_nbands)
 
 
-def _get_default_nelect(structure, valid_input_set, potcar=None):
-    # for parsing raw calculation files or for users without the VASP pseudopotentials set up in the pymatgen `psp_resources` directory
-    if potcar is not None:
-        zval_dict = {
-            p.symbol.split("_")[0]: p.zval for p in potcar
-        }  # num of electrons each species should have according to the POTCAR
-        # change something like "Fe_pv" to just "Fe" for easier matching of species
-        default_nelect = 0
-        for site in structure.sites:
-            default_nelect += zval_dict[site.species_string]
-    # else try using functions that require the `psp_resources` directory to be set up for pymatgen.
-    else:
-        default_nelect = valid_input_set.nelect
+# def _get_default_nelect(structure, valid_input_set, potcar=None):
+#     # for parsing raw calculation files or for users without the VASP pseudopotentials set up in the pymatgen `psp_resources` directory
+#     if potcar is not None:
+#         zval_dict = {
+#             p.symbol.split("_")[0]: p.zval for p in potcar
+#         }  # num of electrons each species should have according to the POTCAR
+#         # change something like "Fe_pv" to just "Fe" for easier matching of species
+#         default_nelect = 0
+#         for site in structure.sites:
+#             default_nelect += zval_dict[site.species_string]
+#     # else try using functions that require the `psp_resources` directory to be set up for pymatgen.
+#     else:
+#         default_nelect = valid_input_set.nelect
 
-    return int(default_nelect)
+#     return int(default_nelect)
 
 
 def _get_valid_ismears_and_sigma(parameters, bandgap, nionic_steps):
@@ -164,7 +164,7 @@ def _check_dipol_correction_params(reasons, parameters, valid_input_set):
     _check_required_params(reasons, parameters, "EFIELD", default_efield, valid_efield)
 
 
-def _check_electronic_params(reasons, parameters, valid_input_set, structure, potcar=None):
+def _check_electronic_params(reasons, parameters, valid_input_set, calcs_reversed, structure, potcar=None):
     # EDIFF. Should be the same or smaller than in valid_input_set
     valid_ediff = valid_input_set.incar.get("EDIFF", 1e-4)
     _check_relative_params(reasons, parameters, "EDIFF", 1e-4, valid_ediff, "less than or equal to")
@@ -172,7 +172,6 @@ def _check_electronic_params(reasons, parameters, valid_input_set, structure, po
     # ENCUT. Should be the same or greater than in valid_input_set, as this can affect energies & other results.
     # *** Note: "ENCUT" is not actually detected by the `Vasprun.parameters` object from pymatgen.io.vasp.outputs.
     #           Rather, the ENMAX tag in the `Vasprun.parameters` object contains the relevant value for ENCUT.
-    parameters.get("ENMAX", 0)
     valid_encut = valid_input_set.incar.get("ENCUT", np.inf)
     _check_relative_params(reasons, parameters, "ENMAX", 0, valid_encut, "greater than or equal to")
 
@@ -197,12 +196,21 @@ def _check_electronic_params(reasons, parameters, valid_input_set, structure, po
     _check_allowed_params(reasons, parameters, "IALGO", 38, valid_ialgos)
 
     # NELECT.
-    default_nelect = _get_default_nelect(structure, valid_input_set, potcar=potcar)
-    _check_required_params(reasons, parameters, "NELECT", default_nelect, default_nelect)
+    cur_nelect = parameters.get("NELECT")
+    valid_charge = 0.0
+    cur_charge = calcs_reversed[0]["output"]["structure"]._charge
+    if not np.isclose(valid_charge, cur_charge):
+        reasons.append(
+            f"INPUT SETTINGS --> NELECT: set to {cur_nelect}, but this causes the structure to have a charge of {cur_charge}. "
+            f"NELECT should be set to {cur_nelect + cur_charge} instead."
+        )
+
+    # default_nelect = _get_default_nelect(structure, valid_input_set, potcar=potcar)
+    # _check_required_params(reasons, parameters, "NELECT", default_nelect, default_nelect)
 
     # NBANDS.
-    min_nbands = int(np.ceil(default_nelect / 2) + 1)
-    default_nbands = _get_default_nbands(structure, parameters, default_nelect)
+    min_nbands = int(np.ceil(cur_nelect / 2) + 1)
+    default_nbands = _get_default_nbands(structure, parameters, cur_nelect)
     # check for too many bands (can lead to unphysical electronic structures, see https://github.com/materialsproject/custodian/issues/224 for more context
     too_many_bands_msg = "Too many bands can lead to unphysical electronic structure (see https://github.com/materialsproject/custodian/issues/224 for more context.)"
     _check_relative_params(
@@ -219,9 +227,9 @@ def _check_electronic_params(reasons, parameters, valid_input_set, structure, po
 
 
 def _check_electronic_projector_params(reasons, parameters, incar, valid_input_set):
-    # LREAL. Should be Auto or False (consistent with MP input sets).
-    # Do NOT use the value for LREAL from the `Vasprun.parameters` object, as VASP changes these values automatically.
-    # Rather, check the LREAL value in the `Vasprun.incar` object.
+    # LREAL.
+    # Do NOT use the value for LREAL from the `Vasprun.parameters` object, as VASP changes these values
+    # relative to the INCAR. Rather, check the LREAL value in the `Vasprun.incar` object.
     if str(valid_input_set.incar.get("LREAL")).upper() in ["AUTO", "A"]:
         valid_lreals = ["FALSE", "AUTO", "A"]
     elif str(valid_input_set.incar.get("LREAL")).upper() in ["FALSE"]:
@@ -397,7 +405,6 @@ def _check_ionic_params(
 
     # ISIF.
     default_isif = 2
-    # TODO? valid_min_isif was highlighted before
     valid_min_isif = 2
     _check_relative_params(
         reasons,
@@ -497,7 +504,7 @@ def _check_ismear_and_sigma(reasons, warnings, parameters, task_doc, ionic_steps
     )
 
     # SIGMA.
-    # TODO: improve logic SIGMA reasons given in the case where you have a material that should have been relaxed with ISMEAR in [-5, 0], but used ISMEAR in [1,2].
+    # TODO: improve logic for SIGMA reasons given in the case where you have a material that should have been relaxed with ISMEAR in [-5, 0], but used ISMEAR in [1,2].
     # Because in such cases, the user wouldn't need to update the SIGMA if they use tetrahedron smearing.
     cur_ismear = parameters.get("ISMEAR", 1)
     if cur_ismear not in [-5, -4, -2]:  # SIGMA is not used by the tetrahedron method.
@@ -573,6 +580,7 @@ def _check_lmaxmix_and_lmaxtau(reasons, warnings, parameters, incar, valid_input
     if incar.get("METAGGA", None) not in ["--", None, "None"]:
         # cannot check LMAXTAU in the `Vasprun.parameters` object, as LMAXTAU is not printed to the parameters. Rather, we must check the INCAR.
         cur_lmaxtau = incar.get("LMAXTAU", 6)
+
         if (cur_lmaxtau < valid_lmaxtau) or (cur_lmaxtau > 6):
             if valid_lmaxtau < 6:
                 lmaxtau_msg = f"INPUT SETTINGS --> LMAXTAU: value is set to {cur_lmaxtau}, but should be between {valid_lmaxtau} and 6."
@@ -843,14 +851,16 @@ def _check_u_params(reasons, incar, parameters, valid_input_set):
         valid_ldaul = valid_input_set.incar.get("LDAUL", [])
         cur_ldaul = incar.get("LDAUL", [])
         if cur_ldaul != valid_ldaul:
-            reasons.append(f"INPUT SETTINGS --> LDAUL: set to {cur_ldaul}, but should be set to {valid_ldaul}")
+            reasons.append(f"INPUT SETTINGS --> LDAUL: set to {cur_ldaul}, but should be set to {valid_ldaul}.")
 
         valid_ldautype = valid_input_set.incar.get("LDAUTYPE", [2])
         if isinstance(valid_ldautype, list):
             valid_ldautype = valid_ldautype[0]
         cur_ldautype = parameters.get("LDAUTYPE", [2])[0]
         if cur_ldautype != valid_ldautype:
-            reasons.append(f"INPUT SETTINGS --> LDAUTYPE: set to {cur_ldautype}, but should be set to {valid_ldautype}")
+            reasons.append(
+                f"INPUT SETTINGS --> LDAUTYPE: set to {cur_ldautype}, but should be set to {valid_ldautype}."
+            )
 
 
 def _check_write_params(reasons, parameters, valid_input_set):

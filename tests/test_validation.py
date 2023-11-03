@@ -1,47 +1,40 @@
 import pytest
 import copy
-from conftest import assert_schemas_equal, get_test_object
+from conftest import get_test_object
 from pymatgen.io.validation import ValidationDoc
 from emmet.core.tasks import TaskDoc
 from pymatgen.core.structure import Structure
-from pathlib import Path
 
 
-
-### TODO: add POTCAR checks to each of the `ValidationDoc.from_task_doc` calls
 ### TODO: add tests for many other MP input sets (e.g. MPNSCFSet, MPNMRSet, MPScanRelaxSet, Hybrid sets, etc.)
-    ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
-    ### TODO: add in energy-based EDIFFG check
-    ### TODO: add in check for MP set where LEFG = True
-    ### TODO: add in check for MP set where LOPTICS = True
-
+### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
+### TODO: add in energy-based EDIFFG check
+### TODO: add in check for MP set where LEFG = True
+### TODO: add in check for MP set where LOPTICS = True
 
 
 @pytest.mark.parametrize(
     "object_name",
     [
-        pytest.param("SiStatic", id="SiStatic"),
+        pytest.param("SiOptimizeDouble", id="SiOptimizeDouble"),
     ],
 )
 def test_validation_doc_from_directory(test_dir, object_name):
-
     test_object = get_test_object(object_name)
     dir_name = test_dir / "vasp" / test_object.folder
-    test_validation_doc = ValidationDoc.from_directory(dir_name = dir_name)
+    test_validation_doc = ValidationDoc.from_directory(dir_name=dir_name)
 
     task_doc = TaskDoc.from_directory(dir_name)
     valid_validation_doc = ValidationDoc.from_task_doc(task_doc)
 
-    # These attributes will always be different because the objects are created at
+    # The attributes below will always be different because the objects are created at
     # different times. Hence, ignore before checking.
-    delattr(test_validation_doc.builder_meta, 'build_date')
-    delattr(test_validation_doc, 'last_updated')
-    delattr(valid_validation_doc.builder_meta, 'build_date')
-    delattr(valid_validation_doc, 'last_updated')
+    delattr(test_validation_doc.builder_meta, "build_date")
+    delattr(test_validation_doc, "last_updated")
+    delattr(valid_validation_doc.builder_meta, "build_date")
+    delattr(valid_validation_doc, "last_updated")
 
     assert test_validation_doc == valid_validation_doc
-
-
 
 
 @pytest.mark.parametrize(
@@ -52,10 +45,10 @@ def test_validation_doc_from_directory(test_dir, object_name):
     ],
 )
 def test_scf_incar_checks(test_dir, object_name):
-
     test_object = get_test_object(object_name)
     dir_name = test_dir / "vasp" / test_object.folder
     task_doc = TaskDoc.from_directory(dir_name)
+    task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # LCHIMAG check
     temp_task_doc = copy.deepcopy(task_doc)
@@ -115,7 +108,8 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # NELECT check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["NELECT"] = 1
+    # temp_task_doc.input.parameters["NELECT"] = 1
+    temp_task_doc.calcs_reversed[0].output.structure._charge = 1.0
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["NELECT" in reason for reason in temp_validation_doc.reasons])
 
@@ -133,13 +127,15 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # LREAL check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.incar["LREAL"] = True # must change `incar` and not `parameters` for LREAL checks!
+    temp_task_doc.calcs_reversed[0].input.incar[
+        "LREAL"
+    ] = True  # must change `incar` and not `parameters` for LREAL checks!
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["LREAL" in reason for reason in temp_validation_doc.reasons])
 
     # LMAXPAW check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LMAXPAW"] = 0 # should be -100
+    temp_task_doc.input.parameters["LMAXPAW"] = 0  # should be -100
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["LMAXPAW" in reason for reason in temp_validation_doc.reasons])
 
@@ -186,43 +182,43 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # AEXX check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AEXX"] = 1 # should never be set to this
+    temp_task_doc.input.parameters["AEXX"] = 1  # should never be set to this
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["AEXX" in reason for reason in temp_validation_doc.reasons])
 
     # AGGAC check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AGGAC"] = 0.5 # should never be set to this
+    temp_task_doc.input.parameters["AGGAC"] = 0.5  # should never be set to this
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["AGGAC" in reason for reason in temp_validation_doc.reasons])
 
     # AGGAX check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AGGAX"] = 0.5 # should never be set to this
+    temp_task_doc.input.parameters["AGGAX"] = 0.5  # should never be set to this
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["AGGAX" in reason for reason in temp_validation_doc.reasons])
 
     # ALDAX check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ALDAX"] = 0.5 # should never be set to this
+    temp_task_doc.input.parameters["ALDAX"] = 0.5  # should never be set to this
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["ALDAX" in reason for reason in temp_validation_doc.reasons])
 
     # AMGGAX check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AMGGAX"] = 0.5 # should never be set to this
+    temp_task_doc.input.parameters["AMGGAX"] = 0.5  # should never be set to this
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["AMGGAX" in reason for reason in temp_validation_doc.reasons])
 
     # ALDAC check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ALDAC"] = 0.5 # should never be set to this
+    temp_task_doc.input.parameters["ALDAC"] = 0.5  # should never be set to this
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["ALDAC" in reason for reason in temp_validation_doc.reasons])
 
     # AMGGAC check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AMGGAC"] = 0.5 # should never be set to this
+    temp_task_doc.input.parameters["AMGGAC"] = 0.5  # should never be set to this
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["AMGGAC" in reason for reason in temp_validation_doc.reasons])
 
@@ -272,7 +268,7 @@ def test_scf_incar_checks(test_dir, object_name):
     # EDIFFG / force convergence check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["EDIFFG"] = 0.01
-    temp_task_doc.output.forces = [[10,10,10],[10,10,10]]
+    temp_task_doc.output.forces = [[10, 10, 10], [10, 10, 10]]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["CONVERGENCE" in reason for reason in temp_validation_doc.reasons])
 
@@ -308,7 +304,7 @@ def test_scf_incar_checks(test_dir, object_name):
     # SIGMA too high for nonmetal with ISMEAR = -5 check (should not error)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISMEAR"] = -5
-    temp_task_doc.input.parameters["SIGMA"] = 1000 # should not matter
+    temp_task_doc.input.parameters["SIGMA"] = 1000  # should not matter
     temp_task_doc.output.bandgap = 1
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(["SIGMA" in reason for reason in temp_validation_doc.reasons])
@@ -481,7 +477,7 @@ def test_scf_incar_checks(test_dir, object_name):
     assert not any(["WEIMIN" in reason for reason in temp_validation_doc.reasons])
 
     # EFERMI check (does not matter for VASP versions before 6.4)
-    # must check EFERMI in the *incar*, as it is saved as a numerical value after VASP 
+    # must check EFERMI in the *incar*, as it is saved as a numerical value after VASP
     # guesses it in the vasprun.xml `parameters`
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.4.4"
@@ -537,8 +533,8 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISPIN"] = 2
     temp_task_doc.calcs_reversed[0].output.outcar["magnetization"] = (
-        {'s': -0.0, 'p': 0.0, 'd': 0.0, 'tot': 0.0}, 
-        {'s': -0.0, 'p': 0.0, 'd': 0.0, 'tot': -0.0}
+        {"s": -0.0, "p": 0.0, "d": 0.0, "tot": 0.0},
+        {"s": -0.0, "p": 0.0, "d": 0.0, "tot": -0.0},
     )
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(["LORBIT" in reason for reason in temp_validation_doc.reasons])
@@ -609,21 +605,21 @@ def test_scf_incar_checks(test_dir, object_name):
     # LDAUU check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["LDAU"] = True
-    temp_task_doc.calcs_reversed[0].input.incar["LDAUU"] = [5,5]
+    temp_task_doc.calcs_reversed[0].input.incar["LDAUU"] = [5, 5]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["LDAUU" in reason for reason in temp_validation_doc.reasons])
 
     # LDAUJ check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["LDAU"] = True
-    temp_task_doc.calcs_reversed[0].input.incar["LDAUJ"] = [5,5]
+    temp_task_doc.calcs_reversed[0].input.incar["LDAUJ"] = [5, 5]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["LDAUJ" in reason for reason in temp_validation_doc.reasons])
 
     # LDAUL check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["LDAU"] = True
-    temp_task_doc.calcs_reversed[0].input.incar["LDAUL"] = [5,5]
+    temp_task_doc.calcs_reversed[0].input.incar["LDAUL"] = [5, 5]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["LDAUL" in reason for reason in temp_validation_doc.reasons])
 
@@ -652,24 +648,20 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["LOPTICS" in reason for reason in temp_validation_doc.reasons])
 
-    # LMAXTAU check for METAGGA calcs (A value of 4 should fail for all chemsys,
-    # including the below-tested `La` chemsys (has f electrons))
+    # LMAXTAU check for METAGGA calcs (A value of 4 should fail for the `La` chemsys (has f electrons))
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.chemsys = "La"
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]],
-        species=["La", "La"],
-        coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
+        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["La", "La"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
     )
     temp_task_doc.calcs_reversed[0].input.incar["LMAXTAU"] = 4
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["LMAXTAU" in reason for reason in temp_validation_doc.reasons])
 
-    # LMAXTAU check for METAGGA calcs (A value of 4 should fail for all chemsys,
-    # including the below-tested `Si` chemsys)
+    # LMAXTAU check for METAGGA calcs (A value of 2 should fail for the `Si` chemsys)
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.incar["LMAXTAU"] = 4
+    temp_task_doc.calcs_reversed[0].input.incar["LMAXTAU"] = 2
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["LMAXTAU" in reason for reason in temp_validation_doc.reasons])
@@ -686,9 +678,7 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_task_doc.input.parameters["ENAUG"] = 1
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert  any(["ENAUG" in reason for reason in temp_validation_doc.reasons])
-
-
+    assert any(["ENAUG" in reason for reason in temp_validation_doc.reasons])
 
 
 @pytest.mark.parametrize(
@@ -701,6 +691,7 @@ def test_nscf_incar_checks(test_dir, object_name):
     test_object = get_test_object(object_name)
     dir_name = test_dir / "vasp" / test_object.folder
     task_doc = TaskDoc.from_directory(dir_name)
+    task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # ICHARG check
     temp_task_doc = copy.deepcopy(task_doc)
@@ -718,24 +709,23 @@ def test_nscf_incar_checks(test_dir, object_name):
     assert not any(["LMAXMIX" in warning for warning in temp_validation_doc.warnings])
 
 
-
-
 @pytest.mark.parametrize(
     "object_name",
-    [pytest.param("SiNonSCFUniform", id="SiNonSCFUniform"),],
+    [
+        pytest.param("SiNonSCFUniform", id="SiNonSCFUniform"),
+    ],
 )
 def test_nscf_kpoints_checks(test_dir, object_name):
     test_object = get_test_object(object_name)
     dir_name = test_dir / "vasp" / test_object.folder
     task_doc = TaskDoc.from_directory(dir_name)
+    task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # Explicit kpoints for NSCF calc check (this should not raise any flags for NSCF calcs)
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[0,0,0], [0,0,0.5]]
+    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[0, 0, 0], [0, 0, 0.5]]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
-
-
 
 
 @pytest.mark.parametrize(
@@ -743,14 +733,13 @@ def test_nscf_kpoints_checks(test_dir, object_name):
     [
         pytest.param("SiOptimizeDouble", id="SiOptimizeDouble"),
         # pytest.param("SiStatic", id="SiStatic"),
-
     ],
 )
 def test_common_error_checks(test_dir, object_name):
-
     test_object = get_test_object(object_name)
     dir_name = test_dir / "vasp" / test_object.folder
     task_doc = TaskDoc.from_directory(dir_name)
+    task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # METAGGA and GGA tag check (should never be set together)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -774,7 +763,7 @@ def test_common_error_checks(test_dir, object_name):
 
     # Drift forces too high check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].output.outcar["drift"] = [[1,1,1]]
+    temp_task_doc.calcs_reversed[0].output.outcar["drift"] = [[1, 1, 1]]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["CONVERGENCE --> Excessive drift" in reason for reason in temp_validation_doc.reasons])
 
@@ -788,8 +777,8 @@ def test_common_error_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISPIN"] = 2
     temp_task_doc.calcs_reversed[0].output.outcar["magnetization"] = (
-        {'s': 9.0, 'p': 0.0, 'd': 0.0, 'tot': 9.0}, 
-        {'s': 9.0, 'p': 0.0, 'd': 0.0, 'tot': 9.0}
+        {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
+        {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
     )
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["MAGNETISM" in reason for reason in temp_validation_doc.reasons])
@@ -799,13 +788,11 @@ def test_common_error_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISPIN"] = 2
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]],
-        species=["Gd", "Eu"],
-        coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
+        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["Gd", "Eu"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
     )
     temp_task_doc.calcs_reversed[0].output.outcar["magnetization"] = (
-        {'s':9.0, 'p': 0.0, 'd': 0.0, 'tot': 9.0}, 
-        {'s':9.0, 'p': 0.0, 'd': 0.0, 'tot': 9.0}
+        {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
+        {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
     )
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(["MAGNETISM" in reason for reason in temp_validation_doc.reasons])
@@ -815,18 +802,16 @@ def test_common_error_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISPIN"] = 2
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]],
-        species=["Gd", "Eu"],
-        coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
+        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["Gd", "Eu"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
     )
     temp_task_doc.calcs_reversed[0].output.outcar["magnetization"] = (
-        {'s':11.0, 'p': 0.0, 'd': 0.0, 'tot': 11.0}, 
-        {'s':11.0, 'p': 0.0, 'd': 0.0, 'tot': 11.0}
+        {"s": 11.0, "p": 0.0, "d": 0.0, "tot": 11.0},
+        {"s": 11.0, "p": 0.0, "d": 0.0, "tot": 11.0},
     )
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["MAGNETISM" in reason for reason in temp_validation_doc.reasons])
 
-    # Element Po present 
+    # Element Po present
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.chemsys = "Po"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
@@ -839,88 +824,83 @@ def test_common_error_checks(test_dir, object_name):
     assert any(["COMPOSITION" in reason for reason in temp_validation_doc.reasons])
 
 
-
-
-
 @pytest.mark.parametrize(
     "object_name",
     [
         pytest.param("SiOptimizeDouble", id="SiOptimizeDouble"),
-
     ],
 )
 def test_kpoints_checks(test_dir, object_name):
-
     test_object = get_test_object(object_name)
     dir_name = test_dir / "vasp" / test_object.folder
     task_doc = TaskDoc.from_directory(dir_name)
+    task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # Valid mesh type check (should flag HCP structures)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[0.5,-0.866025403784439,0],[0.5,0.866025403784439,0],[0,0,1.6329931618554521]],
-        coords=[[0,0,0],[0.333333333333333,-0.333333333333333, 0.5]],
-        species=["H", "H"]
-    ) # HCP structure
+        lattice=[[0.5, -0.866025403784439, 0], [0.5, 0.866025403784439, 0], [0, 0, 1.6329931618554521]],
+        coords=[[0, 0, 0], [0.333333333333333, -0.333333333333333, 0.5]],
+        species=["H", "H"],
+    )  # HCP structure
     temp_task_doc.calcs_reversed[0].input.kpoints["generation_style"] = "monkhorst"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons])
+    assert any(
+        ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
+    )
 
     # Valid mesh type check (should flag FCC structures)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[0.0,0.5,0.5],[0.5,0.0,0.5], [0.5,0.5,0.0]],
-        coords=[[0,0,0]],
-        species=["H"]
-    ) # FCC structure
+        lattice=[[0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]], coords=[[0, 0, 0]], species=["H"]
+    )  # FCC structure
     temp_task_doc.calcs_reversed[0].input.kpoints["generation_style"] = "monkhorst"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons])
+    assert any(
+        ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
+    )
 
     # Valid mesh type check (should *not* flag BCC structures)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]],
-        species=["H", "H"],
-        coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
-    ) # BCC structure
+        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["H", "H"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
+    )  # BCC structure
     temp_task_doc.calcs_reversed[0].input.kpoints["generation_style"] = "monkhorst"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons])
+    assert not any(
+        ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
+    )
 
     # Too few kpoints check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[3,3,3]]
+    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[3, 3, 3]]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["INPUT SETTINGS --> KPOINTS or KSPACING:" in reason for reason in temp_validation_doc.reasons])
 
     # Explicit kpoints for SCF calc check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[0,0,0], [0,0,0.5]]
+    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[0, 0, 0], [0, 0, 0.5]]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
 
     # Shifting kpoints for SCF calc check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.kpoints["usershift"] = [0.5,0,0]
+    temp_task_doc.calcs_reversed[0].input.kpoints["usershift"] = [0.5, 0, 0]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["INPUT SETTINGS --> KPOINTS: shifting" in reason for reason in temp_validation_doc.reasons])
-
-
 
 
 @pytest.mark.parametrize(
     "object_name",
     [
         pytest.param("SiOptimizeDouble", id="SiOptimizeDouble"),
-
     ],
 )
 def test_vasp_version_check(test_dir, object_name):
-
     test_object = get_test_object(object_name)
     dir_name = test_dir / "vasp" / test_object.folder
     task_doc = TaskDoc.from_directory(dir_name)
+    task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # Check VASP versions < 5.4.4
     temp_task_doc = copy.deepcopy(task_doc)
@@ -963,11 +943,9 @@ def test_vasp_version_check(test_dir, object_name):
 #     assert not any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
 
 
-
-
-    # # template
-    # temp_task_doc = copy.deepcopy(task_doc)
-    # temp_task_doc.input.parameters["LCHIMAG"] = True
-    # temp_task_doc.calcs_reversed[0].input.incar["IWAVPR"] = 1
-    # temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    # assert any(["LCHIMAG" in reason for reason in temp_validation_doc.reasons])
+# # template
+# temp_task_doc = copy.deepcopy(task_doc)
+# temp_task_doc.input.parameters["LCHIMAG"] = True
+# temp_task_doc.calcs_reversed[0].input.incar["IWAVPR"] = 1
+# temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+# assert any(["LCHIMAG" in reason for reason in temp_validation_doc.reasons])

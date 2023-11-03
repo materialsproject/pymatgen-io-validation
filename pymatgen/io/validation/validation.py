@@ -162,9 +162,11 @@ class ValidationDoc(EmmetBaseModel):
             valid_potcar_summary_stats = {}
             for valid_potcar in valid_input_set.potcar:
                 titel_no_spc = valid_potcar.TITEL.replace(" ", "")
-                valid_potcar_summary_stats[titel_no_spc] = potcar_summary_stats[
-                    valid_input_set._config_dict["POTCAR_FUNCTIONAL"]
-                ][titel_no_spc].copy()
+                valid_potcar_summary_stats[titel_no_spc] = (
+                    potcar_summary_stats.get(valid_input_set._config_dict["POTCAR_FUNCTIONAL"], {})
+                    .get(titel_no_spc, {})
+                    .copy()
+                )
 
             if potcar_summary_stats:
                 _check_potcars(reasons, warnings, potcars, valid_potcar_summary_stats)
@@ -357,18 +359,22 @@ def _check_potcars(
     try:
         incorrect_potcars = []
         for potcar in potcars:
-            reference_summary_stats = valid_potcar_summary_stats.get(potcar["TITEL"].replace(" ", ""), [])
+            reference_summary_stats = valid_potcar_summary_stats.get(potcar["titel"].replace(" ", ""), [])
+
+            if len(reference_summary_stats) == 0:
+                incorrect_potcars.append(potcar["symbol"])
+                continue
 
             key_match = False
             data_match = False
             for ref_psp in reference_summary_stats:
                 key_match = all(
-                    set(ref_psp["keywords"][key]) == set(potcar["_summary_stats"]["keywords"][key])  # type: ignore
+                    set(ref_psp["keywords"][key]) == set(potcar["summary_stats"]["keywords"][key])  # type: ignore
                     for key in ["header", "data"]
                 )
 
                 data_diff = [
-                    abs(ref_psp["stats"][key][stat] - potcar["_summary_stats"]["stats"][key][stat])  # type: ignore
+                    abs(ref_psp["stats"][key][stat] - potcar["summary_stats"]["stats"][key][stat])  # type: ignore
                     for stat in ["MEAN", "ABSMEAN", "VAR", "MIN", "MAX"]
                     for key in ["header", "data"]
                 ]
@@ -393,7 +399,8 @@ def _check_potcars(
                 "believe the POTCARs used are correct."
             )
 
-    except KeyError:
+    except KeyError as e:
+        print(e)
         # Assume it is an old calculation without potcar_spec data and treat it as failing the POTCAR check
         reasons.append(
             "Old version of Emmet --> potcar_spec is not saved in TaskDoc and cannot be validated. Hence, it is marked as invalid"
