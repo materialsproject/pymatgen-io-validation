@@ -5,7 +5,7 @@ Settings for pymatgen-io-validation. Used to be part of EmmetSettings.
 """
 import json
 from pathlib import Path
-from typing import Dict, List, Type, TypeVar, Union
+from typing import Dict, Type, TypeVar, Union
 
 import requests
 from monty.json import MontyDecoder
@@ -23,9 +23,7 @@ class IOValidationSettings(BaseSettings):
     Settings for pymatgen-io-validation
     """
 
-    config_file: str = Field(
-        DEFAULT_CONFIG_FILE_PATH, description="File to load alternative defaults from"
-    )
+    config_file: str = Field(DEFAULT_CONFIG_FILE_PATH, description="File to load alternative defaults from")
 
     VASP_KPTS_TOLERANCE: float = Field(
         0.9,
