@@ -24,7 +24,7 @@ def _check_incar(
     # # Any cases where that is not done is just to make the code more readable. I didn't think that would be necessary here.
     _check_chemical_shift_params(reasons, parameters, valid_input_set)
     _check_dipol_correction_params(reasons, parameters, valid_input_set)
-    _check_electronic_params(reasons, parameters, valid_input_set, calcs_reversed, structure, potcar)
+    _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_reversed, structure, potcar)
     _check_electronic_projector_params(reasons, parameters, incar, valid_input_set)
     _check_fft_params(reasons, parameters, incar, valid_input_set, structure, fft_grid_tolerance)
     _check_hybrid_functional_params(reasons, parameters, valid_input_set)
@@ -164,7 +164,7 @@ def _check_dipol_correction_params(reasons, parameters, valid_input_set):
     _check_required_params(reasons, parameters, "EFIELD", default_efield, valid_efield)
 
 
-def _check_electronic_params(reasons, parameters, valid_input_set, calcs_reversed, structure, potcar=None):
+def _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_reversed, structure, potcar=None):
     # EDIFF. Should be the same or smaller than in valid_input_set
     valid_ediff = valid_input_set.incar.get("EDIFF", 1e-4)
     _check_relative_params(reasons, parameters, "EDIFF", 1e-4, valid_ediff, "less than or equal to")
@@ -197,13 +197,21 @@ def _check_electronic_params(reasons, parameters, valid_input_set, calcs_reverse
 
     # NELECT.
     cur_nelect = parameters.get("NELECT")
-    valid_charge = 0.0
-    cur_charge = calcs_reversed[0]["output"]["structure"]._charge
-    if not np.isclose(valid_charge, cur_charge):
-        reasons.append(
-            f"INPUT SETTINGS --> NELECT: set to {cur_nelect}, but this causes the structure to have a charge of {cur_charge}. "
-            f"NELECT should be set to {cur_nelect + cur_charge} instead."
-        )
+    print(cur_nelect, cur_nelect, cur_nelect)
+    if "NELECT" in incar.keys():  # Do not check for non-neutral NELECT if NELECT is not in the INCAR
+        valid_charge = 0.0
+        cur_charge = calcs_reversed[0]["output"]["structure"]._charge
+        try:
+            if not np.isclose(valid_charge, cur_charge):
+                reasons.append(
+                    f"INPUT SETTINGS --> NELECT: set to {cur_nelect}, but this causes the structure to have a charge of {cur_charge}. "
+                    f"NELECT should be set to {cur_nelect + cur_charge} instead."
+                )
+        except:
+            reasons.append(
+                f"INPUT SETTINGS --> NELECT / POTCAR: issue checking whether NELECT was changed to make the structure have a non-zero charge. "
+                "This is likely due to the directory not having a POTCAR file."
+            )
 
     # default_nelect = _get_default_nelect(structure, valid_input_set, potcar=potcar)
     # _check_required_params(reasons, parameters, "NELECT", default_nelect, default_nelect)

@@ -108,7 +108,8 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # NELECT check
     temp_task_doc = copy.deepcopy(task_doc)
-    # temp_task_doc.input.parameters["NELECT"] = 1
+    # must set NELECT in `incar` for NELECT checks!
+    temp_task_doc.calcs_reversed[0].input.incar["NELECT"] = 9
     temp_task_doc.calcs_reversed[0].output.structure._charge = 1.0
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["NELECT" in reason for reason in temp_validation_doc.reasons])
