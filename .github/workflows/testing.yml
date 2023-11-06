@@ -30,10 +30,15 @@ jobs:
         pip install -e .
     - name: pytest
       run: |
-        pytest --cov=pymatgen --cov-report=xml
-
-    - uses: codecov/codecov-action@v1
-      if: matrix.python-version == 3.10
+        pytest --cov=pymatgen tests
+    - name: Upload coverage reports to Codecov
+      if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.task == 'release')
+      uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./coverage.xml
+        verbose: true
+    # - uses: codecov/codecov-action@v1
+    #   if: matrix.python-version == 3.10
+    #   with:
+    #     token: ${{ secrets.CODECOV_TOKEN }}
+    #     file: ./coverage.xml
