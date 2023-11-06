@@ -1,3 +1,4 @@
+"""Main module for VASP calculation validation"""
 from datetime import datetime
 from typing import Dict, List, Union
 import numpy as np
