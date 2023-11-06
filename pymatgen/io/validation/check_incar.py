@@ -1,3 +1,4 @@
+"""Module for validating VASP INCAR files"""
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 

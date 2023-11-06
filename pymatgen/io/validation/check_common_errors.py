@@ -1,3 +1,4 @@
+"""Module for checking common issues with VASP calculations"""
 import numpy as np
 
 

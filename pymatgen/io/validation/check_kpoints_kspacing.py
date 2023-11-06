@@ -1,3 +1,4 @@
+"""Module for validating VASP KPOINTS files or KSPACING setting in the INCAR"""
 import numpy as np
 
 

@@ -1,3 +1,4 @@
+"""Module for checking if a structure's energy is within a certain distance of the MPDB hull"""
 from mp_api.client import MPRester
 from pymatgen.analysis.phase_diagram import PhaseDiagram
 from pymatgen.entries.mixing_scheme import MaterialsProjectDFTMixingScheme
@@ -5,6 +6,7 @@ from pymatgen.entries.computed_entries import ComputedStructureEntry
 
 
 def compare_to_MP_ehull(mp_api_key=None, task_doc=None):
+    """Method for comparing energy of a structure to the MP Database"""
     if mp_api_key is None:
         raise ValueError("Please input your mp API key")
 

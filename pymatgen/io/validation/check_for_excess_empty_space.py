@@ -1,8 +1,10 @@
+"""Module for checking if a structure is not a bulk crystal"""
 from pymatgen.analysis.local_env import VoronoiNN
 import numpy as np
 
 
 def check_for_excess_empty_space(structure):
+    """Relatively robust method for checking if a structure is a surface slab/1d structure/anything that is not a bulk crystal"""
     # Check 1: find large gaps along one of the defined lattice vectors
     lattice_vec_lengths = structure.lattice.lengths
     fcoords = np.array(structure.frac_coords)

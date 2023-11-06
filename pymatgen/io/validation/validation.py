@@ -56,7 +56,7 @@ class ValidationDoc(EmmetBaseModel):
     #     " Useful for post-mortem analysis"
     # )
 
-    class Config:
+    class Config:  # noqa
         extra = "allow"
 
     @classmethod

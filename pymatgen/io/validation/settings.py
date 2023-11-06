@@ -108,7 +108,7 @@ class IOValidationSettings(BaseSettings):
         return new_values
 
     @classmethod
-    def autoload(cls: Type[S], settings: Union[None, dict, S]) -> S:
+    def autoload(cls: Type[S], settings: Union[None, dict, S]) -> S:  # noqa
         if settings is None:
             return cls()
         elif isinstance(settings, dict):
@@ -117,7 +117,7 @@ class IOValidationSettings(BaseSettings):
 
     @field_validator("VASP_DEFAULT_INPUT_SETS", mode="before")
     @classmethod
-    def convert_input_sets(cls, value):
+    def convert_input_sets(cls, value):  # noqa
         if isinstance(value, dict):
             return {k: MontyDecoder().process_decoded(v) for k, v in value.items()}
         return value
