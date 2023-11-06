@@ -29,4 +29,3 @@ Contributors
 * Janosh Riebesell
 * Jason Munro
 * Aaron Kaplan
-

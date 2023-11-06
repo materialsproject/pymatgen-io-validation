@@ -6,4 +6,4 @@ to ensure that data is compatible with some standard.
 
 from __future__ import annotations
 
-from .validation import ValidationDoc  # noqa: F401
+from pymatgen.io.validation.validation import ValidationDoc

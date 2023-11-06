@@ -1,6 +1,7 @@
 """Main module for VASP calculation validation"""
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Dict, List, Union
 import numpy as np
 from pkg_resources import resource_filename  # type: ignore
 from pydantic import Field
@@ -13,7 +14,6 @@ from pymatgen.io.vasp.sets import VaspInputSet
 # TODO: AK: why MPMetalRelaxSet
 # TODO: MK: because more kpoints are needed for metals given the more complicated Fermi surfaces, and MPMetalRelaxSet uses more kpoints
 from pymatgen.io.vasp.sets import MPMetalRelaxSet
-from pymatgen.io.vasp.inputs import Potcar
 
 from emmet.core.tasks import TaskDoc
 from emmet.core.base import EmmetBaseModel
@@ -25,6 +25,11 @@ from pymatgen.io.validation.check_incar import _check_incar
 from pymatgen.io.validation.check_common_errors import _check_common_errors
 from pymatgen.io.validation.check_kpoints_kspacing import _check_kpoints_kspacing
 from pymatgen.io.validation.settings import IOValidationSettings
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pymatgen.io.vasp.inputs import Potcar
 
 SETTINGS = IOValidationSettings()
 
@@ -48,9 +53,9 @@ class ValidationDoc(EmmetBaseModel):
         default_factory=datetime.utcnow,
     )
 
-    reasons: List[str] = Field(None, description="List of deprecation tags detailing why this task isn't valid")
+    reasons: list[str] = Field(None, description="List of deprecation tags detailing why this task isn't valid")
 
-    warnings: List[str] = Field([], description="List of potential warnings about this calculation")
+    warnings: list[str] = Field([], description="List of potential warnings about this calculation")
 
     # data: Dict = Field(
     #     description="Dictionary of data used to perform validation."
@@ -64,15 +69,15 @@ class ValidationDoc(EmmetBaseModel):
     def from_task_doc(
         cls,
         task_doc: TaskDoc,
-        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
-        potcar_summary_stats: Dict[str, ImportString] = _pmg_potcar_summary_stats,
+        input_sets: dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
+        potcar_summary_stats: dict[str, ImportString] = _pmg_potcar_summary_stats,
         kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
         allow_kpoint_shifts: bool = SETTINGS.VASP_ALLOW_KPT_SHIFT,
-        allow_explicit_kpoint_mesh: Union[str, bool] = SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
+        allow_explicit_kpoint_mesh: str | bool = SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
         fft_grid_tolerance: float = SETTINGS.VASP_FFT_GRID_TOLERANCE,
         num_ionic_steps_to_avg_drift_over: float = SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
         max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
-    ) -> "ValidationDoc":
+    ) -> ValidationDoc:
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
 
@@ -123,7 +128,8 @@ class ValidationDoc(EmmetBaseModel):
             else:
                 allow_explicit_kpoint_mesh = False
 
-        task_doc.chemsys
+        # Why was this lingering here?
+        # task_doc.chemsys
 
         vasp_version = calcs_reversed[0]["vasp_version"]
         vasp_version = vasp_version.split(".")
@@ -139,7 +145,7 @@ class ValidationDoc(EmmetBaseModel):
 
         reasons = []
         # data = {}  # type: ignore
-        warnings: List[str] = []
+        warnings: list[str] = []
 
         if run_type not in ["GGA", "GGA+U", "PBE", "PBE+U", "R2SCAN"]:
             reasons.append(f"FUNCTIONAL --> Functional {run_type} not currently accepted.")
@@ -160,14 +166,18 @@ class ValidationDoc(EmmetBaseModel):
             )
         elif valid_input_set:
             # Get subset of POTCAR summary stats to validate calculation
+
+            psp_subset = potcar_summary_stats.get(valid_input_set._config_dict["POTCAR_FUNCTIONAL"], {})
+
             valid_potcar_summary_stats = {}
-            for valid_potcar in valid_input_set.potcar:
-                titel_no_spc = valid_potcar.TITEL.replace(" ", "")
-                valid_potcar_summary_stats[titel_no_spc] = (
-                    potcar_summary_stats.get(valid_input_set._config_dict["POTCAR_FUNCTIONAL"], {})
-                    .get(titel_no_spc, {})
-                    .copy()
-                )
+            for element in structure.composition.remove_charges().as_dict():
+                potcar_symbol = valid_input_set._config_dict["POTCAR"][element]
+                for titel_no_spc in psp_subset:
+                    for psp in psp_subset[titel_no_spc]:
+                        if psp["symbol"] == potcar_symbol:
+                            if titel_no_spc not in valid_potcar_summary_stats:
+                                valid_potcar_summary_stats[titel_no_spc] = []
+                            valid_potcar_summary_stats[titel_no_spc].append(psp)
 
             if potcar_summary_stats:
                 _check_potcars(reasons, warnings, potcars, valid_potcar_summary_stats)
@@ -241,16 +251,16 @@ class ValidationDoc(EmmetBaseModel):
     @classmethod
     def from_directory(
         cls,
-        dir_name: Union[Path, str],
-        input_sets: Dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
-        potcar_summary_stats: Dict[str, ImportString] = _pmg_potcar_summary_stats,
+        dir_name: Path | str,
+        input_sets: dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
+        potcar_summary_stats: dict[str, ImportString] = _pmg_potcar_summary_stats,
         kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
         allow_kpoint_shifts: bool = SETTINGS.VASP_ALLOW_KPT_SHIFT,
-        allow_explicit_kpoint_mesh: Union[str, bool] = SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
+        allow_explicit_kpoint_mesh: str | bool = SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
         fft_grid_tolerance: float = SETTINGS.VASP_FFT_GRID_TOLERANCE,
         num_ionic_steps_to_avg_drift_over: float = SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
         max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
-    ) -> "ValidationDoc":
+    ) -> ValidationDoc:
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
 
@@ -291,7 +301,7 @@ class ValidationDoc(EmmetBaseModel):
                 raise Exception(f"NO CALCULATION FOUND --> {dir_name} is not a VASP calculation directory.")
             else:
                 raise Exception(
-                    f"CAN NOT PARSE CALCULATION --> Issue parsing results. This often means your calculation did not complete. The error stack reads: \n {e}"
+                    f"CANNOT PARSE CALCULATION --> Issue parsing results. This often means your calculation did not complete. The error stack reads: \n {e}"
                 )
 
 
@@ -341,7 +351,7 @@ def _check_potcars(
     reasons,
     warnings,
     potcars: Potcar,
-    valid_potcar_summary_stats: Dict[str, ImportString],
+    valid_potcar_summary_stats: dict[str, ImportString],
     data_match_tol: float = 1e-6,
 ):
     """
