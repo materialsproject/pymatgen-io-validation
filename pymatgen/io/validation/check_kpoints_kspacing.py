@@ -32,7 +32,7 @@ def _check_kpoints_kspacing(
     monkhorst_mesh_is_invalid = is_hexagonal or is_face_centered
     if cur_kpoint_style == "monkhorst" and monkhorst_mesh_is_invalid:
         if all(
-            [x % 2 == 1 for x in cur_kpoints_obj.get("kpoints")[0]]
+            x % 2 == 1 for x in cur_kpoints_obj.get("kpoints")[0]
         ):  # allow monkhorst with all odd number of subdivs.
             pass
         else:

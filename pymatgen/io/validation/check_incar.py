@@ -483,7 +483,7 @@ def _check_ionic_params(
         warnings.append("TaskDoc does not contain output forces!")
     else:
         is_force_converged = all(
-            [(np.linalg.norm(force_on_atom) <= abs(valid_ediffg_force)) for force_on_atom in task_doc.output.forces]
+            (np.linalg.norm(force_on_atom) <= abs(valid_ediffg_force)) for force_on_atom in task_doc.output.forces
         )
 
     if parameters.get("NSW", 0) == 0 or nionic_steps <= 1:
