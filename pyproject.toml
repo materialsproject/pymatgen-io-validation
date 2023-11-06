@@ -33,7 +33,7 @@ dynamic = ["version"]
 keywords = ["io", "validation", "dft", "vasp"]
 license = { text = "modified BSD" }
 name = "pymatgen-io-validation"
-readme = "README.rst"
+readme = "README.md"
 requires-python = '>=3.8'
 
 [project.optional-dependencies]
@@ -45,7 +45,7 @@ tests = ["pytest==7.4.2", "pytest-cov==4.1.0"]
 
 
 [tool.setuptools.dynamic]
-readme = { file = ["README.rst"] }
+readme = { file = ["README.md"] }
 
 #[project.urls]
 #repository = "https://github.com/materialsproject/pymatgen-io-validation"
