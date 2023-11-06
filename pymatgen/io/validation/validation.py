@@ -169,7 +169,7 @@ class ValidationDoc(EmmetBaseModel):
 
             psp_subset = potcar_summary_stats.get(valid_input_set._config_dict["POTCAR_FUNCTIONAL"], {})
 
-            valid_potcar_summary_stats = {}
+            valid_potcar_summary_stats = {}  # type: ignore
             for element in structure.composition.remove_charges().as_dict():
                 potcar_symbol = valid_input_set._config_dict["POTCAR"][element]
                 for titel_no_spc in psp_subset:
