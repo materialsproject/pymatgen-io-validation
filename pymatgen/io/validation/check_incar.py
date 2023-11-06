@@ -198,7 +198,6 @@ def _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_
 
     # NELECT.
     cur_nelect = parameters.get("NELECT")
-    print(cur_nelect, cur_nelect, cur_nelect)
     if "NELECT" in incar.keys():  # Do not check for non-neutral NELECT if NELECT is not in the INCAR
         valid_charge = 0.0
         cur_charge = calcs_reversed[0]["output"]["structure"]._charge
