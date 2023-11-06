@@ -207,12 +207,11 @@ def _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_
                     f"INPUT SETTINGS --> NELECT: set to {cur_nelect}, but this causes the structure to have a charge of {cur_charge}. "
                     f"NELECT should be set to {cur_nelect + cur_charge} instead."
                 )
-        except:
+        except Exception:
             reasons.append(
-                f"INPUT SETTINGS --> NELECT / POTCAR: issue checking whether NELECT was changed to make the structure have a non-zero charge. "
+                "INPUT SETTINGS --> NELECT / POTCAR: issue checking whether NELECT was changed to make the structure have a non-zero charge. "
                 "This is likely due to the directory not having a POTCAR file."
             )
-
     # default_nelect = _get_default_nelect(structure, valid_input_set, potcar=potcar)
     # _check_required_params(reasons, parameters, "NELECT", default_nelect, default_nelect)
 
