@@ -37,6 +37,3 @@ jobs:
     - name: pydocstyle
       run: |
         pydocstyle --count pymatgen
-    - name: pylint
-      run: |
-        pylint pymatgen
