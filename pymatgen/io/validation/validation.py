@@ -157,7 +157,6 @@ class ValidationDoc(EmmetBaseModel):
                 "NO MATCHING MP INPUT SET --> no matching MP input set was found. If you believe this to be a mistake, please create a GitHub issue."
             )
             valid_input_set = None
-
             print(f"Error while finding MP input set: {e}.")
 
         if parameters == {} or parameters is None:

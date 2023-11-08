@@ -6,6 +6,9 @@ from emmet.core.tasks import TaskDoc
 from pymatgen.core.structure import Structure
 
 
+# TODO: add in tests for POTCAR validation
+# TODO: add in tests for POTCAR validation
+# TODO: add in tests for POTCAR validation
 ### TODO: add tests for many other MP input sets (e.g. MPNSCFSet, MPNMRSet, MPScanRelaxSet, Hybrid sets, etc.)
 ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
 ### TODO: add in energy-based EDIFFG check
