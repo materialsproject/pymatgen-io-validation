@@ -25,7 +25,7 @@ validation_doc = ValidationDoc.from_task_doc(task_doc = my_task_doc)
 Contributors
 =====
 
-* Matthew Kuner (lead), email: matthewkuner@gmail.com
-* Janosh Riebesell
-* Jason Munro
-* Aaron Kaplan
+* [Matthew Kuner](https://github.com/matthewkuner) (lead), email: matthewkuner@gmail.com
+* [Janosh Riebesell](https://github.com/janosh)
+* [Jason Munro](https://github.com/munrojm)
+* [Aaron Kaplan](https://github.com/esoteric-ephemera)
