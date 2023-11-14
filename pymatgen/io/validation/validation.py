@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 SETTINGS = IOValidationSettings()
 
-_pmg_potcar_summary_stats = loadfn(resource_filename("pymatgen.io.vasp", "potcar_summary_stats.json.bz2"))
+_pmg_potcar_summary_stats = loadfn(resource_filename("pymatgen.io.vasp", "potcar-summary-stats.json.bz2"))
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
