@@ -9,7 +9,7 @@ Usage
 
 For validating calculations from the raw files, run:
 ```
-from emmet.core.vasp.validation.validation import ValidationDoc
+from pymatgen.io.validation import ValidationDoc
 validation_doc = ValidationDoc.from_directory(dir_name = path_to_vasp_calculation_directory)
 ```
 
@@ -18,7 +18,7 @@ In the above case, whether a calculation passes the validator can be accessed vi
 \
 For validating calculations from `TaskDoc` objects from the [Emmet](https://github.com/materialsproject/emmet) package, run:
 ```
-from emmet.core.vasp.validation.validation import ValidationDoc
+from pymatgen.io.validation import ValidationDoc
 validation_doc = ValidationDoc.from_task_doc(task_doc = my_task_doc)
 ```
 
