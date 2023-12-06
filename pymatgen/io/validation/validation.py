@@ -372,7 +372,7 @@ def _check_potcars(
             reference_summary_stats = valid_potcar_summary_stats.get(potcar["titel"].replace(" ", ""), [])
 
             if len(reference_summary_stats) == 0:
-                incorrect_potcars.append(potcar["symbol"])
+                incorrect_potcars.append(potcar["titel"].split(" ")[1])
                 continue
 
             key_match = False
@@ -393,7 +393,7 @@ def _check_potcars(
                     break
 
             if (not key_match) or (not data_match):
-                incorrect_potcars.append(potcar["symbol"])
+                incorrect_potcars.append(potcar["titel"].split(" ")[1])
 
         if len(incorrect_potcars) > 0:
             # format error string
