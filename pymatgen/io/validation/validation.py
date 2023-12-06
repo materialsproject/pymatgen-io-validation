@@ -413,7 +413,7 @@ def _check_potcars(
         print(e)
         # Assume it is an old calculation without potcar_spec data and treat it as failing the POTCAR check
         reasons.append(
-            "Old version of Emmet --> potcar_spec is not saved in TaskDoc and cannot be validated. Hence, it is marked as invalid"
+            "Issue validating POTCARS --> Likely due to an old version of Emmet (wherein potcar summary_stats is not saved in TaskDoc), though other errors have been seen. Hence, it is marked as invalid"
         )
 
 
