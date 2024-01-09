@@ -728,11 +728,7 @@ def test_nscf_kpoints_checks(test_dir, object_name):
     # Explicit kpoints for NSCF calc check (this should not raise any flags for NSCF calcs)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.kpoints = Kpoints(
-        kpts = [[0, 0, 0], [0, 0, 0.5]], 
-        num_kpts = 2,
-        kpts_weights = [0.5, 0.5],
-        labels = ["Gamma","X"],
-        style = "line_mode"
+        kpts=[[0, 0, 0], [0, 0, 0.5]], num_kpts=2, kpts_weights=[0.5, 0.5], labels=["Gamma", "X"], style="line_mode"
     )
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
@@ -898,10 +894,7 @@ def test_kpoints_checks(test_dir, object_name):
     # Explicit kpoints for SCF calc check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.kpoints = Kpoints(
-        kpts = [[0, 0, 0], [0, 0, 0.5]], 
-        num_kpts = 2,
-        kpts_weights = [0.5, 0.5],
-        style = "reciprocal"
+        kpts=[[0, 0, 0], [0, 0, 0.5]], num_kpts=2, kpts_weights=[0.5, 0.5], style="reciprocal"
     )
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
