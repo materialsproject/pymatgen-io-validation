@@ -21,8 +21,12 @@ def _check_incar(
     task_type,
     fft_grid_tolerance,
 ):
-    # note that all changes to `reasons` and `warnings` can be done in-place (and hence there is no need to return those variables after every functionc all).
-    # # Any cases where that is not done is just to make the code more readable. I didn't think that would be necessary here.
+    """
+    note that all changes to `reasons` and `warnings` can be done in-place
+    (and hence there is no need to return those variables after every function call).
+    Any cases where that is not done is just to make the code more readable.
+    I didn't think that would be necessary here.
+    """
     _check_chemical_shift_params(reasons, parameters, valid_input_set)
     _check_dipol_correction_params(reasons, parameters, valid_input_set)
     _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_reversed, structure, potcar)
@@ -285,72 +289,31 @@ def _check_fft_params(
         parameters.get("ENAUG", np.inf)
 
         valid_encut_for_fft_grid_params = max(cur_encut, valid_input_set.incar.get("ENCUT"))
-        ([valid_ngx, valid_ngy, valid_ngz], [valid_ngxf, valid_ngyf, valid_ngzf]) = valid_input_set.calculate_ng(
-            custom_encut=valid_encut_for_fft_grid_params
-        )
-        valid_ngx = int(valid_ngx * fft_grid_tolerance)
-        valid_ngy = int(valid_ngy * fft_grid_tolerance)
-        valid_ngz = int(valid_ngz * fft_grid_tolerance)
-        valid_ngxf = int(valid_ngxf * fft_grid_tolerance)
-        valid_ngyf = int(valid_ngyf * fft_grid_tolerance)
-        valid_ngzf = int(valid_ngzf * fft_grid_tolerance)
+        valid_ng = {}
+        (
+            [valid_ng["X"], valid_ng["Y"], valid_ng["Z"]],
+            [valid_ng["XF"], valid_ng["YF"], valid_ng["ZF"]],
+        ) = valid_input_set.calculate_ng(custom_encut=valid_encut_for_fft_grid_params)
+        for direction in ["X", "Y", "Z"]:
+            for mod in ["", "F"]:
+                valid_ng[direction + mod] = int(valid_ng[direction + mod] * fft_grid_tolerance)
 
-        extra_comments_for_FFT_grid = "This likely means the number FFT grid points was modified by the user. If not, please create a GitHub issue."
+        extra_comments_for_FFT_grid = (
+            "This likely means the number FFT grid points was modified by the user. "
+            "If not, please create a GitHub issue."
+        )
 
-        _check_relative_params(
-            reasons,
-            parameters,
-            "NGX",
-            np.inf,
-            valid_ngx,
-            "greater than or equal to",
-            extra_comments_upon_failure=extra_comments_for_FFT_grid,
-        )
-        _check_relative_params(
-            reasons,
-            parameters,
-            "NGY",
-            np.inf,
-            valid_ngy,
-            "greater than or equal to",
-            extra_comments_upon_failure=extra_comments_for_FFT_grid,
-        )
-        _check_relative_params(
-            reasons,
-            parameters,
-            "NGZ",
-            np.inf,
-            valid_ngz,
-            "greater than or equal to",
-            extra_comments_upon_failure=extra_comments_for_FFT_grid,
-        )
-        _check_relative_params(
-            reasons,
-            parameters,
-            "NGXF",
-            np.inf,
-            valid_ngxf,
-            "greater than or equal to",
-            extra_comments_upon_failure=extra_comments_for_FFT_grid,
-        )
-        _check_relative_params(
-            reasons,
-            parameters,
-            "NGYF",
-            np.inf,
-            valid_ngyf,
-            "greater than or equal to",
-            extra_comments_upon_failure=extra_comments_for_FFT_grid,
-        )
-        _check_relative_params(
-            reasons,
-            parameters,
-            "NGZF",
-            np.inf,
-            valid_ngzf,
-            "greater than or equal to",
-            extra_comments_upon_failure=extra_comments_for_FFT_grid,
-        )
+        for direction in ["X", "Y", "Z"]:
+            for mod in ["", "F"]:
+                _check_relative_params(
+                    reasons,
+                    parameters,
+                    f"NG{(direction + mod).upper()}",
+                    np.inf,
+                    valid_ng[direction + mod],
+                    "greater than or equal to",
+                    extra_comments_upon_failure=extra_comments_for_FFT_grid,
+                )
 
     # ADDGRID.
     default_addgrid = False
@@ -360,42 +323,36 @@ def _check_fft_params(
 
 def _check_hybrid_functional_params(reasons, parameters, valid_input_set):
     valid_lhfcalc = valid_input_set.incar.get("LHFCALC", False)
+
+    default_values = {
+        "AEXX": 0.0,
+        "AGGAC": 1.0,
+        "AGGAX": 1.0,
+        "ALDAX": 1.0,
+        "AMGGAX": 1.0,
+        "ALDAC": 1.0,
+        "AMGGAC": 1.0,
+        "LHFCALC": False,
+    }
     if valid_lhfcalc:
-        default_aexx = 0.25
-        default_aggac = 0
-        default_aggax = 1.0 - parameters.get("AEXX", default_aexx)
-        default_aldax = 1.0 - parameters.get("AEXX", default_aexx)
-        default_amggax = 1.0 - parameters.get("AEXX", default_aexx)
-    else:
-        default_aexx = 0
-        default_aggac = 1.0
-        default_aggax = 1.0
-        default_aldax = 1.0
-        default_amggax = 1.0
+        default_values["AEXX"] = 0.25
+        default_values["AGGAC"] = 0.0
+        for key in ("AGGAX", "ALDAX", "AMGGAX"):
+            default_values[key] = 1.0 - parameters.get("AEXX", default_values["AEXX"])
 
-    if valid_lhfcalc and parameters.get("AEXX", default_aexx) == 1:
-        default_aldac = 0
-        default_amggac = 0
-    else:
-        default_aldac = 1.0
-        default_amggac = 1.0
+        if parameters.get("AEXX", default_values["AEXX"]) == 1:
+            default_values["ALDAC"] = 0.0
+            default_values["AMGGAC"] = 0.0
 
-    valid_aexx = valid_input_set.incar.get("AEXX", default_aexx)
-    valid_aggac = valid_input_set.incar.get("AGGAC", default_aggac)
-    valid_aggax = valid_input_set.incar.get("AGGAX", default_aggax)
-    valid_aldac = valid_input_set.incar.get("ALDAC", default_aldac)
-    valid_aldax = valid_input_set.incar.get("ALDAX", default_aldax)
-    valid_amggac = valid_input_set.incar.get("AMGGAC", default_amggac)
-    valid_amggax = valid_input_set.incar.get("AMGGAX", default_amggax)
-
-    _check_required_params(reasons, parameters, "AEXX", default_aexx, valid_aexx, allow_close=True)
-    _check_required_params(reasons, parameters, "AGGAC", default_aggac, valid_aggac, allow_close=True)
-    _check_required_params(reasons, parameters, "AGGAX", default_aggax, valid_aggax, allow_close=True)
-    _check_required_params(reasons, parameters, "ALDAC", default_aldac, valid_aldac, allow_close=True)
-    _check_required_params(reasons, parameters, "ALDAX", default_aldax, valid_aldax, allow_close=True)
-    _check_required_params(reasons, parameters, "AMGGAC", default_amggac, valid_amggac, allow_close=True)
-    _check_required_params(reasons, parameters, "AMGGAX", default_amggax, valid_amggax, allow_close=True)
-    _check_required_params(reasons, parameters, "LHFCALC", False, valid_lhfcalc)
+    for hybrid_key in default_values:
+        _check_required_params(
+            reasons,
+            parameters,
+            hybrid_key,
+            default_values[hybrid_key],
+            valid_input_set.incar.get(hybrid_key, default_values[hybrid_key]),
+            allow_close=True,
+        )
 
 
 def _check_ionic_params(
@@ -898,7 +855,7 @@ def _check_required_params(
 ):
     cur_val = parameters.get(input_tag, default_val)
 
-    if allow_close:
+    if allow_close and isinstance(cur_val, (int, float)):
         if not np.isclose(cur_val, required_val, rtol=1e-05, atol=1e-05):  # need to be careful of this
             msg = f"INPUT SETTINGS --> {input_tag}: set to {cur_val}, but should be {required_val}."
             if extra_comments_upon_failure != "":

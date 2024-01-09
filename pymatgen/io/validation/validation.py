@@ -19,7 +19,12 @@ from emmet.core.tasks import TaskDoc
 from emmet.core.base import EmmetBaseModel
 from emmet.core.mpid import MPID
 from emmet.core.vasp.calc_types.enums import CalcType, TaskType
-from emmet.core.vasp.calc_types import RunType, calc_type, run_type, task_type
+from emmet.core.vasp.calc_types import (
+    RunType,
+    calc_type as emmet_calc_type,
+    run_type as emmet_run_type,
+    task_type as emmet_task_type,
+)
 
 from pymatgen.io.validation.check_incar import _check_incar
 from pymatgen.io.validation.check_common_errors import _check_common_errors
@@ -440,12 +445,12 @@ def _check_vasp_version(
 def _get_run_type(calcs_reversed) -> RunType:
     params = calcs_reversed[0].get("input", {}).get("parameters", {})
     incar = calcs_reversed[0].get("input", {}).get("incar", {})
-    return run_type({**params, **incar})
+    return emmet_run_type({**params, **incar})
 
 
 def _get_task_type(calcs_reversed, orig_inputs):
     inputs = calcs_reversed[0].get("input", {}) if len(calcs_reversed) > 0 else orig_inputs
-    return task_type(inputs)
+    return emmet_task_type(inputs)
 
 
 def _get_calc_type(calcs_reversed, orig_inputs):
@@ -453,4 +458,4 @@ def _get_calc_type(calcs_reversed, orig_inputs):
     params = calcs_reversed[0].get("input", {}).get("parameters", {})
     incar = calcs_reversed[0].get("input", {}).get("incar", {})
 
-    return calc_type(inputs, {**params, **incar})
+    return emmet_calc_type(inputs, {**params, **incar})

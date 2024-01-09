@@ -27,7 +27,8 @@ def _check_kpoints_kspacing(
     )
     if cur_num_kpts < valid_num_kpts:
         reasons.append(
-            f"INPUT SETTINGS --> KPOINTS or KSPACING: {cur_num_kpts} kpoints were used, but it should have been at least {valid_num_kpts}."
+            f"INPUT SETTINGS --> KPOINTS or KSPACING: {cur_num_kpts} kpoints were "
+            "used, but it should have been at least {valid_num_kpts}."
         )
 
     # check for valid kpoint mesh (which depends on symmetry of the structure)
@@ -42,14 +43,19 @@ def _check_kpoints_kspacing(
             pass
         else:
             reasons.append(
-                "INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack kpoint mesh was used with only even subdivisions, but the structure has symmetry that is incompatible with monkhorst-pack meshes."
+                "INPUT SETTINGS --> KPOINTS or KGAMMA: "
+                "monkhorst-pack kpoint mesh was used with "
+                "only even subdivisions, but the structure "
+                "has symmetry that is incompatible with monkhorst-pack meshes."
             )
 
     # Check for explicit kpoint meshes
     if not allow_explicit_kpoint_mesh:
         if len(cur_kpoints_obj["kpoints"]) > 1:
             reasons.append(
-                "INPUT SETTINGS --> KPOINTS: explicitly defining the kpoint mesh is not currently allowed. Automatic kpoint generation is required."
+                "INPUT SETTINGS --> KPOINTS: explicitly defining "
+                "the kpoint mesh is not currently allowed. "
+                "Automatic kpoint generation is required."
             )
 
     # Check for user shifts
@@ -66,10 +72,8 @@ def _get_valid_num_kpts(valid_input_set, structure):
         valid_kspacing = valid_input_set.incar.get("KSPACING", 0.5)
         latt_cur_anorm = structure.lattice.abc
         # number of kpoints along each of the three lattice vectors
-        n_1 = max(1, np.ceil((1 / latt_cur_anorm[0]) * 2 * np.pi / valid_kspacing))
-        n_2 = max(1, np.ceil((1 / latt_cur_anorm[1]) * 2 * np.pi / valid_kspacing))
-        n_3 = max(1, np.ceil((1 / latt_cur_anorm[2]) * 2 * np.pi / valid_kspacing))
-        valid_num_kpts = n_1 * n_2 * n_3
+        nk = [max(1, np.ceil(2 * np.pi / (valid_kspacing * latt_cur_anorm[ik]))) for ik in range(3)]
+        valid_num_kpts = np.prod(nk)
     # If MP input set specifies a KPOINTS file
     else:
         valid_num_kpts = valid_input_set.kpoints.num_kpts or np.prod(valid_input_set.kpoints.kpts[0])
