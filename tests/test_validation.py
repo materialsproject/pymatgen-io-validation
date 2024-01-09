@@ -4,7 +4,7 @@ from conftest import get_test_object
 from pymatgen.io.validation import ValidationDoc
 from emmet.core.tasks import TaskDoc
 from pymatgen.core.structure import Structure
-
+from pymatgen.io.vasp import Kpoints
 
 # TODO: add in tests for POTCAR validation
 # TODO: add in tests for POTCAR validation
@@ -727,7 +727,13 @@ def test_nscf_kpoints_checks(test_dir, object_name):
 
     # Explicit kpoints for NSCF calc check (this should not raise any flags for NSCF calcs)
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[0, 0, 0], [0, 0, 0.5]]
+    temp_task_doc.calcs_reversed[0].input.kpoints = Kpoints(
+        kpts = [[0, 0, 0], [0, 0, 0.5]], 
+        num_kpts = 2,
+        kpts_weights = [0.5, 0.5],
+        labels = ["Gamma","X"],
+        style = "line_mode"
+    )
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
 
@@ -847,7 +853,9 @@ def test_kpoints_checks(test_dir, object_name):
         coords=[[0, 0, 0], [0.333333333333333, -0.333333333333333, 0.5]],
         species=["H", "H"],
     )  # HCP structure
-    temp_task_doc.calcs_reversed[0].input.kpoints["generation_style"] = "monkhorst"
+    kpoints = temp_task_doc.calcs_reversed[0].input.kpoints.as_dict()
+    kpoints["generation_style"] = "monkhorst"
+    temp_task_doc.calcs_reversed[0].input.kpoints = Kpoints.from_dict(kpoints)
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(
         ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
@@ -858,7 +866,9 @@ def test_kpoints_checks(test_dir, object_name):
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
         lattice=[[0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]], coords=[[0, 0, 0]], species=["H"]
     )  # FCC structure
-    temp_task_doc.calcs_reversed[0].input.kpoints["generation_style"] = "monkhorst"
+    kpoints = temp_task_doc.calcs_reversed[0].input.kpoints.as_dict()
+    kpoints["generation_style"] = "monkhorst"
+    temp_task_doc.calcs_reversed[0].input.kpoints = kpoints
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(
         ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
@@ -869,7 +879,9 @@ def test_kpoints_checks(test_dir, object_name):
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
         lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["H", "H"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
     )  # BCC structure
-    temp_task_doc.calcs_reversed[0].input.kpoints["generation_style"] = "monkhorst"
+    kpoints = temp_task_doc.calcs_reversed[0].input.kpoints.as_dict()
+    kpoints["generation_style"] = "monkhorst"
+    temp_task_doc.calcs_reversed[0].input.kpoints = Kpoints.from_dict(kpoints)
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(
         ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
@@ -877,19 +889,28 @@ def test_kpoints_checks(test_dir, object_name):
 
     # Too few kpoints check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[3, 3, 3]]
+    kpoints = temp_task_doc.calcs_reversed[0].input.kpoints.as_dict()
+    kpoints["kpoints"] = [[3, 3, 3]]
+    temp_task_doc.calcs_reversed[0].input.kpoints = Kpoints.from_dict(kpoints)
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["INPUT SETTINGS --> KPOINTS or KSPACING:" in reason for reason in temp_validation_doc.reasons])
 
     # Explicit kpoints for SCF calc check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[0, 0, 0], [0, 0, 0.5]]
+    temp_task_doc.calcs_reversed[0].input.kpoints = Kpoints(
+        kpts = [[0, 0, 0], [0, 0, 0.5]], 
+        num_kpts = 2,
+        kpts_weights = [0.5, 0.5],
+        style = "reciprocal"
+    )
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
 
     # Shifting kpoints for SCF calc check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.kpoints["usershift"] = [0.5, 0, 0]
+    kpoints = temp_task_doc.calcs_reversed[0].input.kpoints.as_dict()
+    kpoints["usershift"] = [0.5, 0, 0]
+    temp_task_doc.calcs_reversed[0].input.kpoints = Kpoints.from_dict(kpoints)
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["INPUT SETTINGS --> KPOINTS: shifting" in reason for reason in temp_validation_doc.reasons])
 

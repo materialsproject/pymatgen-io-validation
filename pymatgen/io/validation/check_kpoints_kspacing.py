@@ -1,6 +1,6 @@
 """Module for validating VASP KPOINTS files or KSPACING setting in the INCAR"""
 import numpy as np
-
+from pymatgen.io.vasp import Kpoints
 
 def _check_kpoints_kspacing(
     reasons,
@@ -17,6 +17,10 @@ def _check_kpoints_kspacing(
     valid_num_kpts = _get_valid_num_kpts(valid_input_set, structure)
     valid_num_kpts = int(np.floor(valid_num_kpts * kpts_tolerance))
     cur_kpoints_obj = calcs_reversed[0]["input"]["kpoints"]
+    
+    if isinstance(cur_kpoints_obj, Kpoints):
+        cur_kpoints_obj = cur_kpoints_obj.as_dict()
+
     cur_num_kpts = max(
         cur_kpoints_obj.get("nkpoints", 0), np.prod(cur_kpoints_obj.get("kpoints")), len(cur_kpoints_obj.get("kpoints"))
     )
