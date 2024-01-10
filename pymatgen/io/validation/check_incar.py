@@ -12,9 +12,12 @@ _vasp_defaults = {
     "AMGGAC": 1.0,
     "DEPER": 0.3,
     "EBREAK": 0.0,
+    "EFIELD": 0.0,
+    "EPSILON": 1.0,
     "GGA_COMPAT": True,
     "ICHARG": 2,
     "ICORELEVEL": 0,
+    "IDIPOL": 0,
     "IMAGES": 0,
     "INIWAV": 1,
     "ISTART": 0,
@@ -23,17 +26,21 @@ _vasp_defaults = {
     "LBERRY": False,
     "LCALCEPS": False,
     "LCALCPOL": False,
+    "LCHIMAG": False,
     "LDAU": False,
     "LDAUU": [],
     "LDAUJ": [],
     "LDAUL": [],
     "LDAUTYPE": 2,
+    "LDIPOL": False,
     "LEPSILON": False,
     "LHFCALC": False,
     "LHYPERFINE": False,
     "LKPOINTS_OPT": False,
     "LKPROJ": False,
+    "LMONO": False,
     "LMP2LT": False,
+    "LNMR_SYM_RED": False,
     "LNONCOLLINEAR": False,
     "LOCPROJ": None,
     "LRPA": False,
@@ -47,6 +54,8 @@ _vasp_defaults = {
 
 _categories = {
     "hybrid": ("AEXX", "AGGAC", "AGGAX", "ALDAX", "AMGGAX", "ALDAC", "AMGGAC", "LHFCALC"),
+    "chem_shift": ("LCHIMAG", "LNMR_SYM_RED"),
+    "dipol": ("EFIELD", "EPSILON", "IDIPOL", "LDIPOL", "LMONO"),
     "ldau": ("LDAUU", "LDAUJ", "LDAUL", "LDAUTYPE"),
     "misc": (
         "DEPER",
@@ -203,42 +212,11 @@ def _get_valid_ismears_and_sigma(parameters, bandgap, nionic_steps):
 
 
 def _check_chemical_shift_params(reasons, parameters, valid_input_set):
-    # LCHIMAG.
-    default_lchimag = False
-    valid_lchimag = valid_input_set.incar.get("LCHIMAG", default_lchimag)
-    _check_required_params(reasons, parameters, "LCHIMAG", default_lchimag, valid_lchimag)
-
-    # LNMR_SYM_RED.
-    default_lnmr_sym_red = False
-    valid_lnmr_sym_red = valid_input_set.incar.get("LNMR_SYM_RED", default_lnmr_sym_red)
-    _check_required_params(reasons, parameters, "LNMR_SYM_RED", default_lnmr_sym_red, valid_lnmr_sym_red)
+    return _check_subset_params(reasons, parameters, valid_input_set, "chem_shift")
 
 
 def _check_dipol_correction_params(reasons, parameters, valid_input_set):
-    # LDIPOL.
-    default_ldipol = False
-    valid_ldipol = valid_input_set.incar.get("LDIPOL", default_ldipol)
-    _check_required_params(reasons, parameters, "LDIPOL", default_ldipol, valid_ldipol)
-
-    # LMONO.
-    default_lmono = False
-    valid_lmono = valid_input_set.incar.get("LMONO", default_lmono)
-    _check_required_params(reasons, parameters, "LMONO", default_lmono, valid_lmono)
-
-    # IDIPOL.
-    default_idipol = 0
-    valid_idipol = valid_input_set.incar.get("IDIPOL", default_idipol)
-    _check_required_params(reasons, parameters, "IDIPOL", default_idipol, valid_idipol)
-
-    # EPSILON.
-    default_epsilon = 1.0
-    valid_epsilon = valid_input_set.incar.get("EPSILON", default_epsilon)
-    _check_required_params(reasons, parameters, "EPSILON", default_epsilon, valid_epsilon)
-
-    # EFIELD.
-    default_efield = 0.0
-    valid_efield = valid_input_set.incar.get("EFIELD", default_efield)
-    _check_required_params(reasons, parameters, "EFIELD", default_efield, valid_efield)
+    return _check_subset_params(reasons, parameters, valid_input_set, "dipol")
 
 
 def _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_reversed, structure, potcar=None):
@@ -624,14 +602,7 @@ def _check_lmaxmix_and_lmaxtau(reasons, warnings, parameters, incar, valid_input
 
 
 def _check_magnetism_params(reasons, parameters, valid_input_set):
-    for key in _categories["ncl"]:
-        _check_required_params(
-            reasons,
-            parameters,
-            key,
-            _vasp_defaults[key],
-            valid_input_set.incar.get("LNONCOLLINEAR", _vasp_defaults[key]),
-        )
+    return _check_subset_params(reasons, parameters, valid_input_set, "ncl")
 
 
 def _check_misc_params(
@@ -646,13 +617,12 @@ def _check_misc_params(
     structure,
 ):
     for key in _categories["misc"]:
-        valid_deper = valid_input_set.incar.get(key, _vasp_defaults[key])
         _check_required_params(
             reasons,
             parameters,
             key,
             _vasp_defaults[key],
-            valid_deper,
+            valid_input_set.incar.get(key, _vasp_defaults[key]),
             allow_close=False if isinstance(key, int) else True,
         )
 
@@ -844,6 +814,17 @@ def _check_write_params(reasons, parameters, valid_input_set):
     # LOPTICS.
     valid_loptics = valid_input_set.incar.get("LOPTICS", False)
     _check_required_params(reasons, parameters, "LOPTICS", False, valid_loptics)
+
+
+def _check_subset_params(reasons, parameters, valid_input_set, subset):
+    for key in _categories[subset]:
+        _check_required_params(
+            reasons,
+            parameters,
+            key,
+            _vasp_defaults[key],
+            valid_input_set.incar.get(key, _vasp_defaults[key]),
+        )
 
 
 def _check_required_params(
