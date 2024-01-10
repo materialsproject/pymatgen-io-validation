@@ -2,6 +2,78 @@
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 
+_vasp_defaults = {
+    "AEXX": 0.0,
+    "AGGAC": 1.0,
+    "AGGAX": 1.0,
+    "ALDAX": 1.0,
+    "AMGGAX": 1.0,
+    "ALDAC": 1.0,
+    "AMGGAC": 1.0,
+    "DEPER": 0.3,
+    "EBREAK": 0.0,
+    "GGA_COMPAT": True,
+    "ICHARG": 2,
+    "ICORELEVEL": 0,
+    "IMAGES": 0,
+    "INIWAV": 1,
+    "ISTART": 0,
+    "IVDW": 0,
+    "LASPH": True,
+    "LBERRY": False,
+    "LCALCEPS": False,
+    "LCALCPOL": False,
+    "LDAU": False,
+    "LDAUU": [],
+    "LDAUJ": [],
+    "LDAUL": [],
+    "LDAUTYPE": 2,
+    "LEPSILON": False,
+    "LHFCALC": False,
+    "LHYPERFINE": False,
+    "LKPOINTS_OPT": False,
+    "LKPROJ": False,
+    "LMP2LT": False,
+    "LNONCOLLINEAR": False,
+    "LOCPROJ": None,
+    "LRPA": False,
+    "LSMP2LT": False,
+    "LSORBIT": False,
+    "LSPECTRAL": False,
+    "LSUBROT": False,
+    "ML_LMLFF": False,
+    "WEIMIN": 0.001,
+}
+
+_categories = {
+    "hybrid": ("AEXX", "AGGAC", "AGGAX", "ALDAX", "AMGGAX", "ALDAC", "AMGGAC", "LHFCALC"),
+    "ldau": ("LDAUU", "LDAUJ", "LDAUL", "LDAUTYPE"),
+    "misc": (
+        "DEPER",
+        "IMAGES",
+        "IVDW",
+        "LSPECTRAL",
+        "LHYPERFINE",
+        "LASPH",
+        "LKPOINTS_OPT",
+        "LRPA",
+        "LCALCEPS",
+        "EBREAK",
+        "LOCPROJ",
+        "GGA_COMPAT",
+        "LEPSILON",
+        "LKPROJ",
+        "ICORELEVEL",
+        "ML_LMLFF",
+        "LSUBROT",
+        "LMP2LT",
+        "LBERRY",
+        "LSMP2LT",
+        "LCALCPOL",
+    ),
+    "ncl": ("LNONCOLLINEAR", "LSORBIT"),
+}
+
 
 def _check_incar(
     reasons,
@@ -324,16 +396,8 @@ def _check_fft_params(
 def _check_hybrid_functional_params(reasons, parameters, valid_input_set):
     valid_lhfcalc = valid_input_set.incar.get("LHFCALC", False)
 
-    default_values = {
-        "AEXX": 0.0,
-        "AGGAC": 1.0,
-        "AGGAX": 1.0,
-        "ALDAX": 1.0,
-        "AMGGAX": 1.0,
-        "ALDAC": 1.0,
-        "AMGGAC": 1.0,
-        "LHFCALC": False,
-    }
+    default_values = {key: _vasp_defaults[key] for key in _categories["hybrid"]}
+
     if valid_lhfcalc:
         default_values["AEXX"] = 0.25
         default_values["AGGAC"] = 0.0
@@ -344,13 +408,13 @@ def _check_hybrid_functional_params(reasons, parameters, valid_input_set):
             default_values["ALDAC"] = 0.0
             default_values["AMGGAC"] = 0.0
 
-    for hybrid_key in default_values:
+    for key in _categories["hybrid"]:
         _check_required_params(
             reasons,
             parameters,
-            hybrid_key,
-            default_values[hybrid_key],
-            valid_input_set.incar.get(hybrid_key, default_values[hybrid_key]),
+            key,
+            default_values[key],
+            valid_input_set.incar.get(key, default_values[key]),
             allow_close=True,
         )
 
@@ -560,15 +624,14 @@ def _check_lmaxmix_and_lmaxtau(reasons, warnings, parameters, incar, valid_input
 
 
 def _check_magnetism_params(reasons, parameters, valid_input_set):
-    # LNONCOLLINEAR.
-    default_lnoncollinear = False
-    valid_lnoncollinear = valid_input_set.incar.get("LNONCOLLINEAR", default_lnoncollinear)
-    _check_required_params(reasons, parameters, "LNONCOLLINEAR", default_lnoncollinear, valid_lnoncollinear)
-
-    # LSORBIT.
-    default_lsorbit = False
-    valid_lsorbit = valid_input_set.incar.get("LSORBIT", default_lsorbit)
-    _check_required_params(reasons, parameters, "LSORBIT", default_lsorbit, valid_lsorbit)
+    for key in _categories["ncl"]:
+        _check_required_params(
+            reasons,
+            parameters,
+            key,
+            _vasp_defaults[key],
+            valid_input_set.incar.get("LNONCOLLINEAR", _vasp_defaults[key]),
+        )
 
 
 def _check_misc_params(
@@ -582,94 +645,38 @@ def _check_misc_params(
     vasp_minor_version,
     structure,
 ):
-    # DEPER.
-    valid_deper = valid_input_set.incar.get("DEPER", 0.3)
-    _check_required_params(reasons, parameters, "DEPER", 0.3, valid_deper, allow_close=True)
-
-    # EBREAK.
-    valid_ebreak = valid_input_set.incar.get("EBREAK", 0.0)
-    _check_required_params(reasons, parameters, "EBREAK", 0.0, valid_ebreak, allow_close=True)
-
-    # GGA_COMPAT.
-    valid_gga_compat = valid_input_set.incar.get("GGA_COMPAT", True)
-    _check_required_params(reasons, parameters, "GGA_COMPAT", True, valid_gga_compat)
-
-    # ICORELEVEL.
-    valid_icorelevel = valid_input_set.incar.get("ICORELEVEL", 0)
-    _check_required_params(reasons, parameters, "ICORELEVEL", 0, valid_icorelevel)
-
-    # IMAGES.
-    valid_images = valid_input_set.incar.get("IMAGES", 0)
-    _check_required_params(reasons, parameters, "IMAGES", 0, valid_images)
-
-    # IVDW.
-    valid_ivdw = valid_input_set.incar.get("IVDW", 0)
-    _check_required_params(reasons, parameters, "IVDW", 0, valid_ivdw)
-
-    # LBERRY.
-    valid_lberry = valid_input_set.incar.get("LBERRY", False)
-    _check_required_params(reasons, parameters, "LBERRY", False, valid_lberry)
-
-    # LCALCEPS.
-    valid_lcalceps = valid_input_set.incar.get("LCALCEPS", False)
-    _check_required_params(reasons, parameters, "LCALCEPS", False, valid_lcalceps)
-
-    # LCALCPOL.
-    valid_lcalcpol = valid_input_set.incar.get("LCALCPOL", False)
-    _check_required_params(reasons, parameters, "LCALCPOL", False, valid_lcalcpol)
-
-    # LEPSILON.
-    valid_lepsilon = valid_input_set.incar.get("LEPSILON", False)
-    _check_required_params(reasons, parameters, "LEPSILON", False, valid_lepsilon)
-
-    # LHYPERFINE.
-    valid_lhyperfine = valid_input_set.incar.get("LHYPERFINE", False)
-    _check_required_params(reasons, parameters, "LHYPERFINE", False, valid_lhyperfine)
-
-    # LKPOINTS_OPT.
-    valid_lkpoints_opt = valid_input_set.incar.get("LKPOINTS_OPT", False)
-    _check_required_params(reasons, parameters, "LKPOINTS_OPT", False, valid_lkpoints_opt)
-
-    # LKPROJ.
-    valid_lkproj = valid_input_set.incar.get("LKPROJ", False)
-    _check_required_params(reasons, parameters, "LKPROJ", False, valid_lkproj)
-
-    # LMP2LT.
-    valid_lmp2lt = valid_input_set.incar.get("LMP2LT", False)
-    _check_required_params(reasons, parameters, "LMP2LT", False, valid_lmp2lt)
-
-    # LOCPROJ.
-    valid_locproj = valid_input_set.incar.get("LOCPROJ", None)
-    _check_required_params(reasons, parameters, "LOCPROJ", None, valid_locproj)
-
-    # LRPA.
-    valid_lrpa = valid_input_set.incar.get("LRPA", False)
-    _check_required_params(reasons, parameters, "LRPA", False, valid_lrpa)
-
-    # LSMP2LT.
-    valid_lsmp2lt = valid_input_set.incar.get("LSMP2LT", False)
-    _check_required_params(reasons, parameters, "LSMP2LT", False, valid_lsmp2lt)
-
-    # LSPECTRAL.
-    valid_lspectral = valid_input_set.incar.get("LSPECTRAL", False)
-    _check_required_params(reasons, parameters, "LSPECTRAL", False, valid_lspectral)
-
-    # LSUBROT.
-    valid_lsubrot = valid_input_set.incar.get("LSUBROT", False)
-    _check_required_params(reasons, parameters, "LSUBROT", False, valid_lsubrot)
-
-    # ML_LMLFF.
-    valid_ml_lmlff = valid_input_set.incar.get("ML_LMLFF", False)
-    _check_required_params(reasons, parameters, "ML_LMLFF", False, valid_ml_lmlff)
+    for key in _categories["misc"]:
+        valid_deper = valid_input_set.incar.get(key, _vasp_defaults[key])
+        _check_required_params(
+            reasons,
+            parameters,
+            key,
+            _vasp_defaults[key],
+            valid_deper,
+            allow_close=False if isinstance(key, int) else True,
+        )
 
     # WEIMIN.
-    valid_weimin = valid_input_set.incar.get("WEIMIN", 0.001)
-    _check_relative_params(reasons, parameters, "WEIMIN", 0.001, valid_weimin, "less than or equal to")
+    _check_relative_params(
+        reasons,
+        parameters,
+        "WEIMIN",
+        _vasp_defaults["WEIMIN"],
+        valid_input_set.incar.get("WEIMIN", _vasp_defaults["WEIMIN"]),
+        "less than or equal to",
+    )
 
-    # EFERMI. Only available for VASP >= 6.4. Should not be set to a numerical value, as this may change the number of electrons.
+    """
+    EFERMI. Only available for VASP >= 6.4. Should not be set to a numerical
+    value, as this may change the number of electrons.
+    """
     if (vasp_major_version >= 6) and (vasp_minor_version >= 4):
-        # must check EFERMI in the *incar*, as it is saved as a numerical value after VASP guesses it in the vasprun.xml `parameters`
-        # (which would always cause this check to fail, even if the user set EFERMI properly in the INCAR).
+        """
+        Must check EFERMI in the *incar*, as it is saved as a numerical
+        value after VASP guesses it in the vasprun.xml `parameters`
+        (which would always cause this check to fail, even if the user
+        set EFERMI properly in the INCAR).
+        """
         cur_efermi = incar.get("EFERMI", "LEGACY")
         allowed_efermis = ["LEGACY", "MIDGAP"]
         if cur_efermi not in allowed_efermis:
@@ -677,11 +684,7 @@ def _check_misc_params(
 
     # IWAVPR.
     if "IWAVPR" in incar.keys():
-        reasons.append("INPUT SETTINGS --> VASP discourages users from setting the IWAVPR tag (as of July 2023).")
-
-    # LASPH.
-    valid_lasph = valid_input_set.incar.get("LASPH", True)
-    _check_required_params(reasons, parameters, "LASPH", False, valid_lasph)
+        reasons.append("INPUT SETTINGS --> VASP discourages users from setting " "the IWAVPR tag (as of July 2023).")
 
     # LCORR.
     cur_ialgo = parameters.get("IALGO", 38)
@@ -693,7 +696,9 @@ def _check_misc_params(
     # cur_lorbit = incar.get("LORBIT") if "LORBIT" in incar.keys() else parameters.get("LORBIT", None)
     if (cur_ispin == 2) and (len(calcs_reversed[0]["output"]["outcar"]["magnetization"]) != structure.num_sites):
         reasons.append(
-            "INPUT SETTINGS --> LORBIT: magnetization values were not written to the OUTCAR. This is usually due to LORBIT being set to None or False for calculations with ISPIN=2."
+            "INPUT SETTINGS --> LORBIT: magnetization values were not written "
+            "to the OUTCAR. This is usually due to LORBIT being set to None or "
+            "False for calculations with ISPIN=2."
         )
 
     if parameters.get("LORBIT", -np.inf) >= 11 and parameters.get("ISYM", 2) and (vasp_major_version < 6):
@@ -704,7 +709,7 @@ def _check_misc_params(
         )
 
     # RWIGS.
-    if True in (
+    if any(
         x != -1.0 for x in parameters.get("RWIGS", [-1])
     ):  # do not allow RWIGS to be changed, as this affects outputs like the magmom on each atom
         reasons.append(
@@ -712,7 +717,7 @@ def _check_misc_params(
         )
 
     # VCA.
-    if True in (x != 1.0 for x in parameters.get("VCA", [1])):  # do not allow VCA calculations
+    if any(x != 1.0 for x in parameters.get("VCA", [1])):  # do not allow VCA calculations
         reasons.append("INPUT SETTINGS --> VCA: should not be set")
 
 
@@ -751,21 +756,22 @@ def _check_precision_params(reasons, parameters, valid_input_set):
 
 def _check_startup_params(reasons, parameters, incar, valid_input_set):
     # ICHARG.
-    if valid_input_set.incar.get("ICHARG", 2) < 10:
+    if valid_input_set.incar.get("ICHARG", _vasp_defaults["ICHARG"]) < 10:
         valid_icharg = 9  # should be <10 (SCF calcs)
-        _check_relative_params(reasons, parameters, "ICHARG", 2, valid_icharg, "less than or equal to")
+        _check_relative_params(
+            reasons, parameters, "ICHARG", _vasp_defaults["ICHARG"], valid_icharg, "less than or equal to"
+        )
     else:
         valid_icharg = valid_input_set.incar.get("ICHARG")
-        _check_required_params(reasons, parameters, "ICHARG", 2, valid_icharg)
+        _check_required_params(reasons, parameters, "ICHARG", _vasp_defaults["ICHARG"], valid_icharg)
 
     # INIWAV.
-    default_iniwav = 1
-    valid_iniwav = valid_input_set.incar.get("INIWAV", default_iniwav)
-    _check_required_params(reasons, parameters, "INIWAV", default_iniwav, valid_iniwav)
+    valid_iniwav = valid_input_set.incar.get("INIWAV", _vasp_defaults["INIWAV"])
+    _check_required_params(reasons, parameters, "INIWAV", _vasp_defaults["INIWAV"], valid_iniwav)
 
     # ISTART.
     valid_istarts = [0, 1, 2]
-    _check_allowed_params(reasons, parameters, "ISTART", 0, valid_istarts)
+    _check_allowed_params(reasons, parameters, "ISTART", _vasp_defaults["ISTART"], valid_istarts)
 
 
 def _check_symmetry_params(reasons, parameters, valid_input_set):
@@ -801,30 +807,20 @@ def _check_symmetry_params(reasons, parameters, valid_input_set):
 
 
 def _check_u_params(reasons, incar, parameters, valid_input_set):
-    if parameters.get("LDAU", False):
-        valid_ldauu = valid_input_set.incar.get("LDAUU", [])
-        cur_ldauu = incar.get("LDAUU", [])
-        if cur_ldauu != valid_ldauu:
-            reasons.append(f"INPUT SETTINGS --> LDAUU: set to {cur_ldauu}, but should be set to {valid_ldauu}.")
+    if parameters.get("LDAU", _vasp_defaults["LDAU"]):
+        for key in _categories["ldau"]:
+            valid_val = valid_input_set.incar.get(key, _vasp_defaults[key])
 
-        valid_ldauj = valid_input_set.incar.get("LDAUJ", [])
-        cur_ldauj = incar.get("LDAUJ", [])
-        if cur_ldauj != valid_ldauj:
-            reasons.append(f"INPUT SETTINGS --> LDAUJ: set to {cur_ldauj}, but should be set to {valid_ldauj}.")
+            # TODO: ADK: is LDAUTYPE usually specified as a list??
+            if key == "LDAUTYPE":
+                cur_val = parameters.get(key, _vasp_defaults[key])
+                cur_val = cur_val[0] if isinstance(cur_val, list) else cur_val
+                valid_val = valid_val[0] if isinstance(valid_val, list) else valid_val
+            else:
+                cur_val = incar.get(key, _vasp_defaults[key])
 
-        valid_ldaul = valid_input_set.incar.get("LDAUL", [])
-        cur_ldaul = incar.get("LDAUL", [])
-        if cur_ldaul != valid_ldaul:
-            reasons.append(f"INPUT SETTINGS --> LDAUL: set to {cur_ldaul}, but should be set to {valid_ldaul}.")
-
-        valid_ldautype = valid_input_set.incar.get("LDAUTYPE", [2])
-        if isinstance(valid_ldautype, list):
-            valid_ldautype = valid_ldautype[0]
-        cur_ldautype = parameters.get("LDAUTYPE", [2])[0]
-        if cur_ldautype != valid_ldautype:
-            reasons.append(
-                f"INPUT SETTINGS --> LDAUTYPE: set to {cur_ldautype}, but should be set to {valid_ldautype}."
-            )
+            if cur_val != valid_val:
+                reasons.append(f"INPUT SETTINGS --> {key}: set to {cur_val}, " f"but should be set to {valid_val}.")
 
 
 def _check_write_params(reasons, parameters, valid_input_set):
@@ -855,7 +851,7 @@ def _check_required_params(
 ):
     cur_val = parameters.get(input_tag, default_val)
 
-    if allow_close and isinstance(cur_val, (int, float)):
+    if allow_close and isinstance(cur_val, float):
         if not np.isclose(cur_val, required_val, rtol=1e-05, atol=1e-05):  # need to be careful of this
             msg = f"INPUT SETTINGS --> {input_tag}: set to {cur_val}, but should be {required_val}."
             if extra_comments_upon_failure != "":
