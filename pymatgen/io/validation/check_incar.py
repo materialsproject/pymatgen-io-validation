@@ -714,6 +714,7 @@ class BaseValidator:
     }
 
     def __init__(self):
+        """Dummy init."""
         return
 
     def check_parameter(
