@@ -701,6 +701,8 @@ def _check_u_params(reasons, incar, parameters, valid_input_set):
 
 
 class BaseValidator:
+    """Lightweight validator class to handle majority of parameter checking."""
+
     input_tag_translation = {"ENMAX": "ENCUT"}
 
     operations = {
