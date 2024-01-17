@@ -1,87 +1,17 @@
 """Module for validating VASP INCAR files"""
+from __future__ import annotations
+from importlib.resources import files as import_res_files
+from monty.serialization import loadfn
+from math import isclose
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 
-_vasp_defaults = {
-    "AEXX": 0.0,
-    "AGGAC": 1.0,
-    "AGGAX": 1.0,
-    "ALDAX": 1.0,
-    "AMGGAX": 1.0,
-    "ALDAC": 1.0,
-    "AMGGAC": 1.0,
-    "DEPER": 0.3,
-    "EBREAK": 0.0,
-    "EFIELD": 0.0,
-    "EPSILON": 1.0,
-    "GGA_COMPAT": True,
-    "ICHARG": 2,
-    "ICORELEVEL": 0,
-    "IDIPOL": 0,
-    "IMAGES": 0,
-    "INIWAV": 1,
-    "ISTART": 0,
-    "IVDW": 0,
-    "LASPH": True,
-    "LBERRY": False,
-    "LCALCEPS": False,
-    "LCALCPOL": False,
-    "LCHIMAG": False,
-    "LDAU": False,
-    "LDAUU": [],
-    "LDAUJ": [],
-    "LDAUL": [],
-    "LDAUTYPE": 2,
-    "LDIPOL": False,
-    "LEPSILON": False,
-    "LHFCALC": False,
-    "LHYPERFINE": False,
-    "LKPOINTS_OPT": False,
-    "LKPROJ": False,
-    "LMONO": False,
-    "LMP2LT": False,
-    "LNMR_SYM_RED": False,
-    "LNONCOLLINEAR": False,
-    "LOCPROJ": None,
-    "LRPA": False,
-    "LSMP2LT": False,
-    "LSORBIT": False,
-    "LSPECTRAL": False,
-    "LSUBROT": False,
-    "ML_LMLFF": False,
-    "WEIMIN": 0.001,
-}
+from typing import TYPE_CHECKING
 
-_categories = {
-    "hybrid": ("AEXX", "AGGAC", "AGGAX", "ALDAX", "AMGGAX", "ALDAC", "AMGGAC", "LHFCALC"),
-    "chem_shift": ("LCHIMAG", "LNMR_SYM_RED"),
-    "dipol": ("EFIELD", "EPSILON", "IDIPOL", "LDIPOL", "LMONO"),
-    "ldau": ("LDAUU", "LDAUJ", "LDAUL", "LDAUTYPE"),
-    "misc": (
-        "DEPER",
-        "IMAGES",
-        "IVDW",
-        "LSPECTRAL",
-        "LHYPERFINE",
-        "LASPH",
-        "LKPOINTS_OPT",
-        "LRPA",
-        "LCALCEPS",
-        "EBREAK",
-        "LOCPROJ",
-        "GGA_COMPAT",
-        "LEPSILON",
-        "LKPROJ",
-        "ICORELEVEL",
-        "ML_LMLFF",
-        "LSUBROT",
-        "LMP2LT",
-        "LBERRY",
-        "LSMP2LT",
-        "LCALCPOL",
-    ),
-    "ncl": ("LNONCOLLINEAR", "LSORBIT"),
-}
+if TYPE_CHECKING:
+    from typing import Any
+
+_vasp_defaults = loadfn(import_res_files("pymatgen.io.validation") / "vasp_defaults.yaml")
 
 
 def _check_incar(
@@ -108,8 +38,25 @@ def _check_incar(
     Any cases where that is not done is just to make the code more readable.
     I didn't think that would be necessary here.
     """
-    _check_chemical_shift_params(reasons, parameters, valid_input_set)
-    _check_dipol_correction_params(reasons, parameters, valid_input_set)
+
+    simple_validator = BaseValidator()
+    for key in _vasp_defaults:
+        if _vasp_defaults[key].get("operation") in simple_validator.operations:
+            reference_value = valid_input_set.incar.get(key, _vasp_defaults[key]["value"])
+            if key == "ISTART":
+                reference_value = [0, 1, 2]
+
+            simple_validator.check_parameter(
+                reasons=reasons,
+                parameters=parameters,
+                input_tag=key,
+                default_value=_vasp_defaults[key]["value"],
+                reference_value=reference_value,
+                operation=_vasp_defaults[key]["operation"],
+                tolerance=_vasp_defaults[key].get("tolerance", None),
+                extra_comments_upon_failure=_vasp_defaults[key].get("comment", ""),
+            )
+
     _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_reversed, structure, potcar)
     _check_electronic_projector_params(reasons, parameters, incar, valid_input_set)
     _check_fft_params(reasons, parameters, incar, valid_input_set, structure, fft_grid_tolerance)
@@ -119,7 +66,6 @@ def _check_incar(
     )
     _check_ismear_and_sigma(reasons, warnings, parameters, task_doc, ionic_steps, nionic_steps, structure)
     _check_lmaxmix_and_lmaxtau(reasons, warnings, parameters, incar, valid_input_set, structure, task_type)
-    _check_magnetism_params(reasons, parameters, valid_input_set)
     _check_misc_params(
         reasons,
         warnings,
@@ -135,7 +81,6 @@ def _check_incar(
     _check_startup_params(reasons, parameters, incar, valid_input_set)
     _check_symmetry_params(reasons, parameters, valid_input_set)
     _check_u_params(reasons, incar, parameters, valid_input_set)
-    _check_write_params(reasons, parameters, valid_input_set)
 
     return reasons
 
@@ -211,44 +156,29 @@ def _get_valid_ismears_and_sigma(parameters, bandgap, nionic_steps):
     return valid_ismears, valid_sigma, extra_comments_for_ismear_and_sigma
 
 
-def _check_chemical_shift_params(reasons, parameters, valid_input_set):
-    return _check_subset_params(reasons, parameters, valid_input_set, "chem_shift")
-
-
-def _check_dipol_correction_params(reasons, parameters, valid_input_set):
-    return _check_subset_params(reasons, parameters, valid_input_set, "dipol")
-
-
 def _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_reversed, structure, potcar=None):
-    # EDIFF. Should be the same or smaller than in valid_input_set
-    valid_ediff = valid_input_set.incar.get("EDIFF", 1e-4)
-    _check_relative_params(reasons, parameters, "EDIFF", 1e-4, valid_ediff, "less than or equal to")
-
+    simple_validator = BaseValidator()
     # ENCUT. Should be the same or greater than in valid_input_set, as this can affect energies & other results.
     # *** Note: "ENCUT" is not actually detected by the `Vasprun.parameters` object from pymatgen.io.vasp.outputs.
     #           Rather, the ENMAX tag in the `Vasprun.parameters` object contains the relevant value for ENCUT.
     valid_encut = valid_input_set.incar.get("ENCUT", np.inf)
-    _check_relative_params(reasons, parameters, "ENMAX", 0, valid_encut, "greater than or equal to")
+    simple_validator.check_parameter(reasons, parameters, "ENMAX", 0, valid_encut, "<=")
 
     # ENINI. Only check for IALGO = 48 / ALGO = VeryFast, as this is the only algo that uses this tag.
     if parameters.get("IALGO", 38) == 48:
-        _check_relative_params(reasons, parameters, "ENINI", 0, valid_encut, "greater than or equal to")
+        simple_validator.check_parameter(reasons, parameters, "ENINI", 0, valid_encut, "<=")
 
     # ENAUG. Should only be checked for calculations where the relevant MP input set specifies ENAUG.
     # In that case, ENAUG should be the same or greater than in valid_input_set.
     if "ENAUG" in valid_input_set.incar.keys():
         parameters.get("ENAUG", 0)
         valid_enaug = valid_input_set.incar.get("ENAUG", np.inf)
-        _check_relative_params(reasons, parameters, "ENAUG", 0, valid_enaug, "greater than or equal to")
+        simple_validator.check_parameter(reasons, parameters, "ENAUG", 0, valid_enaug, "<=")
 
     # IALGO.
-    valid_ialgos = [
-        38,
-        58,
-        68,
-        90,
-    ]  # TODO: figure out if 'normal' algos every really affect results other than convergence
-    _check_allowed_params(reasons, parameters, "IALGO", 38, valid_ialgos)
+    valid_ialgos = [38, 58, 68, 90]
+    # TODO: figure out if 'normal' algos every really affect results other than convergence
+    simple_validator.check_parameter(reasons, parameters, "IALGO", 38, valid_ialgos, "in")
 
     # NELECT.
     cur_nelect = parameters.get("NELECT")
@@ -273,18 +203,21 @@ def _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_
     min_nbands = int(np.ceil(cur_nelect / 2) + 1)
     default_nbands = _get_default_nbands(structure, parameters, cur_nelect)
     # check for too many bands (can lead to unphysical electronic structures, see https://github.com/materialsproject/custodian/issues/224 for more context
-    too_many_bands_msg = "Too many bands can lead to unphysical electronic structure (see https://github.com/materialsproject/custodian/issues/224 for more context.)"
-    _check_relative_params(
+    simple_validator.check_parameter(
         reasons,
         parameters,
         "NBANDS",
         default_nbands,
         4 * default_nbands,
-        "less than or equal to",
-        extra_comments_upon_failure=too_many_bands_msg,
+        ">=",
+        extra_comments_upon_failure=(
+            "Too many bands can lead to unphysical electronic structure "
+            "(see https://github.com/materialsproject/custodian/issues/224 "
+            "for more context.)"
+        ),
     )
     # check for too few bands (leads to degenerate energies)
-    _check_relative_params(reasons, parameters, "NBANDS", default_nbands, min_nbands, "greater than or equal to")
+    simple_validator.check_parameter(reasons, parameters, "NBANDS", default_nbands, min_nbands, "<=")
 
 
 def _check_electronic_projector_params(reasons, parameters, incar, valid_input_set):
@@ -313,16 +246,6 @@ def _check_electronic_projector_params(reasons, parameters, incar, valid_input_s
     # # if cur_lreal not in valid_lreals:
     # #     reasons.append(f"INPUT SETTINGS --> LREAL: is set to {cur_lreal}, but should be one of {valid_lreals}.")
 
-    # LMAXPAW.
-    default_lmaxpaw = -100
-    valid_lmaxpaw = valid_input_set.incar.get("LMAXPAW", default_lmaxpaw)
-    _check_required_params(reasons, parameters, "LMAXPAW", default_lmaxpaw, valid_lmaxpaw)
-
-    # NLSPLINE. Should be False unless specified by the valid_input_set.
-    default_nlspline = False
-    valid_nlspline = valid_input_set.incar.get("NLSPLINE", default_nlspline)
-    _check_required_params(reasons, parameters, "NLSPLINE", default_nlspline, valid_nlspline)
-
 
 def _check_fft_params(
     reasons,
@@ -332,6 +255,7 @@ def _check_fft_params(
     structure,
     fft_grid_tolerance,
 ):
+    simple_validator = BaseValidator()
     # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
     if any(i for i in ["NGX", "NGY", "NGZ", "NGXF", "NGYF", "NGZF"] if i in incar.keys()):
         parameters.get("PREC", "NORMAL").upper()
@@ -355,26 +279,23 @@ def _check_fft_params(
 
         for direction in ["X", "Y", "Z"]:
             for mod in ["", "F"]:
-                _check_relative_params(
-                    reasons,
-                    parameters,
-                    f"NG{(direction + mod).upper()}",
-                    np.inf,
-                    valid_ng[direction + mod],
-                    "greater than or equal to",
+                simple_validator.check_parameter(
+                    reasons=reasons,
+                    parameters=parameters,
+                    input_tag=f"NG{(direction + mod).upper()}",
+                    default_value=np.inf,
+                    reference_value=valid_ng[direction + mod],
+                    operation="<=",
                     extra_comments_upon_failure=extra_comments_for_FFT_grid,
                 )
-
-    # ADDGRID.
-    default_addgrid = False
-    valid_addgrid = valid_input_set.incar.get("ADDGRID", default_addgrid)
-    _check_required_params(reasons, parameters, "ADDGRID", default_addgrid, valid_addgrid)
 
 
 def _check_hybrid_functional_params(reasons, parameters, valid_input_set):
     valid_lhfcalc = valid_input_set.incar.get("LHFCALC", False)
 
-    default_values = {key: _vasp_defaults[key] for key in _categories["hybrid"]}
+    default_values = {
+        key: _vasp_defaults[key]["value"] for key in _vasp_defaults if _vasp_defaults[key]["tag"] == "hybrid"
+    }
 
     if valid_lhfcalc:
         default_values["AEXX"] = 0.25
@@ -382,61 +303,53 @@ def _check_hybrid_functional_params(reasons, parameters, valid_input_set):
         for key in ("AGGAX", "ALDAX", "AMGGAX"):
             default_values[key] = 1.0 - parameters.get("AEXX", default_values["AEXX"])
 
-        if parameters.get("AEXX", default_values["AEXX"]) == 1:
+        if parameters.get("AEXX", default_values["AEXX"]) == 1.0:
             default_values["ALDAC"] = 0.0
             default_values["AMGGAC"] = 0.0
 
-    for key in _categories["hybrid"]:
-        _check_required_params(
-            reasons,
-            parameters,
-            key,
-            default_values[key],
-            valid_input_set.incar.get(key, default_values[key]),
-            allow_close=True,
+    simple_validator = BaseValidator()
+    for key in _vasp_defaults:
+        if _vasp_defaults[key]["tag"] != "hybrid":
+            continue
+        simple_validator.check_parameter(
+            reasons=reasons,
+            parameters=parameters,
+            input_tag=key,
+            default_value=default_values[key],
+            reference_value=valid_input_set.incar.get(key, default_values[key]),
+            operation="approx" if isinstance(default_values[key], float) else "==",
+            tolerance=_vasp_defaults[key].get("tolerance"),
         )
 
 
 def _check_ionic_params(
     reasons, warnings, parameters, valid_input_set, task_doc, calcs_reversed, nionic_steps, ionic_steps, structure
 ):
+    simple_validator = BaseValidator()
     # IBRION.
     default_ibrion = 0
-    if valid_input_set.incar.get("IBRION", default_ibrion) not in [-1, 1, 2]:
-        valid_ibrion = valid_input_set.incar.get("IBRION", default_ibrion)
-        _check_required_params(reasons, parameters, "IBRION", default_ibrion, valid_ibrion)
-    else:
-        valid_ibrions = [-1, 1, 2]
-        _check_allowed_params(reasons, parameters, "IBRION", default_ibrion, valid_ibrions)
+    valid_ibrions = [-1, 1, 2]
+    input_set_ibrion = valid_input_set.incar.get("IBRION", default_ibrion)
 
-    # ISIF.
-    default_isif = 2
-    valid_min_isif = 2
-    _check_relative_params(
-        reasons,
-        parameters,
-        "ISIF",
-        default_isif,
-        valid_min_isif,
-        "greater than or equal to",
-        extra_comments_upon_failure="ISIF values < 2 do not output the complete stress tensor.",
+    simple_validator.check_parameter(
+        reasons=reasons,
+        parameters=parameters,
+        input_tag="IBRION",
+        default_value=default_ibrion,
+        reference_value=valid_ibrions if input_set_ibrion in valid_ibrions else [input_set_ibrion],
+        operation="in",
     )
-
-    # PSTRESS.
-    default_pstress = 0.0
-    valid_pstress = valid_input_set.incar.get("PSTRESS", default_pstress)
-    _check_required_params(reasons, parameters, "PSTRESS", default_pstress, valid_pstress, allow_close=True)
 
     # POTIM.
     if parameters.get("IBRION", 0) in [1, 2, 3, 5, 6]:  # POTIM is only used for some IBRION values
         valid_max_potim = 5
-        _check_relative_params(
-            reasons,
-            parameters,
-            "POTIM",
-            0.5,
-            valid_max_potim,
-            "less than or equal to",
+        simple_validator.check_parameter(
+            reasons=reasons,
+            parameters=parameters,
+            input_tag="POTIM",
+            default_value=0.5,
+            reference_value=valid_max_potim,
+            operation=">=",
             extra_comments_upon_failure="POTIM being so high will likely lead to erroneous results.",
         )
         # Check for large changes in energy between ionic steps (usually indicates too high POTIM)
@@ -455,11 +368,6 @@ def _check_ionic_params(
                     f"between ionic steps, which is greater than the maximum allowed of {valid_max_energy_change_per_atom} eV/atom. "
                     f"This indicates that the POTIM is too high."
                 )
-
-    # SCALEE.
-    default_scalee = 1.0
-    valid_scalee = valid_input_set.incar.get("SCALEE", default_scalee)
-    _check_required_params(reasons, parameters, "SCALEE", default_scalee, valid_scalee, allow_close=True)
 
     # EDIFFG.
     # Should be the same or smaller than in valid_input_set. Force-based cutoffs (not in every
@@ -500,13 +408,21 @@ def _check_ionic_params(
 def _check_ismear_and_sigma(reasons, warnings, parameters, task_doc, ionic_steps, nionic_steps, structure):
     bandgap = task_doc.output.bandgap
 
+    simple_validator = BaseValidator()
+
     valid_ismears, valid_sigma, extra_comments_for_ismear_and_sigma = _get_valid_ismears_and_sigma(
         parameters, bandgap, nionic_steps
     )
 
     # ISMEAR.
-    _check_allowed_params(
-        reasons, parameters, "ISMEAR", 1, valid_ismears, extra_comments_upon_failure=extra_comments_for_ismear_and_sigma
+    simple_validator.check_parameter(
+        reasons,
+        parameters,
+        "ISMEAR",
+        1,
+        valid_ismears,
+        "in",
+        extra_comments_upon_failure=extra_comments_for_ismear_and_sigma,
     )
 
     # SIGMA.
@@ -514,13 +430,13 @@ def _check_ismear_and_sigma(reasons, warnings, parameters, task_doc, ionic_steps
     # Because in such cases, the user wouldn't need to update the SIGMA if they use tetrahedron smearing.
     cur_ismear = parameters.get("ISMEAR", 1)
     if cur_ismear not in [-5, -4, -2]:  # SIGMA is not used by the tetrahedron method.
-        _check_relative_params(
+        simple_validator.check_parameter(
             reasons,
             parameters,
             "SIGMA",
             0.2,
             valid_sigma,
-            "less than or equal to",
+            ">=",
             extra_comments_upon_failure=extra_comments_for_ismear_and_sigma,
         )
     else:
@@ -601,10 +517,6 @@ def _check_lmaxmix_and_lmaxtau(reasons, warnings, parameters, incar, valid_input
             reasons.append(lmaxtau_msg)
 
 
-def _check_magnetism_params(reasons, parameters, valid_input_set):
-    return _check_subset_params(reasons, parameters, valid_input_set, "ncl")
-
-
 def _check_misc_params(
     reasons,
     warnings,
@@ -616,26 +528,6 @@ def _check_misc_params(
     vasp_minor_version,
     structure,
 ):
-    for key in _categories["misc"]:
-        _check_required_params(
-            reasons,
-            parameters,
-            key,
-            _vasp_defaults[key],
-            valid_input_set.incar.get(key, _vasp_defaults[key]),
-            allow_close=False if isinstance(key, int) else True,
-        )
-
-    # WEIMIN.
-    _check_relative_params(
-        reasons,
-        parameters,
-        "WEIMIN",
-        _vasp_defaults["WEIMIN"],
-        valid_input_set.incar.get("WEIMIN", _vasp_defaults["WEIMIN"]),
-        "less than or equal to",
-    )
-
     """
     EFERMI. Only available for VASP >= 6.4. Should not be set to a numerical
     value, as this may change the number of electrons.
@@ -659,7 +551,7 @@ def _check_misc_params(
     # LCORR.
     cur_ialgo = parameters.get("IALGO", 38)
     if cur_ialgo != 58:
-        _check_required_params(reasons, parameters, "LCORR", True, True)
+        BaseValidator().check_parameter(reasons, parameters, "LCORR", True, True, "==")
 
     # LORBIT.
     cur_ispin = parameters.get("ISPIN", 1)
@@ -698,7 +590,7 @@ def _check_precision_params(reasons, parameters, valid_input_set):
         valid_precs = ["ACCURATE", "ACCURA", "HIGH"]
     else:
         raise ValueError("Validation code check for PREC tag needs to be updated to account for a new input set!")
-    _check_allowed_params(reasons, parameters, "PREC", default_prec, valid_precs)
+    BaseValidator().check_parameter(reasons, parameters, "PREC", default_prec, valid_precs, "in")
 
     # ROPT. Should be better than or equal to default for the PREC level. This only matters if projectors are done in real-space.
     # Note that if the user sets LREAL = Auto in their Incar, it will show up as "True" in the `parameters` object (hence we use the `parameters` object)
@@ -726,25 +618,26 @@ def _check_precision_params(reasons, parameters, valid_input_set):
 
 def _check_startup_params(reasons, parameters, incar, valid_input_set):
     # ICHARG.
-    if valid_input_set.incar.get("ICHARG", _vasp_defaults["ICHARG"]) < 10:
+    if valid_input_set.incar.get("ICHARG", _vasp_defaults["ICHARG"]["value"]) < 10:
         valid_icharg = 9  # should be <10 (SCF calcs)
-        _check_relative_params(
-            reasons, parameters, "ICHARG", _vasp_defaults["ICHARG"], valid_icharg, "less than or equal to"
-        )
+        operation = ">="
     else:
         valid_icharg = valid_input_set.incar.get("ICHARG")
-        _check_required_params(reasons, parameters, "ICHARG", _vasp_defaults["ICHARG"], valid_icharg)
+        operation = "=="
 
-    # INIWAV.
-    valid_iniwav = valid_input_set.incar.get("INIWAV", _vasp_defaults["INIWAV"])
-    _check_required_params(reasons, parameters, "INIWAV", _vasp_defaults["INIWAV"], valid_iniwav)
-
-    # ISTART.
-    valid_istarts = [0, 1, 2]
-    _check_allowed_params(reasons, parameters, "ISTART", _vasp_defaults["ISTART"], valid_istarts)
+    BaseValidator().check_parameter(
+        reasons=reasons,
+        parameters=parameters,
+        input_tag="ICHARG",
+        default_value=_vasp_defaults["ICHARG"]["value"],
+        reference_value=valid_icharg,
+        operation=operation,
+    )
 
 
 def _check_symmetry_params(reasons, parameters, valid_input_set):
+    simple_validator = BaseValidator()
+
     # ISYM.
     default_isym = 3 if parameters.get("LHFCALC", False) else 2
     # allow ISYM as good or better than what is specified in the valid_input_set.
@@ -759,128 +652,102 @@ def _check_symmetry_params(reasons, parameters, valid_input_set):
             valid_isyms = [-1]
     else:  # otherwise let ISYM = -1, 0, or 2
         valid_isyms = [-1, 0, 2]
-    _check_allowed_params(reasons, parameters, "ISYM", default_isym, valid_isyms)
+
+    simple_validator.check_parameter(
+        reasons=reasons,
+        parameters=parameters,
+        input_tag="ISYM",
+        default_value=default_isym,
+        reference_value=valid_isyms,
+        operation="in",
+    )
 
     # SYMPREC.
     default_symprec = 1e-5
     valid_symprec = 1e-3  # custodian will set SYMPREC to a maximum of 1e-3 (as of August 2023)
-    extra_comments_for_symprec = "If you believe that this SYMPREC value is necessary (perhaps this calculation has a very large cell), please create a GitHub issue and we will consider to admit your calculations."
-    _check_relative_params(
-        reasons,
-        parameters,
-        "SYMPREC",
-        default_symprec,
-        valid_symprec,
-        "less than or equal to",
-        extra_comments_upon_failure=extra_comments_for_symprec,
+    simple_validator.check_parameter(
+        reasons=reasons,
+        parameters=parameters,
+        input_tag="SYMPREC",
+        default_value=default_symprec,
+        reference_value=valid_symprec,
+        operation=">=",
+        extra_comments_upon_failure=(
+            "If you believe that this SYMPREC value is necessary "
+            "(perhaps this calculation has a very large cell), please create "
+            "a GitHub issue and we will consider to admit your calculations."
+        ),
     )
 
 
 def _check_u_params(reasons, incar, parameters, valid_input_set):
-    if parameters.get("LDAU", _vasp_defaults["LDAU"]):
-        for key in _categories["ldau"]:
-            valid_val = valid_input_set.incar.get(key, _vasp_defaults[key])
+    if parameters.get("LDAU", _vasp_defaults["LDAU"]["value"]):
+        for key in _vasp_defaults:
+            if _vasp_defaults[key]["tag"] != "dft+u":
+                continue
+
+            valid_val = valid_input_set.incar.get(key, _vasp_defaults[key]["value"])
 
             # TODO: ADK: is LDAUTYPE usually specified as a list??
             if key == "LDAUTYPE":
-                cur_val = parameters.get(key, _vasp_defaults[key])
+                cur_val = parameters.get(key, _vasp_defaults[key]["value"])
                 cur_val = cur_val[0] if isinstance(cur_val, list) else cur_val
                 valid_val = valid_val[0] if isinstance(valid_val, list) else valid_val
             else:
-                cur_val = incar.get(key, _vasp_defaults[key])
+                cur_val = incar.get(key, _vasp_defaults[key]["value"])
 
             if cur_val != valid_val:
-                reasons.append(f"INPUT SETTINGS --> {key}: set to {cur_val}, " f"but should be set to {valid_val}.")
+                reasons.append(f"INPUT SETTINGS --> {key}: set to {cur_val}, but should be set to {valid_val}.")
 
 
-def _check_write_params(reasons, parameters, valid_input_set):
-    # NWRITE.
-    valid_nwrite = valid_input_set.incar.get("NWRITE", 2)  # expect this to almost always default to 2
-    extra_comments_for_nwrite = f"NWRITE < {valid_nwrite} does not output all of the results we need."
-    _check_relative_params(
-        reasons,
-        parameters,
-        "NWRITE",
-        2,
-        valid_nwrite,
-        "greater than or equal to",
-        extra_comments_upon_failure=extra_comments_for_nwrite,
-    )
+class BaseValidator:
+    input_tag_translation = {"ENMAX": "ENCUT"}
 
-    # LEFG.
-    valid_lefg = valid_input_set.incar.get("LEFG", False)
-    _check_required_params(reasons, parameters, "LEFG", False, valid_lefg)
+    operations = {
+        "==": "__eq__",
+        ">": "__gt__",
+        ">=": "__ge__",
+        "<": "__lt__",
+        "<=": "__le__",
+        "in": "__contains__",
+        "approx": "__eq__",
+    }
 
-    # LOPTICS.
-    valid_loptics = valid_input_set.incar.get("LOPTICS", False)
-    _check_required_params(reasons, parameters, "LOPTICS", False, valid_loptics)
+    def __init__(self):
+        return
 
+    def check_parameter(
+        self,
+        reasons: list[str],
+        parameters: dict,
+        input_tag: str,
+        default_value: Any,
+        reference_value: Any,
+        operation: str,
+        tolerance: float = None,
+        extra_comments_upon_failure: str = "",
+    ):
+        """Determine validity of parameter subject to specified operation."""
 
-def _check_subset_params(reasons, parameters, valid_input_set, subset):
-    for key in _categories[subset]:
-        _check_required_params(
-            reasons,
-            parameters,
-            key,
-            _vasp_defaults[key],
-            valid_input_set.incar.get(key, _vasp_defaults[key]),
-        )
+        # Allow for printing different tag than the one used to access values
+        # For example, the user sets ENCUT via INCAR, but the value of ENCUT is stored
+        # by VASP as ENMAX
 
+        current_value = parameters.get(input_tag, default_value)
 
-def _check_required_params(
-    reasons, parameters, input_tag, default_val, required_val, allow_close=False, extra_comments_upon_failure=""
-):
-    cur_val = parameters.get(input_tag, default_val)
+        if operation == "approx" and isinstance(current_value, float):
+            tolerance = tolerance or 1.0e-4
+            valid_value = isclose(current_value, reference_value, rel_tol=tolerance, abs_tol=0.0)
+        else:
+            if operation == "approx" and not isinstance(current_value, float):
+                print(current_value, input_tag)
+            valid_value = reference_value.__getattribute__(self.operations[operation])(current_value)
 
-    if allow_close and isinstance(cur_val, float):
-        if not np.isclose(cur_val, required_val, rtol=1e-05, atol=1e-05):  # need to be careful of this
-            msg = f"INPUT SETTINGS --> {input_tag}: set to {cur_val}, but should be {required_val}."
-            if extra_comments_upon_failure != "":
-                msg += " " + extra_comments_upon_failure
-            reasons.append(msg)
-    else:
-        if cur_val != required_val:
-            msg = f"INPUT SETTINGS --> {input_tag}: set to {cur_val}, but should be {required_val}."
-            if extra_comments_upon_failure != "":
-                msg += " " + extra_comments_upon_failure
-            reasons.append(msg)
-
-
-def _check_allowed_params(reasons, parameters, input_tag, default_val, allowed_vals, extra_comments_upon_failure=""):
-    # convert to (uppercase) string if allowed vals are also strings
-    if any(isinstance(item, str) for item in allowed_vals):
-        cur_val = str(parameters.get(input_tag, default_val)).upper()
-    else:
-        cur_val = parameters.get(input_tag, default_val)
-
-    if cur_val not in allowed_vals:
-        msg = f"INPUT SETTINGS --> {input_tag}: set to {cur_val}, but should be one of {allowed_vals}."
-        if extra_comments_upon_failure != "":
-            msg += " " + extra_comments_upon_failure
-        reasons.append(msg)
-
-
-def _check_relative_params(
-    reasons, parameters, input_tag, default_val, valid_val, should_be, extra_comments_upon_failure=""
-):
-    cur_val = parameters.get(input_tag, default_val)
-
-    if (
-        input_tag == "ENMAX"
-    ):  # change output message for ENMAX / ENCUT to be more clear to users (as they set ENCUT, but this is stored as ENMAX)
-        input_tag = "ENCUT"
-
-    if should_be == "less than or equal to":
-        if cur_val > valid_val:  # check for greater than (opposite of <=)
-            msg = f"INPUT SETTINGS --> {input_tag}: set to {cur_val}, but should be less than or equal to {valid_val}."
-            if extra_comments_upon_failure != "":
-                msg += " " + extra_comments_upon_failure
-            reasons.append(msg)
-    if should_be == "greater than or equal to":
-        if cur_val < valid_val:  # check for less than (opposite of >=)
+        if not valid_value:
             msg = (
-                f"INPUT SETTINGS --> {input_tag}: set to {cur_val}, but should be greater than or equal to {valid_val}."
+                "INPUT SETTINGS --> "
+                f"{self.input_tag_translation.get(input_tag,input_tag)}: "
+                f"set to {current_value}, but should be {operation} "
+                f"{reference_value}. {extra_comments_upon_failure}"
             )
-            if extra_comments_upon_failure != "":
-                msg += " " + extra_comments_upon_failure
             reasons.append(msg)

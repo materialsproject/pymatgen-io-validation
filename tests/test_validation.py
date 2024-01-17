@@ -99,7 +99,7 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["EDIFF"] = 1e-2
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["EDIFF:" in reason for reason in temp_validation_doc.reasons])
+    assert any(["EDIFF" in reason for reason in temp_validation_doc.reasons])
 
     # IALGO and ENINI checks
     temp_task_doc = copy.deepcopy(task_doc)
@@ -186,7 +186,7 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # AEXX check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AEXX"] = 1  # should never be set to this
+    temp_task_doc.input.parameters["AEXX"] = 1.0  # should never be set to this
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["AEXX" in reason for reason in temp_validation_doc.reasons])
 
@@ -241,7 +241,7 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # PSTRESS check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["PSTRESS"] = 1
+    temp_task_doc.input.parameters["PSTRESS"] = 1.0
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["PSTRESS" in reason for reason in temp_validation_doc.reasons])
 
