@@ -742,15 +742,20 @@ class BaseValidator:
             tolerance = tolerance or 1.0e-4
             valid_value = isclose(current_value, reference_value, rel_tol=tolerance, abs_tol=0.0)
         else:
-            if operation == "approx" and not isinstance(current_value, float):
-                print(current_value, input_tag)
             valid_value = reference_value.__getattribute__(self.operations[operation])(current_value)
 
         if not valid_value:
-            msg = (
+            # reverse the inequality sign because of ordering of input and expected
+            # values in reason string
+            flipped_operation = operation
+            if ">" in operation:
+                flipped_operation.replace(">", "<")
+            elif "<" in operation:
+                flipped_operation.replace("<", ">")
+
+            reasons.append(
                 "INPUT SETTINGS --> "
                 f"{self.input_tag_translation.get(input_tag,input_tag)}: "
-                f"set to {current_value}, but should be {operation} "
+                f"set to {current_value}, but should be {flipped_operation} "
                 f"{reference_value}. {extra_comments_upon_failure}"
             )
-            reasons.append(msg)
