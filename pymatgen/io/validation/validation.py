@@ -136,12 +136,7 @@ class ValidationDoc(EmmetBaseModel):
         # Why was this lingering here?
         # task_doc.chemsys
 
-        vasp_version = calcs_reversed[0]["vasp_version"]
-        vasp_version = vasp_version.split(".")
-        vasp_version = vasp_version[0] + "." + vasp_version[1] + "." + vasp_version[2]
-        vasp_major_version = int(vasp_version.split(".")[0])
-        vasp_minor_version = int(vasp_version.split(".")[1])
-        vasp_patch_version = int(vasp_version.split(".")[2])
+        vasp_version = [int(x) for x in calcs_reversed[0]["vasp_version"].split(".")]
 
         if calcs_reversed[0].get("input", {}).get("structure", None):
             structure = calcs_reversed[0]["input"]["structure"]
@@ -188,9 +183,7 @@ class ValidationDoc(EmmetBaseModel):
 
             # TODO: check for surface/slab calculations!!!!!!
 
-            reasons = _check_vasp_version(
-                reasons, vasp_version, vasp_major_version, vasp_minor_version, vasp_patch_version, parameters, incar
-            )
+            reasons = _check_vasp_version(reasons, vasp_version, parameters, incar)
 
             reasons = _check_common_errors(
                 reasons,
@@ -229,9 +222,7 @@ class ValidationDoc(EmmetBaseModel):
                 parameters,
                 incar,
                 potcars,
-                vasp_major_version,
-                vasp_minor_version,
-                vasp_patch_version,
+                vasp_version,
                 task_type,
                 fft_grid_tolerance,
             )
@@ -422,22 +413,22 @@ def _check_potcars(
         )
 
 
-def _check_vasp_version(
-    reasons, vasp_version, vasp_major_version, vasp_minor_version, vasp_patch_version, parameters, incar
-):
-    if vasp_major_version == 6:
-        pass
-    elif (vasp_major_version == 5) and ("METAGGA" in incar.keys()) and (parameters.get("ISPIN", 1) == 2):
+def _check_vasp_version(reasons, vasp_version, parameters, incar):
+    if (
+        vasp_version[0] == 5
+        and (incar.get("METAGGA", None) not in [None, "--", "None"])
+        and parameters.get("ISPIN", 1) == 2
+    ):
         reasons.append(
             "POTENTIAL BUG --> We believe that there may be a bug with spin-polarized calculations for METAGGAs "
             "in some versions of VASP 5. Please create a new GitHub issue if you believe this "
             "is not the case and we will consider changing this check!"
         )
-    elif (vasp_major_version == 5) and (vasp_minor_version == 4) and (vasp_patch_version == 4):
-        pass
-    else:
+    elif list(vasp_version) != [5, 4, 4] or vasp_version[0] < 6:
+        vasp_version_str = ".".join([str(x) for x in vasp_version])
         reasons.append(
-            f"VASP VERSION --> This calculation is using VASP version {vasp_version}, but we only allow versions 5.4.4 and >=6.0.0 (as of July 2023)."
+            f"VASP VERSION --> This calculation is using VASP version {vasp_version_str}, "
+            "but we only allow versions 5.4.4 and >=6.0.0 (as of July 2023)."
         )
     return reasons
 

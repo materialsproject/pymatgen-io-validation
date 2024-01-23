@@ -151,26 +151,18 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # FFT grid check (NGX, NGY, NGZ, NGXF, NGYF, NGZF)
     # Must change `incar` *and* `parameters` for NG_ checks!
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.incar["NGX"] = 1
-    temp_task_doc.input.parameters["NGX"] = 1
-    temp_task_doc.calcs_reversed[0].input.incar["NGY"] = 1
-    temp_task_doc.input.parameters["NGY"] = 1
-    temp_task_doc.calcs_reversed[0].input.incar["NGZ"] = 1
-    temp_task_doc.input.parameters["NGZ"] = 1
-    temp_task_doc.calcs_reversed[0].input.incar["NGXF"] = 1
-    temp_task_doc.input.parameters["NGXF"] = 1
-    temp_task_doc.calcs_reversed[0].input.incar["NGYF"] = 1
-    temp_task_doc.input.parameters["NGYF"] = 1
-    temp_task_doc.calcs_reversed[0].input.incar["NGZF"] = 1
-    temp_task_doc.input.parameters["NGZF"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["NGX" in reason for reason in temp_validation_doc.reasons])
-    assert any(["NGY" in reason for reason in temp_validation_doc.reasons])
-    assert any(["NGZ" in reason for reason in temp_validation_doc.reasons])
-    assert any(["NGXF" in reason for reason in temp_validation_doc.reasons])
-    assert any(["NGYF" in reason for reason in temp_validation_doc.reasons])
-    assert any(["NGZF" in reason for reason in temp_validation_doc.reasons])
+    ng_keys = []
+    for direction in ["X", "Y", "Z"]:
+        for mod in ["", "F"]:
+            ng_keys.append(f"NG{direction}{mod}")
+
+    for key in ng_keys:
+        temp_task_doc = copy.deepcopy(task_doc)
+        temp_task_doc.calcs_reversed[0].input.incar[key] = 1
+        temp_task_doc.input.parameters[key] = 1
+
+        temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+        assert any([key in reason for reason in temp_validation_doc.reasons])
 
     # ADDGRID check
     temp_task_doc = copy.deepcopy(task_doc)
@@ -325,7 +317,7 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].output.ionic_steps[0].electronic_steps[-1].eentropy = 1
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["SIGMA: The entropy term (T*S)" in reason for reason in temp_validation_doc.reasons])
+    assert any(["The entropy term (T*S)" in reason for reason in temp_validation_doc.reasons])
 
     # LMAXMIX check for SCF calc
     temp_task_doc = copy.deepcopy(task_doc)
@@ -572,7 +564,7 @@ def test_scf_incar_checks(test_dir, object_name):
     # ROPT check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ROPT"] = [-0.001]
-    temp_task_doc.input.parameters["LREAL"] = True
+    temp_task_doc.calcs_reversed[0].input.incar["LREAL"] = True
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["ROPT" in reason for reason in temp_validation_doc.reasons])
 

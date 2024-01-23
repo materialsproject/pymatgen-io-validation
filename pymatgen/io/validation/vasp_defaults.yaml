@@ -42,10 +42,17 @@ EDIFF:
   value: 1.0e-4
   tag: electronic
   operation: ">="
+EFERMI:
+  value: LEGACY
+  tag: misc special
 EFIELD:
   value: 0.0
   tag: dipole
   operation: ==
+ENMAX:
+  value: -.inf
+  tag: fft
+  alias: ENCUT
 EPSILON:
   value: 1.0
   tag: dipole
@@ -54,6 +61,9 @@ GGA_COMPAT:
   value: true
   tag: misc
   operation: ==
+IALGO:
+  value: 38
+  tag: misc special
 ICHARG:
   value: 2
   tag: startup
@@ -78,14 +88,28 @@ ISIF:
   tag: ionic
   operation: <=
   comment: ISIF values < 2 do not output the complete stress tensor.
+ISMEAR:
+  value: 1
+  tag: smearing
+  operation: in
+ISPIN:
+  value: 1
+  tag: misc special
 ISTART:
   value: 0
   tag: startup
+  operation: in
+ISYM:
+  value: 2
+  tag: symmetry
   operation: in
 IVDW:
   value: 0
   tag: misc
   operation: ==
+IWAVPR:
+  value: null
+  tag: misc special
 LASPH:
   value: true
   tag: misc
@@ -106,6 +130,9 @@ LCHIMAG:
   value: false
   tag: chemical shift
   operation: ==
+LCORR:
+  value: true
+  tag: misc special
 LDAU:
   value: false
   tag: dft+u
@@ -148,10 +175,16 @@ LKPROJ:
   value: false
   tag: misc
   operation: ==
+LMAXMIX:
+  value: 2
+  tag: density mixing
 LMAXPAW:
   value: -100
   tag: electronic projector
   operation: ==
+LMAXTAU:
+  value: 6
+  tag: density mixing
 LMONO:
   value: false
   tag: dipole
@@ -176,6 +209,13 @@ LOPTICS:
   value: false
   tag: tddft
   operation: ==
+LORBIT:
+  value: null
+  tag: misc special
+LREAL:
+  value: "false"
+  tag: precision
+  operation: in
 LRPA:
   value: false
   tag: misc
@@ -196,6 +236,9 @@ LSUBROT:
   value: false
   tag: misc
   operation: ==
+METAGGA:
+  value: null
+  tag: dft
 ML_LMLFF:
   value: false
   tag: misc
@@ -204,20 +247,38 @@ NLSPLINE:
   value: false
   tag: electronic projector
   operation: ==
+NSW:
+  value: 0
+  tag: startup
 NWRITE:
   value: 2
   tag: write
   operation: <=
   comment: "The specified value of NWRITE does not output all needed information."
+PREC:
+  value: NORMAL
+  tag: precision
 PSTRESS:
   value: 0.0
   tag: ionic
   operation: approx
   tolerance: 1.0e-4
+RWIGS:
+  value: [-1.0]
+  tag: misc special
 SCALEE:
   value: 1.0
   tag: ionic
   operation: approx
+SIGMA:
+  value: 0.2
+  tag: smearing
+SYMPREC:
+  value: 1.0e-5
+  tag: symmetry
+VCA:
+  value: [1.0]
+  tag: misc special
 WEIMIN:
   value: 0.001
   tag: misc
