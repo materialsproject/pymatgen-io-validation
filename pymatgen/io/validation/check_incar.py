@@ -224,9 +224,7 @@ class GetParams:
         if self.input_set.incar.get("PREC", self.defaults["PREC"]["value"]).upper() in ["ACCURATE", "HIGH"]:
             self.valid_values["PREC"] = ["ACCURATE", "ACCURA", "HIGH"]
         else:
-            raise ValueError(
-                "Validation code check for PREC tag needs to be updated " "to account for a new input set!"
-            )
+            raise ValueError("Validation code check for PREC tag needs to be updated to account for a new input set!")
         self.defaults["PREC"]["operation"] = "in"
 
         # ROPT. Should be better than or equal to default for the PREC level.
@@ -411,9 +409,7 @@ class GetParams:
     def update_smearing(self, bandgap_tol=1.0e-4) -> None:
         bandgap = self.task_doc.output.bandgap
 
-        smearing_comment = (
-            "This is flagged as incorrect because this calculation had a " f"bandgap of {round(bandgap,3)}"
-        )
+        smearing_comment = f"This is flagged as incorrect because this calculation had a bandgap of {round(bandgap,3)}"
 
         # bandgap_tol taken from
         # https://github.com/materialsproject/pymatgen/blob/1f98fa21258837ac174105e00e7ac8563e119ef0/pymatgen/io/vasp/sets.py#L969
@@ -636,7 +632,7 @@ class BasicValidator:
     """Lightweight validator class to handle majority of parameter checking."""
 
     # avoiding dunder methods because these raise too many NotImplemented's
-    operations: tuple[str] = ("==", ">", ">=", "<", "<=", "in", "approx", "auto fail")
+    operations: tuple[str, ...] = ("==", ">", ">=", "<", "<=", "in", "approx", "auto fail")
 
     def __init__(self, global_tolerance=1.0e-4) -> None:
         self.tolerance = global_tolerance
