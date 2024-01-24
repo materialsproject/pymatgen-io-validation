@@ -263,7 +263,7 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # EDIFFG / force convergence check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["EDIFFG"] = 0.01
+    temp_task_doc.input.parameters["EDIFFG"] = -0.01
     temp_task_doc.output.forces = [[10, 10, 10], [10, 10, 10]]
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["CONVERGENCE" in reason for reason in temp_validation_doc.reasons])

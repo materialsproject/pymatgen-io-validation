@@ -49,10 +49,17 @@ EFIELD:
   value: 0.0
   tag: dipole
   operation: ==
+ENAUG:
+  value: .inf
+  tag: electronic
+ENINI:
+  value: 0
+  tag: electronic
 ENMAX:
-  value: -.inf
+  value: .inf
   tag: fft
   alias: ENCUT
+  operation: <=
 EPSILON:
   value: 1.0
   tag: dipole
@@ -64,6 +71,11 @@ GGA_COMPAT:
 IALGO:
   value: 38
   tag: misc special
+  operation: in
+IBRION:
+  value: 0
+  tag: ionic
+  operation: in
 ICHARG:
   value: 2
   tag: startup
@@ -243,6 +255,9 @@ ML_LMLFF:
   value: false
   tag: misc
   operation: ==
+NELECT:
+  value: null
+  tag: electronic
 NLSPLINE:
   value: false
   tag: electronic projector
@@ -255,6 +270,9 @@ NWRITE:
   tag: write
   operation: <=
   comment: "The specified value of NWRITE does not output all needed information."
+POTIM:
+  value: 0.5
+  tag: ionic
 PREC:
   value: NORMAL
   tag: precision

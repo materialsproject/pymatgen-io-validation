@@ -71,189 +71,7 @@ def _check_incar(
             severity=working_params.defaults[key]["severity"],
         )
 
-    _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_reversed, structure, potcar)
-    _check_ionic_params(
-        reasons, warnings, parameters, valid_input_set, task_doc, calcs_reversed, nionic_steps, ionic_steps, structure
-    )
-
     return reasons
-
-
-def _get_default_nbands(structure, parameters, nelect):
-    """
-    This method is copied from the `estimate_nbands` function in pymatgen.io.vasp.sets.py.
-    The only noteworthy changes (should) be that there is no reliance on the user setting
-    up the psp_resources for pymatgen.
-    """
-    nions = len(structure.sites)
-
-    if parameters.get("ISPIN", "1") == 1:
-        nmag = 0
-    else:
-        nmag = sum(parameters.get("MAGMOM", [0]))
-        nmag = np.floor((nmag + 1) / 2)
-
-    possible_val_1 = np.floor((nelect + 2) / 2) + max(np.floor(nions / 2), 3)
-    possible_val_2 = np.floor(nelect * 0.6)
-
-    default_nbands = max(possible_val_1, possible_val_2) + nmag
-
-    if "LNONCOLLINEAR" in parameters.keys():
-        if parameters["LNONCOLLINEAR"]:
-            default_nbands = default_nbands * 2
-
-    if "NPAR" in parameters.keys():
-        npar = parameters["NPAR"]
-        default_nbands = (np.floor((default_nbands + npar - 1) / npar)) * npar
-
-    return int(default_nbands)
-
-
-def _check_electronic_params(reasons, parameters, incar, valid_input_set, calcs_reversed, structure, potcar=None):
-    simple_validator = BasicValidator()
-    # ENCUT. Should be the same or greater than in valid_input_set, as this can affect energies & other results.
-    # *** Note: "ENCUT" is not actually detected by the `Vasprun.parameters` object from pymatgen.io.vasp.outputs.
-    #           Rather, the ENMAX tag in the `Vasprun.parameters` object contains the relevant value for ENCUT.
-    valid_encut = valid_input_set.incar.get("ENCUT", np.inf)
-    simple_validator.check_parameter(reasons, [], "ENCUT", parameters.get("ENMAX", 0), valid_encut, "<=")
-
-    # ENINI. Only check for IALGO = 48 / ALGO = VeryFast, as this is the only algo that uses this tag.
-    if parameters.get("IALGO", 38) == 48:
-        simple_validator.check_parameter(reasons, [], "ENINI", parameters.get("ENINI", 0), valid_encut, "<=")
-
-    # ENAUG. Should only be checked for calculations where the relevant MP input set specifies ENAUG.
-    # In that case, ENAUG should be the same or greater than in valid_input_set.
-    if "ENAUG" in valid_input_set.incar.keys():
-        parameters.get("ENAUG", 0)
-        valid_enaug = valid_input_set.incar.get("ENAUG", np.inf)
-        simple_validator.check_parameter(reasons, [], "ENAUG", parameters.get("ENAUG", 0), valid_enaug, "<=")
-
-    # IALGO.
-    valid_ialgos = [38, 58, 68, 90]
-    # TODO: figure out if 'normal' algos every really affect results other than convergence
-    simple_validator.check_parameter(reasons, [], "IALGO", parameters.get("IALGO", 38), valid_ialgos, "in")
-
-    # NELECT.
-    cur_nelect = parameters.get("NELECT")
-    if "NELECT" in incar.keys():  # Do not check for non-neutral NELECT if NELECT is not in the INCAR
-        valid_charge = 0.0
-        cur_charge = calcs_reversed[0]["output"]["structure"]._charge
-        try:
-            if not np.isclose(valid_charge, cur_charge):
-                reasons.append(
-                    f"INPUT SETTINGS --> NELECT: set to {cur_nelect}, but this causes the structure to have a charge of {cur_charge}. "
-                    f"NELECT should be set to {cur_nelect + cur_charge} instead."
-                )
-        except Exception:
-            reasons.append(
-                "INPUT SETTINGS --> NELECT / POTCAR: issue checking whether NELECT was changed to make the structure have a non-zero charge. "
-                "This is likely due to the directory not having a POTCAR file."
-            )
-    # default_nelect = _get_default_nelect(structure, valid_input_set, potcar=potcar)
-    # _check_required_params(reasons, parameters, "NELECT", default_nelect, default_nelect)
-
-    # NBANDS.
-    min_nbands = int(np.ceil(cur_nelect / 2) + 1)
-    default_nbands = _get_default_nbands(structure, parameters, cur_nelect)
-    # check for too many bands (can lead to unphysical electronic structures, see https://github.com/materialsproject/custodian/issues/224 for more context
-    simple_validator.check_parameter(
-        reasons,
-        [],
-        "NBANDS",
-        parameters.get("NBANDS", default_nbands),
-        4 * default_nbands,
-        ">=",
-        append_comments=(
-            "Too many bands can lead to unphysical electronic structure "
-            "(see https://github.com/materialsproject/custodian/issues/224 "
-            "for more context.)"
-        ),
-    )
-    # check for too few bands (leads to degenerate energies)
-    simple_validator.check_parameter(reasons, [], "NBANDS", parameters.get("NBANDS", default_nbands), min_nbands, "<=")
-
-
-def _check_ionic_params(
-    reasons, warnings, parameters, valid_input_set, task_doc, calcs_reversed, nionic_steps, ionic_steps, structure
-):
-    simple_validator = BasicValidator()
-    # IBRION.
-    default_ibrion = 0
-    valid_ibrions = [-1, 1, 2]
-    input_set_ibrion = valid_input_set.incar.get("IBRION", default_ibrion)
-
-    simple_validator.check_parameter(
-        reasons=reasons,
-        warnings=[],
-        input_tag="IBRION",
-        current_values=parameters.get("IBRION", default_ibrion),
-        reference_values=valid_ibrions if input_set_ibrion in valid_ibrions else [input_set_ibrion],
-        operations="in",
-    )
-
-    # POTIM.
-    if parameters.get("IBRION", 0) in [1, 2, 3, 5, 6]:  # POTIM is only used for some IBRION values
-        valid_max_potim = 5
-        simple_validator.check_parameter(
-            reasons=reasons,
-            warnings=[],
-            input_tag="POTIM",
-            current_values=parameters.get("POTIM", 0.5),
-            reference_values=valid_max_potim,
-            operations=">=",
-            append_comments="POTIM being so high will likely lead to erroneous results.",
-        )
-        # Check for large changes in energy between ionic steps (usually indicates too high POTIM)
-        if nionic_steps > 1:
-            # Do not use `e_0_energy`, as there is a bug in the vasprun.xml when printing that variable
-            # (see https://www.vasp.at/forum/viewtopic.php?t=16942 for more details).
-            cur_ionic_step_energies = [ionic_step["e_fr_energy"] for ionic_step in ionic_steps]
-            cur_ionic_step_energy_gradient = np.diff(cur_ionic_step_energies)
-            cur_max_ionic_step_energy_change_per_atom = (
-                max(np.abs(cur_ionic_step_energy_gradient)) / structure.num_sites
-            )
-            valid_max_energy_change_per_atom = 1
-            if cur_max_ionic_step_energy_change_per_atom > valid_max_energy_change_per_atom:
-                reasons.append(
-                    f"INPUT SETTINGS --> POTIM: The energy changed by a maximum of {cur_max_ionic_step_energy_change_per_atom} eV/atom "
-                    f"between ionic steps, which is greater than the maximum allowed of {valid_max_energy_change_per_atom} eV/atom. "
-                    f"This indicates that the POTIM is too high."
-                )
-
-    # EDIFFG.
-    # Should be the same or smaller than in valid_input_set. Force-based cutoffs (not in every
-    # every MP-compliant input set, but often have comparable or even better results) will also be accepted
-    # I am **NOT** confident that this should be the final check. Perhaps I need convincing (or perhaps it does indeed need to be changed...)
-    # TODO:    -somehow identify if a material is a vdW structure, in which case force-convergence should maybe be more strict?
-    valid_ediff = valid_input_set.incar.get("EDIFF", 1e-4)
-    ediffg_in_input_set = valid_input_set.incar.get("EDIFFG", 10 * valid_ediff)
-
-    if ediffg_in_input_set > 0:
-        valid_ediffg_energy = ediffg_in_input_set
-        valid_ediffg_force = -0.05
-    elif ediffg_in_input_set < 0:
-        valid_ediffg_energy = 10 * valid_ediff
-        valid_ediffg_force = ediffg_in_input_set
-
-    if task_doc.output.forces is None:
-        is_force_converged = False
-        warnings.append("TaskDoc does not contain output forces!")
-    else:
-        is_force_converged = all(
-            (np.linalg.norm(force_on_atom) <= abs(valid_ediffg_force)) for force_on_atom in task_doc.output.forces
-        )
-
-    if parameters.get("NSW", 0) == 0 or nionic_steps <= 1:
-        # TODO? why was this highlighted with hashes?
-        is_converged = is_force_converged
-    else:
-        energy_of_last_step = calcs_reversed[0]["output"]["ionic_steps"][-1]["e_0_energy"]
-        energy_of_second_to_last_step = calcs_reversed[0]["output"]["ionic_steps"][-2]["e_0_energy"]
-        is_energy_converged = abs(energy_of_last_step - energy_of_second_to_last_step) <= valid_ediffg_energy
-        is_converged = any([is_energy_converged, is_force_converged])
-
-    if not is_converged:
-        reasons.append("CONVERGENCE --> Structure is not converged according to the EDIFFG.")
 
 
 class GetParams:
@@ -291,14 +109,15 @@ class GetParams:
         self.vasp_version = vasp_version
         self.calcs_reversed = calcs_reversed
         self.structure = structure
-        self.valid_values = {}
+        self.valid_values: dict[str, Any] = {}
 
         self.task_doc = task_doc
         self._fft_grid_tolerance = fft_grid_tolerance
         self._task_type = task_type
         self._ionic_steps = ionic_steps
+        self._nionic_steps = nionic_steps
 
-        self.categories = {}
+        self.categories: dict[str, list[str]] = {}
         for key in self.defaults:
             if self.defaults[key]["tag"] not in self.categories:
                 self.categories[self.defaults[key]["tag"]] = []
@@ -306,7 +125,7 @@ class GetParams:
 
         self.add_defaults_to_parameters(valid_values_source=self.input_set.incar)
 
-        self.parameter_updates = {
+        self.parameter_updates: dict[str, Any] = {
             "dft+u": self.update_u_params,
             "symmetry": self.update_symmetry_params,
             "startup": self.update_startup_params,
@@ -316,6 +135,8 @@ class GetParams:
             "fft": self.update_fft_params,
             "density mixing": self.update_lmaxmix_and_lmaxtau,
             "smearing": self.update_smearing,
+            "electronic": self.update_electronic_params,
+            "ionic": self.update_ionic_params,
         }
 
         for key in self.parameter_updates:
@@ -335,7 +156,7 @@ class GetParams:
             self.parameters[key] = self.parameters.get(key, self.defaults[key]["value"])
             self.valid_values[key] = valid_values_source.get(key, self.defaults[key]["value"])
 
-    def update_u_params(self):
+    def update_u_params(self) -> None:
         if not self.parameters["LDAU"]:
             return
 
@@ -352,7 +173,7 @@ class GetParams:
                 self.parameters[key] = self.incar.get(key, self.defaults[key]["value"])
             self.defaults[key]["operation"] = "=="
 
-    def update_symmetry_params(self):
+    def update_symmetry_params(self) -> None:
         # ISYM.
         if self.parameters["LHFCALC"]:
             self.defaults["ISYM"]["value"] = 3
@@ -378,7 +199,7 @@ class GetParams:
             }
         )
 
-    def update_startup_params(self):
+    def update_startup_params(self) -> None:
         self.valid_values["ISTART"] = [0, 1, 2]
 
         # ICHARG.
@@ -389,7 +210,7 @@ class GetParams:
             self.valid_values["ICHARG"] = self.input_set.incar.get("ICHARG")
             self.defaults["ICHARG"]["operation"] = "=="
 
-    def update_precision_params(self):
+    def update_precision_params(self) -> None:
         # LREAL.
         # Do NOT use the value for LREAL from the `Vasprun.parameters` object, as VASP changes these values
         # relative to the INCAR. Rather, check the LREAL value in the `Vasprun.incar` object.
@@ -432,7 +253,7 @@ class GetParams:
                 "operation": [">=" for _ in self.parameters["ROPT"]],
             }
 
-    def update_misc_params(self):
+    def update_misc_params(self) -> None:
         # EFERMI. Only available for VASP >= 6.4. Should not be set to a numerical
         # value, as this may change the number of electrons.
         # self.vasp_version = (major, minor, patch)
@@ -495,7 +316,7 @@ class GetParams:
                 }
             )
 
-    def update_hybrid_functional_params(self):
+    def update_hybrid_functional_params(self) -> None:
         self.valid_values["LHFCALC"] = self.input_set.incar.get("LHFCALC", self.defaults["LHFCALC"]["value"])
 
         if self.valid_values["LHFCALC"]:
@@ -516,7 +337,7 @@ class GetParams:
                 }
             )
 
-    def update_fft_params(self):
+    def update_fft_params(self) -> None:
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
         if any(i for i in ["NGX", "NGY", "NGZ", "NGXF", "NGYF", "NGZF"] if i in self.incar.keys()):
             self.valid_values["ENMAX"] = max(
@@ -542,7 +363,7 @@ class GetParams:
                         ),
                     }
 
-    def update_lmaxmix_and_lmaxtau(self):
+    def update_lmaxmix_and_lmaxtau(self) -> None:
         """
         Check that LMAXMIX and LMAXTAU are above the required value. Also ensure that they are not greater than 6,
         as that is inadvisable according to the VASP development team (as of writing this in August 2023).
@@ -587,7 +408,7 @@ class GetParams:
             else:
                 self.defaults[key]["operation"] = "=="
 
-    def update_smearing(self, bandgap_tol=1.0e-4):
+    def update_smearing(self, bandgap_tol=1.0e-4) -> None:
         bandgap = self.task_doc.output.bandgap
 
         smearing_comment = (
@@ -653,34 +474,191 @@ class GetParams:
             "operation": ">=",
         }
 
+    def _get_default_nbands(self):
+        """
+        This method is copied from the `estimate_nbands` function in pymatgen.io.vasp.sets.py.
+        The only noteworthy changes (should) be that there is no reliance on the user setting
+        up the psp_resources for pymatgen.
+        """
+        nions = len(self.structure.sites)
+
+        if self.parameters["ISPIN"] == 1:
+            nmag = 0
+        else:
+            nmag = sum(self.parameters.get("MAGMOM", [0]))
+            nmag = np.floor((nmag + 1) / 2)
+
+        possible_val_1 = np.floor((self._NELECT + 2) / 2) + max(np.floor(nions / 2), 3)
+        possible_val_2 = np.floor(self._NELECT * 0.6)
+
+        default_nbands = max(possible_val_1, possible_val_2) + nmag
+
+        if self.parameters.get("LNONCOLLINEAR"):
+            default_nbands = default_nbands * 2
+
+        if self.parameters.get("NPAR"):
+            default_nbands = (
+                np.floor((default_nbands + self.parameters["NPAR"] - 1) / self.parameters["NPAR"])
+            ) * self.parameters["NPAR"]
+
+        return int(default_nbands)
+
+    def update_electronic_params(self):
+        # ENINI. Only check for IALGO = 48 / ALGO = VeryFast, as this is the only algo that uses this tag.
+        if self.parameters["IALGO"] == 48:
+            self.valid_values["ENINI"] = self.valid_values["ENMAX"]
+            self.defaults["ENINI"]["operation"] = "<="
+
+        # ENAUG. Should only be checked for calculations where the relevant MP input set specifies ENAUG.
+        # In that case, ENAUG should be the same or greater than in valid_input_set.
+        if self.input_set.incar.get("ENAUG"):
+            self.defaults["ENAUG"]["operation"] = "<="
+
+        # IALGO.
+        self.valid_values["IALGO"] = [38, 58, 68, 90]
+        # TODO: figure out if 'normal' algos every really affect results other than convergence
+
+        # NELECT.
+        self._NELECT = self.parameters.get("NELECT")
+        # Do not check for non-neutral NELECT if NELECT is not in the INCAR
+        if self.incar.get("NELECT"):
+            self.valid_values["NELECT"] = 0.0
+            try:
+                self.parameters["NELECT"] = float(self.calcs_reversed[0]["output"]["structure"]._charge)
+                self.defaults["NELECT"].update(
+                    {
+                        "operation": "approx",
+                        "comment": (
+                            f"This causes the structure to have a charge of {self.parameters['NELECT']}. "
+                            f"NELECT should be set to {self._NELECT + self.parameters['NELECT']} instead."
+                        ),
+                    }
+                )
+            except Exception:
+                self.defaults["NELECT"].update(
+                    {
+                        "operation": "auto fail",
+                        "alias": "NELECT / POTCAR",
+                        "comment": "Issue checking whether NELECT was changed to make "
+                        "the structure have a non-zero charge. This is likely due to the "
+                        "directory not having a POTCAR file.",
+                    }
+                )
+
+        # NBANDS.
+        min_nbands = int(np.ceil(self._NELECT / 2) + 1)
+        self.defaults["NBANDS"] = {
+            "value": self._get_default_nbands(),
+            "operation": ["<=", ">="],
+            "tag": "electronic",
+            "comment": (
+                "Too many or too few bands can lead to unphysical electronic structure "
+                "(see https://github.com/materialsproject/custodian/issues/224 "
+                "for more context.)"
+            ),
+        }
+        self.valid_values["NBANDS"] = [min_nbands, 4 * self.defaults["NBANDS"]["value"]]
+        self.parameters["NBANDS"] = [self.parameters["NBANDS"] for _ in range(2)]
+
+    def update_ionic_params(self):
+        # IBRION.
+        self.valid_values["IBRION"] = [-1, 1, 2]
+        if self.input_set.incar.get("IBRION"):
+            self.valid_values["IBRION"] = [self.input_set.incar["IBRION"]]
+
+        # POTIM.
+        if self.parameters["IBRION"] in [1, 2, 3, 5, 6]:
+            # POTIM is only used for some IBRION values
+            self.valid_values["POTIM"] = 5
+            self.defaults["POTIM"].update(
+                {
+                    "operation": ">=",
+                    "comment": "POTIM being so high will likely lead to erroneous results.",
+                }
+            )
+
+            # Check for large changes in energy between ionic steps (usually indicates too high POTIM)
+            if self._nionic_steps > 1:
+                # Do not use `e_0_energy`, as there is a bug in the vasprun.xml when printing that variable
+                # (see https://www.vasp.at/forum/viewtopic.php?t=16942 for more details).
+                cur_ionic_step_energies = [ionic_step["e_fr_energy"] for ionic_step in self._ionic_steps]
+                cur_ionic_step_energy_gradient = np.diff(cur_ionic_step_energies)
+                self.parameters["max gradient"] = max(np.abs(cur_ionic_step_energy_gradient)) / self.structure.num_sites
+                self.valid_values["max gradient"] = 1
+                self.defaults["max gradient"] = {
+                    "value": None,
+                    "tag": "ionic",
+                    "alias": "POTIM",
+                    "operation": ">=",
+                    "comment": (
+                        f"The energy changed by a maximum of {self.valid_values['max gradient']} eV/atom "
+                        "between ionic steps, which is greater than the maximum "
+                        f"allowed of {self.valid_values['max gradient']} eV/atom. "
+                        "This indicates that POTIM is too high."
+                    ),
+                }
+
+        # EDIFFG.
+        # Should be the same or smaller than in valid_input_set. Force-based cutoffs (not in every
+        # every MP-compliant input set, but often have comparable or even better results) will also be accepted
+        # I am **NOT** confident that this should be the final check. Perhaps I need convincing (or perhaps it does indeed need to be changed...)
+        # TODO:    -somehow identify if a material is a vdW structure, in which case force-convergence should maybe be more strict?
+        self.defaults["EDIFFG"] = {
+            "value": 10 * self.valid_values["EDIFF"],
+            "category": "ionic",
+            "comment": "CONVERGENCE --> Structure is not converged according to EDIFFG.",
+        }
+
+        self.valid_values["EDIFFG"] = self.input_set.incar.get("EDIFFG", self.defaults["EDIFFG"]["value"])
+
+        if self.task_doc.output.forces is None:
+            self.defaults["EDIFFG"]["warning"] = "TaskDoc does not contain output forces!"
+            self.defaults["EDIFFG"]["operation"] = "auto fail"
+
+        elif self.parameters["EDIFFG"] < 0.0:
+            self.parameters["EDIFFG"] = [np.linalg.norm(force_on_atom) for force_on_atom in self.task_doc.output.forces]
+            self.valid_values["EDIFFG"] = [abs(self.valid_values["EDIFFG"]) for _ in range(self.structure.num_sites)]
+            self.defaults["EDIFFG"].update(
+                {
+                    "value": [self.defaults["EDIFFG"]["value"] for _ in range(self.structure.num_sites)],
+                    "operation": [">=" for _ in range(self.structure.num_sites)],
+                }
+            )
+
+        elif self.parameters["EDIFFG"] > 0.0 and self.parameters["NSW"] > 0 and self._nionic_steps > 1:
+            energy_of_last_step = self.calcs_reversed[0]["output"]["ionic_steps"][-1]["e_0_energy"]
+            energy_of_second_to_last_step = self.calcs_reversed[0]["output"]["ionic_steps"][-2]["e_0_energy"]
+            self.parameters["EDIFFG"] = abs(energy_of_last_step - energy_of_second_to_last_step)
+            self.defaults["EDIFFG"]["operation"] = ">="
+
 
 class BasicValidator:
     """Lightweight validator class to handle majority of parameter checking."""
 
     # avoiding dunder methods because these raise too many NotImplemented's
-    operations = {
-        "==": lambda x, y: x == y,
-        ">": lambda x, y: x > y,
-        ">=": lambda x, y: x >= y,
-        "<": lambda x, y: x < y,
-        "<=": lambda x, y: x <= y,
-        "in": lambda x, y: y in x,
-        "approx": lambda x, y, tol: isclose(x, y, rel_tol=tol, abs_tol=0.0),
-        "auto fail": lambda x, y: False,
-    }
+    operations: tuple[str] = ("==", ">", ">=", "<", "<=", "in", "approx", "auto fail")
 
     def __init__(self, global_tolerance=1.0e-4) -> None:
         self.tolerance = global_tolerance
 
-        self.flipped_operations = {}
-        for operation in self.operations:
-            flipped_operation = operation
-            if ">" in operation:
-                flipped_operation.replace(">", "<")
-            elif "<" in operation:
-                flipped_operation.replace("<", ">")
-
-            self.flipped_operations[operation] = flipped_operation
+    def _comparator(self, x: Any, operation: str, y: Any, **kwargs) -> bool:
+        if operation == "auto fail":
+            c = False
+        elif operation == "==":
+            c = x == y
+        elif operation == ">":
+            c = x > y
+        elif operation == ">=":
+            c = x >= y
+        elif operation == "<":
+            c = x < y
+        elif operation == "<=":
+            c = x <= y
+        elif operation == "in":
+            c = y in x
+        elif operation == "approx":
+            c = isclose(x, y, **kwargs)
+        return c
 
     def _check_parameter(
         self,
@@ -700,19 +678,23 @@ class BasicValidator:
 
         append_comments = append_comments or ""
 
-        args = ()
+        kwargs: dict[str, Any] = {}
         if operation == "approx" and isinstance(current_value, float):
-            args = (tolerance or self.tolerance,)
-        valid_value = self.operations[operation](reference_value, current_value, *args)
+            kwargs.update({"rel_tol": tolerance or self.tolerance, "abs_tol": 0.0})
+        valid_value = self._comparator(reference_value, operation, current_value, **kwargs)
 
         if not valid_value:
             # reverse the inequality sign because of ordering of input and expected
             # values in reason string
+            flipped_operation = operation
+            if ">" in operation:
+                flipped_operation.replace(">", "<")
+            elif "<" in operation:
+                flipped_operation.replace("<", ">")
+
             error_list.append(
-                f"INPUT SETTINGS --> {input_tag}: "
-                f"set to {current_value}, but should be "
-                f"{self.flipped_operations[operation]} {reference_value}. "
-                f"{append_comments}"
+                f"INPUT SETTINGS --> {input_tag}: set to {current_value}, but should be "
+                f"{flipped_operation} {reference_value}. {append_comments}"
             )
 
     def check_parameter(
