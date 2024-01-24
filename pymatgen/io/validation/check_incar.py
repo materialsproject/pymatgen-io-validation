@@ -719,7 +719,8 @@ class BasicValidator:
             current_values = [current_values]
             reference_values = [reference_values]
 
-        if not all(operation in self.operations for operation in operations): # MK: unclear
+        if not all(operation in self.operations for operation in operations):
+            # MK: is this actually the best way to handle this? Why not raise an error in such cases?
             # Do not validate
             return
 
