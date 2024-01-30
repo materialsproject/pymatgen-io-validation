@@ -38,11 +38,11 @@ def _check_incar(
     note that all changes to `reasons` and `warnings` can be done in-place
     (and hence there is no need to return those variables after every function call).
     Any cases where that is not done is just to make the code more readable.
-    # MK: A better description of this class should be included above the current docstring. 
+    # MK: A better description of this class should be included above the current docstring.
         # I think writing clearly how the whole function operates, in chronological order, would be best.
     """
 
-    working_params = GetParams( # MK: unclear
+    working_params = GetParams(  # MK: unclear
         parameters=parameters,
         defaults=_vasp_defaults,
         input_set=valid_input_set,
@@ -76,7 +76,7 @@ def _check_incar(
 
 
 class GetParams:
-    """Initialize current params and update defaults as needed.""" # MK: unclear, expand
+    """Initialize current params and update defaults as needed."""  # MK: unclear, expand
 
     _default_defaults = {
         "value": None,
@@ -102,8 +102,8 @@ class GetParams:
         vasp_version: Sequence[int],
         task_type,
         fft_grid_tolerance: float,
-    ) -> None: 
-        # MK: unclear. I think a thorough docstring describing how this class init 
+    ) -> None:
+        # MK: unclear. I think a thorough docstring describing how this class init
         # operates, in chronological order, would be best.
         self.parameters = copy.deepcopy(parameters)
         self.defaults = copy.deepcopy(defaults)
@@ -633,7 +633,8 @@ class GetParams:
 
 class BasicValidator:
     """Lightweight validator class to handle majority of parameter checking."""
-     # MK: unclear. Is the above docstring accurate? It seems like all checks use this, right?
+
+    # MK: unclear. Is the above docstring accurate? It seems like all checks use this, right?
 
     # avoiding dunder methods because these raise too many NotImplemented's
     operations: tuple[str, ...] = ("==", ">", ">=", "<", "<=", "in", "approx", "auto fail")
@@ -674,7 +675,7 @@ class BasicValidator:
 
         # Allow for printing different tag than the one used to access values
         # For example, the user sets ENCUT via INCAR, but the value of ENCUT is stored
-        # by VASP as ENMAX  
+        # by VASP as ENMAX
         # MK: is the above comment in the best place?
 
         append_comments = append_comments or ""
