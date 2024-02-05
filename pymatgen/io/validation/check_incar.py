@@ -103,8 +103,12 @@ class GetParams:
         task_type,
         fft_grid_tolerance: float,
     ) -> None:
+        """
+        Based on details of the inputted calculation, creates a set of valid inputs that
+        must be matched (or better). Also parses some of the inputted calc parameters for easier comparison.
         # MK: unclear. I think a thorough docstring describing how this class init
         # operates, in chronological order, would be best.
+        """
         self.parameters = copy.deepcopy(parameters)
         self.defaults = copy.deepcopy(defaults)
         self.input_set = input_set
@@ -152,7 +156,7 @@ class GetParams:
                 self.defaults[key][attr] = self.defaults[key].get(attr, self._default_defaults[attr])
 
     def add_defaults_to_parameters(self, valid_values_source: dict | None = None) -> None:
-        # update parameters with initial defaults
+        """update parameters with initial defaults"""
         valid_values_source = valid_values_source or self.valid_values
 
         for key in self.defaults:
@@ -160,6 +164,7 @@ class GetParams:
             self.valid_values[key] = valid_values_source.get(key, self.defaults[key]["value"])
 
     def update_u_params(self) -> None:
+        """update GGA+U params"""
         if not self.parameters["LDAU"]:
             return
 
@@ -177,6 +182,7 @@ class GetParams:
             self.defaults[key]["operation"] = "=="
 
     def update_symmetry_params(self) -> None:
+        """update symmetry-related parameters"""
         # ISYM.
         if self.parameters["LHFCALC"]:
             self.defaults["ISYM"]["value"] = 3
@@ -203,6 +209,7 @@ class GetParams:
         )
 
     def update_startup_params(self) -> None:
+        """update VASP initialization params"""
         self.valid_values["ISTART"] = [0, 1, 2]
 
         # ICHARG.
@@ -214,6 +221,7 @@ class GetParams:
             self.defaults["ICHARG"]["operation"] = "=="
 
     def update_precision_params(self) -> None:
+        """update VASP parameters related to precision"""
         # LREAL.
         # Do NOT use the value for LREAL from the `Vasprun.parameters` object, as VASP changes these values
         # relative to the INCAR. Rather, check the LREAL value in the `Vasprun.incar` object.
@@ -255,6 +263,7 @@ class GetParams:
             }
 
     def update_misc_params(self) -> None:
+        """Update miscellaneous params that do not fall into another category"""
         # EFERMI. Only available for VASP >= 6.4. Should not be set to a numerical
         # value, as this may change the number of electrons.
         # self.vasp_version = (major, minor, patch)
@@ -318,6 +327,7 @@ class GetParams:
             )
 
     def update_hybrid_functional_params(self) -> None:
+        """update params related to hybrid functionals"""
         self.valid_values["LHFCALC"] = self.input_set.incar.get("LHFCALC", self.defaults["LHFCALC"]["value"])
 
         if self.valid_values["LHFCALC"]:
@@ -339,6 +349,7 @@ class GetParams:
             )
 
     def update_fft_params(self) -> None:
+        """update parameters related to the FFT grid."""
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
         if any(i for i in ["NGX", "NGY", "NGZ", "NGXF", "NGYF", "NGZF"] if i in self.incar.keys()):
             self.valid_values["ENMAX"] = max(
@@ -410,6 +421,7 @@ class GetParams:
                 self.defaults[key]["operation"] = "=="
 
     def update_smearing(self, bandgap_tol=1.0e-4) -> None:
+        """update parameters related to smearing. This is based on the final bandgap obtained in the calc."""
         bandgap = self.task_doc.output.bandgap
 
         smearing_comment = f"This is flagged as incorrect because this calculation had a bandgap of {round(bandgap,3)}"
@@ -503,6 +515,7 @@ class GetParams:
         return int(default_nbands)
 
     def update_electronic_params(self):
+        """update electronic params"""
         # ENINI. Only check for IALGO = 48 / ALGO = VeryFast, as this is the only algo that uses this tag.
         if self.parameters["IALGO"] == 48:
             self.valid_values["ENINI"] = self.valid_values["ENMAX"]
@@ -560,6 +573,7 @@ class GetParams:
         self.parameters["NBANDS"] = [self.parameters["NBANDS"] for _ in range(2)]
 
     def update_ionic_params(self):
+        """update params related to ionic relaxation"""
         # IBRION.
         self.valid_values["IBRION"] = [-1, 1, 2]
         if self.input_set.incar.get("IBRION"):
@@ -640,9 +654,11 @@ class BasicValidator:
     operations: tuple[str, ...] = ("==", ">", ">=", "<", "<=", "in", "approx", "auto fail")
 
     def __init__(self, global_tolerance=1.0e-4) -> None:
+        """ """
         self.tolerance = global_tolerance
 
     def _comparator(self, x: Any, operation: str, y: Any, **kwargs) -> bool:
+        """compares different values using one out of a set of supported operations"""
         if operation == "auto fail":
             c = False
         elif operation == "==":
