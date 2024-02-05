@@ -654,7 +654,7 @@ class BasicValidator:
     operations: tuple[str, ...] = ("==", ">", ">=", "<", "<=", "in", "approx", "auto fail")
 
     def __init__(self, global_tolerance=1.0e-4) -> None:
-        """ """
+        """init method"""
         self.tolerance = global_tolerance
 
     def _comparator(self, x: Any, operation: str, y: Any, **kwargs) -> bool:
