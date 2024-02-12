@@ -65,13 +65,18 @@ def _check_incar(
     task_type : TaskType
         Task type of the calculation.
     fft_grid_tolerance: float
-        TODO MK : what was the purpose of this originally?
+        Directly calculating the FFT grid defaults from VASP is actually impossible 
+        without information on how VASP was compiled. This is because the FFT 
+        params generated depend on whatever fft library used. So instead, we do our 
+        best to calculate the FFT grid defaults and then lower it artificially by 
+        `fft_grid_tolerance`. So if the user’s FFT grid parameters are greater than 
+        (fft_grid_tolerance x slightly-off defaults), the FFT params are marked 
+        as valid.
     """
 
     # Instantiate class that updates "dynamic" INCAR tags
     # (like NBANDS, or hybrid-related parameters)
 
-    # MK: unclear
     # AK : review
     working_params = UpdateParameterValues(
         parameters=parameters,
