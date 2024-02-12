@@ -41,7 +41,7 @@ EBREAK:
 EDIFF:
   value: 1.0e-4
   tag: electronic
-  operation: ">="
+  operation: "<="
 EFERMI:
   value: LEGACY
   tag: misc special
@@ -59,7 +59,7 @@ ENMAX:
   value: .inf
   tag: fft
   alias: ENCUT
-  operation: <=
+  operation: ">="
 EPSILON:
   value: 1.0
   tag: dipole
@@ -98,7 +98,7 @@ INIWAV:
 ISIF:
   value: 2
   tag: ionic
-  operation: <=
+  operation: ">="
   comment: ISIF values < 2 do not output the complete stress tensor.
 ISMEAR:
   value: 1
@@ -147,19 +147,19 @@ LCORR:
   tag: misc special
 LDAU:
   value: false
-  tag: dft+u
+  tag: dft plus u
 LDAUU:
   value: []
-  tag: dft+u
+  tag: dft plus u
 LDAUJ:
   value: []
-  tag: dft+u
+  tag: dft plus u
 LDAUL:
   value: []
-  tag: dft+u
+  tag: dft plus u
 LDAUTYPE:
   value: 2
-  tag: dft+u
+  tag: dft plus u
 LDIPOL:
   value: false
   tag: dipole
@@ -268,7 +268,7 @@ NSW:
 NWRITE:
   value: 2
   tag: write
-  operation: <=
+  operation: ">="
   comment: "The specified value of NWRITE does not output all needed information."
 POTIM:
   value: 0.5
@@ -300,4 +300,4 @@ VCA:
 WEIMIN:
   value: 0.001
   tag: misc
-  operation: ">="
+  operation: "<="

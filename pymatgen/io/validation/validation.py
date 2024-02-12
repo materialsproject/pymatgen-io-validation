@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from importlib.resources import files as import_resource_files
 import numpy as np
-from pkg_resources import resource_filename  # type: ignore
 from pydantic import Field
 from pydantic.types import ImportString  # replacement for PyObject
 from pathlib import Path
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 SETTINGS = IOValidationSettings()
 
-_pmg_potcar_summary_stats = loadfn(resource_filename("pymatgen.io.vasp", "potcar-summary-stats.json.bz2"))
+_pmg_potcar_summary_stats = loadfn(import_resource_files("pymatgen.io.vasp") / "potcar-summary-stats.json.bz2")
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
@@ -102,7 +102,7 @@ class ValidationDoc(EmmetBaseModel):
         bandgap = task_doc.output.bandgap
         calcs_reversed = task_doc.calcs_reversed
         calcs_reversed = [
-            calc.dict() for calc in calcs_reversed
+            calc.model_dump() for calc in calcs_reversed
         ]  # convert to dictionary to use built-in `.get()` method
 
         parameters = (
@@ -114,7 +114,7 @@ class ValidationDoc(EmmetBaseModel):
         if task_doc.orig_inputs is None:
             orig_inputs = {}
         else:
-            orig_inputs = task_doc.orig_inputs.dict()
+            orig_inputs = task_doc.orig_inputs.model_dump()
             if orig_inputs["kpoints"] is not None:
                 orig_inputs["kpoints"] = orig_inputs["kpoints"].as_dict()
 
@@ -147,7 +147,7 @@ class ValidationDoc(EmmetBaseModel):
         # data = {}  # type: ignore
         warnings: list[str] = []
 
-        if run_type not in ["GGA", "GGA+U", "PBE", "PBE+U", "R2SCAN"]:
+        if f"{run_type}".upper() not in {"GGA", "GGA+U", "PBE", "PBE+U", "R2SCAN"}:
             reasons.append(f"FUNCTIONAL --> Functional {run_type} not currently accepted.")
 
         try:

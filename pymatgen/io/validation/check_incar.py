@@ -1,13 +1,13 @@
 """Module for validating VASP INCAR files"""
 from __future__ import annotations
 import copy
-from importlib.resources import files as import_res_files
+from importlib.resources import files as import_resource_files
 from monty.serialization import loadfn
 from math import isclose
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from typing import Any, Sequence
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from pymatgen.io.vasp import Incar
     from pymatgen.io.vasp.sets import VaspInputSet
 
-_vasp_defaults = loadfn(import_res_files("pymatgen.io.validation") / "vasp_defaults.yaml")
+_vasp_defaults = loadfn(import_resource_files("pymatgen.io.validation") / "vasp_defaults.yaml")
 
 
 def _check_incar(
@@ -42,7 +42,7 @@ def _check_incar(
         # I think writing clearly how the whole function operates, in chronological order, would be best.
     """
 
-    working_params = GetParams(  # MK: unclear
+    working_params = UpdateParameterValues(  # MK: unclear
         parameters=parameters,
         defaults=_vasp_defaults,
         input_set=valid_input_set,
@@ -57,6 +57,7 @@ def _check_incar(
         task_type=task_type,
         fft_grid_tolerance=fft_grid_tolerance,
     )
+    working_params.update_parameters_and_defaults()
 
     simple_validator = BasicValidator()
     for key in working_params.defaults:
@@ -75,10 +76,39 @@ def _check_incar(
     return reasons
 
 
-class GetParams:
-    """Initialize current params and update defaults as needed."""  # MK: unclear, expand
+class UpdateParameterValues:
+    """
+    Update a set of parameters according to supplied rules and defaults.
 
-    _default_defaults = {
+    While many of the parameters in VASP need only a simple check to determine
+    validity with respect to Materials Project parameters, a few are updated
+    by VASP when other conditions are met.
+
+    For example, if LDAU is set to False, none of the various LDAU* (LDAUU, LDAUJ,
+    LDAUL) tags need validation. But if LDAU is set to true, these all need validation.
+
+    Another example is NBANDS, which VASP computes from a set of input tags.
+    This class allows one to mimic the VASP NBANDS functionality for computing
+    NBANDS dynamically, and update both the current and reference values for NBANDs.
+
+    To do this in a simple, automatic fashion, each parameter in `vasp_defaults.yaml` has
+    a "tag" field. To update a set of parameters with a given tag, one then adds a function
+    to `GetParams` called `update_{tag.replace(" ","_")}_params`. For example, the "dft plus u"
+    tag has an update function called `update_dft_plus_u_params`. If no such update method
+    exists, that tag is skipped.
+
+    Attrs
+    ---------
+    _default_schema : dict[str,Any]
+        The schema of an entry in the dict of default values (`self.defaults`).
+        This pads any missing entries in the set of parameters defaults with
+        sensible default values.
+    """
+
+    # MK: unclear, expand
+    # AK: review
+
+    _default_schema: dict[str, Any] = {
         "value": None,
         "tag": None,
         "operation": None,
@@ -104,8 +134,8 @@ class GetParams:
         fft_grid_tolerance: float,
     ) -> None:
         """
-        Based on details of the inputted calculation, creates a set of valid inputs that
-        must be matched (or better). Also parses some of the inputted calc parameters for easier comparison.
+        Based on details of the input calculation, creates a set of valid inputs that
+        must be matched (or better). Also parses some of the input calc parameters for easier comparison.
         # MK: unclear. I think a thorough docstring describing how this class init
         # operates, in chronological order, would be best.
         """
@@ -124,51 +154,54 @@ class GetParams:
         self._ionic_steps = ionic_steps
         self._nionic_steps = nionic_steps
 
+    def update_parameters_and_defaults(self) -> None:
+        """Update user parameters and defaults for tags with a specified update method."""
+
         self.categories: dict[str, list[str]] = {}
         for key in self.defaults:
             if self.defaults[key]["tag"] not in self.categories:
                 self.categories[self.defaults[key]["tag"]] = []
             self.categories[self.defaults[key]["tag"]].append(key)
 
+        # add defaults to parameters from the incar as needed
         self.add_defaults_to_parameters(valid_values_source=self.input_set.incar)
 
-        self.parameter_updates: dict[str, Any] = {
-            "dft+u": self.update_u_params,
-            "symmetry": self.update_symmetry_params,
-            "startup": self.update_startup_params,
-            "precision": self.update_precision_params,
-            "misc special": self.update_misc_params,
-            "hybrid": self.update_hybrid_functional_params,
-            "fft": self.update_fft_params,
-            "density mixing": self.update_lmaxmix_and_lmaxtau,
-            "smearing": self.update_smearing,
-            "electronic": self.update_electronic_params,
-            "ionic": self.update_ionic_params,
-        }
+        # collect list of tags in parameter defaults
+        for tag in {self.defaults[key].get("tag").replace(" ", "_") for key in self.defaults}:
+            # check to see if update method for that tag exists, and if so, run it
+            update_method_str = f"update_{tag}_params"
+            if hasattr(self, update_method_str):
+                self.__getattribute__(update_method_str)()
 
-        for key in self.parameter_updates:
-            self.parameter_updates[key]()
-
+        # add defaults to parameters from the defaults as needed
         self.add_defaults_to_parameters()
 
         for key in self.defaults:
-            for attr in self._default_defaults:
-                self.defaults[key][attr] = self.defaults[key].get(attr, self._default_defaults[attr])
+            for attr in self._default_schema:
+                self.defaults[key][attr] = self.defaults[key].get(attr, self._default_schema[attr])
 
     def add_defaults_to_parameters(self, valid_values_source: dict | None = None) -> None:
-        """update parameters with initial defaults"""
+        """
+        Update parameters with initial defaults.
+
+        Parameters
+        -----------
+        valid_values_source : dict or None (default)
+            If None, update missing values in `self.parameters` and `self.valid_values`
+            using self.defaults. If a dict, update from that dict.
+        """
         valid_values_source = valid_values_source or self.valid_values
 
         for key in self.defaults:
             self.parameters[key] = self.parameters.get(key, self.defaults[key]["value"])
             self.valid_values[key] = valid_values_source.get(key, self.defaults[key]["value"])
 
-    def update_u_params(self) -> None:
-        """update GGA+U params"""
+    def update_dft_plus_u_params(self) -> None:
+        """Update DFT+U params."""
         if not self.parameters["LDAU"]:
             return
 
-        for key in self.categories["dft+u"]:
+        for key in self.categories["dft plus u"]:
             valid_value = self.input_set.incar.get(key, self.defaults[key]["value"])
 
             # TODO: ADK: is LDAUTYPE usually specified as a list??
@@ -182,7 +215,7 @@ class GetParams:
             self.defaults[key]["operation"] = "=="
 
     def update_symmetry_params(self) -> None:
-        """update symmetry-related parameters"""
+        """Update symmetry-related parameters."""
         # ISYM.
         if self.parameters["LHFCALC"]:
             self.defaults["ISYM"]["value"] = 3
@@ -199,7 +232,7 @@ class GetParams:
         self.valid_values["SYMPREC"] = 1e-3
         self.defaults["SYMPREC"].update(
             {
-                "operation": ">=",
+                "operation": "<=",
                 "comment": (
                     "If you believe that this SYMPREC value is necessary "
                     "(perhaps this calculation has a very large cell), please create "
@@ -209,19 +242,19 @@ class GetParams:
         )
 
     def update_startup_params(self) -> None:
-        """update VASP initialization params"""
+        """Update VASP initialization parameters."""
         self.valid_values["ISTART"] = [0, 1, 2]
 
         # ICHARG.
         if self.input_set.incar.get("ICHARG", self.defaults["ICHARG"]["value"]) < 10:
             self.valid_values["ICHARG"] = 9  # should be <10 (SCF calcs)
-            self.defaults["ICHARG"]["operation"] = ">="
+            self.defaults["ICHARG"]["operation"] = "<="
         else:
             self.valid_values["ICHARG"] = self.input_set.incar.get("ICHARG")
             self.defaults["ICHARG"]["operation"] = "=="
 
     def update_precision_params(self) -> None:
-        """update VASP parameters related to precision"""
+        """Update VASP parameters related to precision."""
         # LREAL.
         # Do NOT use the value for LREAL from the `Vasprun.parameters` object, as VASP changes these values
         # relative to the INCAR. Rather, check the LREAL value in the `Vasprun.incar` object.
@@ -259,11 +292,11 @@ class GetParams:
             self.defaults["ROPT"] = {
                 "value": [abs(ropt_default[cur_prec]) for _ in self.parameters["ROPT"]],
                 "tag": "startup",
-                "operation": [">=" for _ in self.parameters["ROPT"]],
+                "operation": ["<=" for _ in self.parameters["ROPT"]],
             }
 
-    def update_misc_params(self) -> None:
-        """Update miscellaneous params that do not fall into another category"""
+    def update_misc_special_params(self) -> None:
+        """Update miscellaneous parameters that do not fall into another category."""
         # EFERMI. Only available for VASP >= 6.4. Should not be set to a numerical
         # value, as this may change the number of electrons.
         # self.vasp_version = (major, minor, patch)
@@ -326,8 +359,8 @@ class GetParams:
                 }
             )
 
-    def update_hybrid_functional_params(self) -> None:
-        """update params related to hybrid functionals"""
+    def update_hybrid_params(self) -> None:
+        """Update params related to hybrid functionals."""
         self.valid_values["LHFCALC"] = self.input_set.incar.get("LHFCALC", self.defaults["LHFCALC"]["value"])
 
         if self.valid_values["LHFCALC"]:
@@ -349,7 +382,7 @@ class GetParams:
             )
 
     def update_fft_params(self) -> None:
-        """update parameters related to the FFT grid."""
+        """Update parameters related to the FFT grid."""
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
         if any(i for i in ["NGX", "NGY", "NGZ", "NGXF", "NGYF", "NGZF"] if i in self.incar.keys()):
             self.valid_values["ENMAX"] = max(
@@ -368,17 +401,19 @@ class GetParams:
                     self.defaults[key] = {
                         "value": self.valid_values[key],
                         "tag": "fft",
-                        "operation": "<=",
+                        "operation": ">=",
                         "comment": (
                             "This likely means the number FFT grid points was modified by the user. "
                             "If not, please create a GitHub issue."
                         ),
                     }
 
-    def update_lmaxmix_and_lmaxtau(self) -> None:
+    def update_density_mixing_params(self) -> None:
         """
-        Check that LMAXMIX and LMAXTAU are above the required value. Also ensure that they are not greater than 6,
-        as that is inadvisable according to the VASP development team (as of writing this in August 2023).
+        Check that LMAXMIX and LMAXTAU are above the required value.
+
+        Also ensure that they are not greater than 6, as that is inadvisable
+        according to the VASP development team (as of August 2023).
         """
 
         self.valid_values["LMAXMIX"] = self.input_set.incar.get("LMAXMIX", self.defaults["LMAXMIX"]["value"])
@@ -415,13 +450,17 @@ class GetParams:
 
             if self.valid_values[key] < 6:
                 self.valid_values[key] = [self.valid_values[key], 6]
-                self.defaults[key]["operation"] = ["<=", ">="]
+                self.defaults[key]["operation"] = [">=", "<="]
                 self.parameters[key] = [self.parameters[key], self.parameters[key]]
             else:
                 self.defaults[key]["operation"] = "=="
 
-    def update_smearing(self, bandgap_tol=1.0e-4) -> None:
-        """update parameters related to smearing. This is based on the final bandgap obtained in the calc."""
+    def update_smearing_params(self, bandgap_tol=1.0e-4) -> None:
+        """
+        Update parameters related to Fermi-level smearing.
+
+        This is based on the final bandgap obtained in the calc.
+        """
         bandgap = self.task_doc.output.bandgap
 
         smearing_comment = f"This is flagged as incorrect because this calculation had a bandgap of {round(bandgap,3)}"
@@ -446,8 +485,10 @@ class GetParams:
         for key in ["ISMEAR", "SIGMA"]:
             self.defaults[key]["comment"] = smearing_comment
 
-        # TODO: improve logic for SIGMA reasons given in the case where you have a material that should have been relaxed with ISMEAR in [-5, 0], but used ISMEAR in [1,2].
-        # Because in such cases, the user wouldn't need to update the SIGMA if they use tetrahedron smearing.
+        # TODO: improve logic for SIGMA reasons given in the case where you
+        # have a material that should have been relaxed with ISMEAR in [-5, 0],
+        # but used ISMEAR in [1,2]. Because in such cases, the user wouldn't
+        # need to update the SIGMA if they use tetrahedron smearing.
         if self.parameters["ISMEAR"] in [-5, -4, -2]:
             self.defaults["SIGMA"]["warning"] = (
                 f"SIGMA is not being directly checked, as an ISMEAR of {self.parameters['ISMEAR']} "
@@ -457,7 +498,7 @@ class GetParams:
             )
 
         else:
-            self.defaults["SIGMA"]["operation"] = ">="
+            self.defaults["SIGMA"]["operation"] = "<="
 
         # Also check if SIGMA is too large according to the VASP wiki,
         # which occurs when the entropy term in the energy is greater than 1 meV/atom.
@@ -482,11 +523,13 @@ class GetParams:
                 f"maximum suggested in the VASP wiki. Thus, SIGMA should be decreased."
             ),
             "alias": "SIGMA",
-            "operation": ">=",
+            "operation": "<=",
         }
 
     def _get_default_nbands(self):
         """
+        Estimate number of bands used in calculation.
+
         This method is copied from the `estimate_nbands` function in pymatgen.io.vasp.sets.py.
         The only noteworthy changes (should) be that there is no reliance on the user setting
         up the psp_resources for pymatgen.
@@ -515,16 +558,16 @@ class GetParams:
         return int(default_nbands)
 
     def update_electronic_params(self):
-        """update electronic params"""
+        """Update electronic self-consistency parameters."""
         # ENINI. Only check for IALGO = 48 / ALGO = VeryFast, as this is the only algo that uses this tag.
         if self.parameters["IALGO"] == 48:
             self.valid_values["ENINI"] = self.valid_values["ENMAX"]
-            self.defaults["ENINI"]["operation"] = "<="
+            self.defaults["ENINI"]["operation"] = ">="
 
         # ENAUG. Should only be checked for calculations where the relevant MP input set specifies ENAUG.
         # In that case, ENAUG should be the same or greater than in valid_input_set.
         if self.input_set.incar.get("ENAUG"):
-            self.defaults["ENAUG"]["operation"] = "<="
+            self.defaults["ENAUG"]["operation"] = ">="
 
         # IALGO.
         self.valid_values["IALGO"] = [38, 58, 68, 90]
@@ -561,7 +604,7 @@ class GetParams:
         min_nbands = int(np.ceil(self._NELECT / 2) + 1)
         self.defaults["NBANDS"] = {
             "value": self._get_default_nbands(),
-            "operation": ["<=", ">="],
+            "operation": [">=", "<="],
             "tag": "electronic",
             "comment": (
                 "Too many or too few bands can lead to unphysical electronic structure "
@@ -573,7 +616,7 @@ class GetParams:
         self.parameters["NBANDS"] = [self.parameters["NBANDS"] for _ in range(2)]
 
     def update_ionic_params(self):
-        """update params related to ionic relaxation"""
+        """Update parameters related to ionic relaxation."""
         # IBRION.
         self.valid_values["IBRION"] = [-1, 1, 2]
         if self.input_set.incar.get("IBRION"):
@@ -585,7 +628,7 @@ class GetParams:
             self.valid_values["POTIM"] = 5
             self.defaults["POTIM"].update(
                 {
-                    "operation": ">=",
+                    "operation": "<=",
                     "comment": "POTIM being so high will likely lead to erroneous results.",
                 }
             )
@@ -602,7 +645,7 @@ class GetParams:
                     "value": None,
                     "tag": "ionic",
                     "alias": "POTIM",
-                    "operation": ">=",
+                    "operation": "<=",
                     "comment": (
                         f"The energy changed by a maximum of {self.valid_values['max gradient']} eV/atom "
                         "between ionic steps, which is greater than the maximum "
@@ -634,7 +677,7 @@ class GetParams:
             self.defaults["EDIFFG"].update(
                 {
                     "value": [self.defaults["EDIFFG"]["value"] for _ in range(self.structure.num_sites)],
-                    "operation": [">=" for _ in range(self.structure.num_sites)],
+                    "operation": ["<=" for _ in range(self.structure.num_sites)],
                 }
             )
 
@@ -642,39 +685,69 @@ class GetParams:
             energy_of_last_step = self.calcs_reversed[0]["output"]["ionic_steps"][-1]["e_0_energy"]
             energy_of_second_to_last_step = self.calcs_reversed[0]["output"]["ionic_steps"][-2]["e_0_energy"]
             self.parameters["EDIFFG"] = abs(energy_of_last_step - energy_of_second_to_last_step)
-            self.defaults["EDIFFG"]["operation"] = ">="
+            self.defaults["EDIFFG"]["operation"] = "<="
 
 
 class BasicValidator:
-    """Lightweight validator class to handle majority of parameter checking."""
+    """
+    Compare test and reference values according to one or more operations.
+
+    Parameters
+    -----------
+    global_tolerance : float = 1.e-4
+        Default tolerance for assessing approximate equality via math.isclose
+
+    Attrs
+    -----------
+    operations : set[str]
+        List of acceptable operations, such as "==" for strict equality, or "in" to
+        check if a Sequence contains an element
+    """
 
     # MK: unclear. Is the above docstring accurate? It seems like all checks use this, right?
+    # AK: review
 
     # avoiding dunder methods because these raise too many NotImplemented's
-    operations: tuple[str, ...] = ("==", ">", ">=", "<", "<=", "in", "approx", "auto fail")
+    operations: set[str | None] = {"==", ">", ">=", "<", "<=", "in", "approx", "auto fail", None}
 
     def __init__(self, global_tolerance=1.0e-4) -> None:
-        """init method"""
+        """Set math.isclose tolerance"""
         self.tolerance = global_tolerance
 
-    def _comparator(self, x: Any, operation: str, y: Any, **kwargs) -> bool:
-        """compares different values using one out of a set of supported operations"""
-        if operation == "auto fail":
+    def _comparator(self, lhs: Any, operation: str, rhs: Any, **kwargs) -> bool:
+        """
+        Compare different values using one of a set of supported operations in self.operations.
+
+        Parameters
+        -----------
+        lhs : Any
+            Left-hand side of the operation.
+        operation : str
+            Operation acting on rhs from lhs. For example, if operation is ">",
+            this returns (lhs > rhs).
+        rhs : Any
+            Right-hand of the operation.
+        kwargs
+            If needed, kwargs to pass to operation.
+        """
+        if operation is None:
+            c = True
+        elif operation == "auto fail":
             c = False
         elif operation == "==":
-            c = x == y
+            c = lhs == rhs
         elif operation == ">":
-            c = x > y
+            c = lhs > rhs
         elif operation == ">=":
-            c = x >= y
+            c = lhs >= rhs
         elif operation == "<":
-            c = x < y
+            c = lhs < rhs
         elif operation == "<=":
-            c = x <= y
+            c = lhs <= rhs
         elif operation == "in":
-            c = y in x
+            c = lhs in rhs
         elif operation == "approx":
-            c = isclose(x, y, **kwargs)
+            c = isclose(lhs, rhs, **kwargs)
         return c
 
     def _check_parameter(
@@ -687,32 +760,41 @@ class BasicValidator:
         tolerance: float | None = None,
         append_comments: str | None = None,
     ) -> None:
-        """Determine validity of parameter subject to specified operation."""
+        """
+        Determine validity of parameter subject to a single specified operation.
 
-        # Allow for printing different tag than the one used to access values
-        # For example, the user sets ENCUT via INCAR, but the value of ENCUT is stored
-        # by VASP as ENMAX
-        # MK: is the above comment in the best place?
+        Parameters
+        -----------
+        error_list : list[str]
+            A list of error/warning strings to update if a check fails.
+        input_tag : str
+            The name of the input tag which is being checked.
+        current_value : Any
+            The test value.
+        reference_value : Any
+            The value to compare the test value to.
+        operation : str
+            A valid operation in self.operations. For example, if operation = "<=",
+            this checks `current_value <= reference_value` (note order of values).
+        tolerance : float or None (default)
+            If None and operation == "approx", default tolerance to self.tolerance.
+            Otherwise, use the user-supplied tolerance.
+        append_comments : str or None (default)
+            Additional comments that may be helpful for the user to understand why
+            a check failed.
+        """
 
         append_comments = append_comments or ""
 
         kwargs: dict[str, Any] = {}
         if operation == "approx" and isinstance(current_value, float):
             kwargs.update({"rel_tol": tolerance or self.tolerance, "abs_tol": 0.0})
-        valid_value = self._comparator(reference_value, operation, current_value, **kwargs)
+        valid_value = self._comparator(current_value, operation, reference_value, **kwargs)
 
         if not valid_value:
-            # reverse the inequality sign because of ordering of input and expected
-            # values in reason string
-            flipped_operation = operation
-            if ">" in operation:
-                flipped_operation.replace(">", "<")
-            elif "<" in operation:
-                flipped_operation.replace("<", ">")
-
             error_list.append(
                 f"INPUT SETTINGS --> {input_tag}: set to {current_value}, but should be "
-                f"{flipped_operation} {reference_value}. {append_comments}"
+                f"{operation} {reference_value}. {append_comments}"
             )
 
     def check_parameter(
@@ -725,9 +807,47 @@ class BasicValidator:
         operations: str | list[str],
         tolerance: float = None,
         append_comments: str | None = None,
-        severity: str = "reason",
-    ):
-        """Determine validity of parameter subject to possible multiple operations."""
+        severity: Literal["reason", "warning"] = "reason",
+    ) -> None:
+        """
+        Determine validity of parameter according to one or more operations.
+
+        Parameters
+        -----------
+        reasons : list[str]
+            A list of error strings to update if a check fails. These are higher
+            severity and would deprecate a calculation.
+        warnings : list[str]
+            A list of warning strings to update if a check fails. These are lower
+            severity and would flag a calculation for possible review.
+        input_tag : str
+            The name of the input tag which is being checked.
+        current_values : Any
+            The test value(s). If multiple operations are specified, must be a Sequence
+            of test values.
+        reference_values : Any
+            The value(s) to compare the test value(s) to. If multiple operations are
+            specified, must be a Sequence of reference values.
+        operations : str
+            One or more valid operations in self.operations. For example, if operations = "<=",
+            this checks `current_values <= reference_values` (note order of values).
+            Or, if operations == ["<=", ">"], this checks
+            ```
+            (
+                (current_values[0] <= reference_values[0])
+                and (current_values[1] > reference_values[1])
+            )
+            ```
+        tolerance : float or None (default)
+            Tolerance to use in math.isclose if any of operations is "approx". Defaults
+            to self.tolerance.
+        append_comments : str or None (default)
+            Additional comments that may be helpful for the user to understand why
+            a check failed.
+        severity : Literal["reason", "warning"]
+            If a calculation fails, the severity of failure. Directs output to
+            either reasons or warnings.
+        """
 
         severity_to_list = {"reason": reasons, "warning": warnings}
 
@@ -736,10 +856,9 @@ class BasicValidator:
             current_values = [current_values]
             reference_values = [reference_values]
 
-        if not all(operation in self.operations for operation in operations):
-            # MK: is this actually the best way to handle this? Why not raise an error in such cases?
-            # Do not validate
-            return
+        unknown_operations = {operation for operation in operations if operation not in self.operations}
+        if len(unknown_operations) > 0:
+            raise ValueError("Unknown operations:\n  " + ", ".join([f"{uo}" for uo in unknown_operations]))
 
         for iop in range(len(operations)):
             self._check_parameter(
