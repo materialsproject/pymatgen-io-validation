@@ -65,12 +65,12 @@ def _check_incar(
     task_type : TaskType
         Task type of the calculation.
     fft_grid_tolerance: float
-        Directly calculating the FFT grid defaults from VASP is actually impossible 
-        without information on how VASP was compiled. This is because the FFT 
-        params generated depend on whatever fft library used. So instead, we do our 
-        best to calculate the FFT grid defaults and then lower it artificially by 
-        `fft_grid_tolerance`. So if the user’s FFT grid parameters are greater than 
-        (fft_grid_tolerance x slightly-off defaults), the FFT params are marked 
+        Directly calculating the FFT grid defaults from VASP is actually impossible
+        without information on how VASP was compiled. This is because the FFT
+        params generated depend on whatever fft library used. So instead, we do our
+        best to calculate the FFT grid defaults and then lower it artificially by
+        `fft_grid_tolerance`. So if the user's FFT grid parameters are greater than
+        (fft_grid_tolerance x slightly-off defaults), the FFT params are marked
         as valid.
     """
 
@@ -140,9 +140,6 @@ class UpdateParameterValues:
         sensible default values.
     """
 
-    # MK: unclear, expand
-    # AK: review
-
     _default_schema: dict[str, Any] = {
         "value": None,
         "tag": None,
@@ -183,7 +180,9 @@ class UpdateParameterValues:
         task_type : TaskType
             Task type of the calculation.
         fft_grid_tolerance: float
-            TODO MK : what was the purpose of this originally?
+            See docstr for `_check_incar`. The FFT grid generation has been udpated frequently
+            in VASP, and determining the grid density with absolute certainty is not possible.
+            This tolerance allows for "reasonable" discrepancies from the ideal FFT grid density.
         """
 
         self.parameters = copy.deepcopy(parameters)
@@ -414,22 +413,18 @@ class UpdateParameterValues:
         self.valid_values["LHFCALC"] = self.input_set.incar.get("LHFCALC", self.defaults["LHFCALC"]["value"])
 
         if self.valid_values["LHFCALC"]:
-            self.defaults["AEXX"] = 0.25
-            self.parameters["AEXX"] = self.parameters.get("AEXX", self.defaults["AEXX"])
-            self.defaults["AGGAC"] = 0.0
+            self.defaults["AEXX"]["value"] = 0.25
+            self.parameters["AEXX"] = self.parameters.get("AEXX", self.defaults["AEXX"]["value"])
+            self.defaults["AGGAC"]["value"] = 0.0
             for key in ("AGGAX", "ALDAX", "AMGGAX"):
-                self.defaults[key] = 1.0 - self.parameters["AEXX"]
+                self.defaults[key]["value"] = 1.0 - self.parameters["AEXX"]
 
-            if self.parameters.get("AEXX", self.defaults["AEXX"]) == 1.0:
-                self.defaults["ALDAC"] = 0.0
-                self.defaults["AMGGAC"] = 0.0
+            if self.parameters.get("AEXX", self.defaults["AEXX"]["value"]) == 1.0:
+                self.defaults["ALDAC"]["value"] = 0.0
+                self.defaults["AMGGAC"]["value"] = 0.0
 
         for key in self.categories["hybrid"]:
-            self.defaults[key].update(
-                {
-                    "operation": "==" if isinstance(self.defaults[key]["value"], bool) else "approx",
-                }
-            )
+            self.defaults[key]["operation"] = "==" if isinstance(self.defaults[key]["value"], bool) else "approx"
 
     def update_fft_params(self) -> None:
         """Update parameters related to the FFT grid."""
@@ -755,9 +750,6 @@ class BasicValidator:
         List of acceptable operations, such as "==" for strict equality, or "in" to
         check if a Sequence contains an element
     """
-
-    # MK: unclear. Is the above docstring accurate? It seems like all checks use this, right?
-    # AK: review
 
     # avoiding dunder methods because these raise too many NotImplemented's
     operations: set[str | None] = {"==", ">", ">=", "<", "<=", "in", "approx", "auto fail", None}
