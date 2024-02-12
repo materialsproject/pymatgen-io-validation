@@ -77,7 +77,6 @@ def _check_incar(
     # Instantiate class that updates "dynamic" INCAR tags
     # (like NBANDS, or hybrid-related parameters)
 
-    # AK : review
     working_params = UpdateParameterValues(
         parameters=parameters,
         defaults=_vasp_defaults,
