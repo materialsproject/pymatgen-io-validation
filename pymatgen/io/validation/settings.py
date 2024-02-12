@@ -3,6 +3,7 @@
 """
 Settings for pymatgen-io-validation. Used to be part of EmmetSettings.
 """
+from importlib.resources import files as import_resource_files
 import json
 from pathlib import Path
 from typing import Dict, Type, TypeVar, Union
@@ -79,9 +80,14 @@ class IOValidationSettings(BaseSettings):
         description="Maximum upward gradient in the last SCF for any VASP calculation",
     )
 
-    VASP_NUM_IONIC_STEPS_FOR_DRIFT: float = Field(
+    VASP_NUM_IONIC_STEPS_FOR_DRIFT: int = Field(
         3,
         description="Number of ionic steps to average over when validating drift forces",
+    )
+
+    VASP_DEFAULTS_FILENAME: str | Path = Field(
+        default=import_resource_files("pymatgen.io.validation") / "vasp_defaults.yaml",
+        description="Path to the  of the YAML file containing default values of VASP parameters.",
     )
 
     model_config = SettingsConfigDict(env_prefix="pymatgen_io_validation_", extra="ignore")
@@ -126,4 +132,4 @@ class IOValidationSettings(BaseSettings):
         """
         HotPatch to enable serializing IOValidationSettings via Monty
         """
-        return self.dict(exclude_unset=True, exclude_defaults=True)
+        return self.model_dump(exclude_unset=True, exclude_defaults=True)

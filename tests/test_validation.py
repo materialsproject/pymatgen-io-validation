@@ -860,9 +860,7 @@ def test_kpoints_checks(test_dir, object_name):
     )  # HCP structure
     _update_kpoints_for_test(temp_task_doc, {"generation_style": "monkhorst"})
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(
-        ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
-    )
+    assert any(["INPUT SETTINGS --> KPOINTS or KGAMMA:" in reason for reason in temp_validation_doc.reasons])
 
     # Valid mesh type check (should flag FCC structures)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -871,9 +869,7 @@ def test_kpoints_checks(test_dir, object_name):
     )  # FCC structure
     _update_kpoints_for_test(temp_task_doc, {"generation_style": "monkhorst"})
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(
-        ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
-    )
+    assert any(["INPUT SETTINGS --> KPOINTS or KGAMMA:" in reason for reason in temp_validation_doc.reasons])
 
     # Valid mesh type check (should *not* flag BCC structures)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -882,9 +878,7 @@ def test_kpoints_checks(test_dir, object_name):
     )  # BCC structure
     _update_kpoints_for_test(temp_task_doc, {"generation_style": "monkhorst"})
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(
-        ["INPUT SETTINGS --> KPOINTS or KGAMMA: monkhorst-pack" in reason for reason in temp_validation_doc.reasons]
-    )
+    assert not any(["INPUT SETTINGS --> KPOINTS or KGAMMA:" in reason for reason in temp_validation_doc.reasons])
 
     # Too few kpoints check
     temp_task_doc = copy.deepcopy(task_doc)

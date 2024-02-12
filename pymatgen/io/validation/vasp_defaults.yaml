@@ -18,6 +18,9 @@ ALDAX:
   value: 1.0
   tag: hybrid
   tolerance: 1.0e-4
+ALGO:
+  value: normal
+  tag: electronic self consistency
 AMGGAX:
   value: 1.0
   tag: hybrid
@@ -122,6 +125,12 @@ IVDW:
 IWAVPR:
   value: null
   tag: misc special
+KGAMMA:
+  value: true
+  tag: k mesh
+KSPACING:
+  value: 0.5
+  tag: k mesh
 LASPH:
   value: true
   tag: misc
@@ -258,6 +267,12 @@ ML_LMLFF:
 NELECT:
   value: null
   tag: electronic
+NELM:
+  value: 60
+  tag: electronic self consistency
+NELMDL:
+  value: -5
+  tag: electronic self consistency
 NLSPLINE:
   value: false
   tag: electronic projector

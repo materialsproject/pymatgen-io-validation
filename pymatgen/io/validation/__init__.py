@@ -3,7 +3,4 @@ pymatgen-io-validation provides validation tools for inputs and outputs of compu
 simulations and calculations. That is, it checks calculation details against a reference
 to ensure that data is compatible with some standard.
 """
-
-from __future__ import annotations
-
 from pymatgen.io.validation.validation import ValidationDoc  # noqa: F401

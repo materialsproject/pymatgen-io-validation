@@ -1,8 +1,7 @@
 """Module for validating VASP INCAR files"""
 from __future__ import annotations
 import copy
-from importlib.resources import files as import_resource_files
-from monty.serialization import loadfn
+from dataclasses import dataclass
 from math import isclose
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
@@ -16,54 +15,14 @@ if TYPE_CHECKING:
     from pymatgen.core import Structure
     from pymatgen.io.vasp.sets import VaspInputSet
 
-_vasp_defaults = loadfn(import_resource_files("pymatgen.io.validation") / "vasp_defaults.yaml")
 
-
-def _check_incar(
-    reasons: list[str],
-    warnings: list[str],
-    valid_input_set: VaspInputSet,
-    structure: Structure,
-    task_doc: TaskDoc | TaskDocument,
-    parameters: dict[str, Any],
-    vasp_version: Sequence[int],
-    task_type: TaskType,
-    fft_grid_tolerance: float,
-) -> list[str]:
+@dataclass
+class CheckIncar:
     """
     Check calculation parameters related to INCAR input tags.
 
-    This first updates any parameter with a specified update method.
-    In practice, each INCAR tag in `vasp_defaults.yaml` has a "tag"
-    attribute. If there is an update method
-    `UpdateParameterValues.update_{tag.replace(" ","_")}_params`,
-    all parameters with that tag will be updated.
-
-    Then after all missing values in the supplied parameters (padding
-    implicit values with their defaults), this checks whether the user-
-    supplied/-parsed parameters satisfy a set of operations against the
-    reference valid input set.
-
-    Parameters
-    -----------
-    reasons : list[str]
-        A list of error strings to update if a check fails. These are higher
-        severity and would deprecate a calculation.
-    warnings : list[str]
-        A list of warning strings to update if a check fails. These are lower
-        severity and would flag a calculation for possible review.
-    valid_input_set: VaspInputSet
-        Valid input set to compare user INCAR parameters to.
-    structure: Pymatgen Structure
-        Structure used in the calculation.
-    task_doc : emmet.core TaskDoc | TaskDocument
-        Task document parsed from the calculation directory.
-    parameters : dict[str,Any]
-        Dict of user-supplied/-parsed INCAR parameters.
-    vasp_version: Sequence[int]
-        Vasp version, e.g., 6.4.1 could be represented as (6,4,1)
-    task_type : TaskType
-        Task type of the calculation.
+    defaults : dict
+        Dict of default parameters.
     fft_grid_tolerance: float
         Directly calculating the FFT grid defaults from VASP is actually impossible
         without information on how VASP was compiled. This is because the FFT
@@ -74,40 +33,88 @@ def _check_incar(
         as valid.
     """
 
-    # Instantiate class that updates "dynamic" INCAR tags
-    # (like NBANDS, or hybrid-related parameters)
+    defaults: dict | None = None
+    fft_grid_tolerance: float | None = None
 
-    working_params = UpdateParameterValues(
-        parameters=parameters,
-        defaults=_vasp_defaults,
-        input_set=valid_input_set,
-        structure=structure,
-        task_doc=task_doc,
-        vasp_version=vasp_version,
-        task_type=task_type,
-        fft_grid_tolerance=fft_grid_tolerance,
-    )
-    # Update values in the working parameters by adding
-    # defaults to unspecified INCAR tags, and by updating
-    # any INCAR tag that has a specified update method
-    working_params.update_parameters_and_defaults()
+    def check(
+        self,
+        reasons: list[str],
+        warnings: list[str],
+        valid_input_set: VaspInputSet,
+        task_doc: TaskDoc | TaskDocument,
+        parameters: dict[str, Any],
+        structure: Structure,
+        vasp_version: Sequence[int],
+        task_type: TaskType,
+    ) -> None:
+        """
+        Check calculation parameters related to INCAR input tags.
 
-    # Validate each parameter in the set of working parameters
-    simple_validator = BasicValidator()
-    for key in working_params.defaults:
-        simple_validator.check_parameter(
-            reasons=reasons,
-            warnings=warnings,
-            input_tag=working_params.defaults[key].get("alias", key),
-            current_values=working_params.parameters[key],
-            reference_values=working_params.valid_values[key],
-            operations=working_params.defaults[key]["operation"],
-            tolerance=working_params.defaults[key]["tolerance"],
-            append_comments=working_params.defaults[key]["comment"],
-            severity=working_params.defaults[key]["severity"],
+        This first updates any parameter with a specified update method.
+        In practice, each INCAR tag in `vasp_defaults.yaml` has a "tag"
+        attribute. If there is an update method
+        `UpdateParameterValues.update_{tag.replace(" ","_")}_params`,
+        all parameters with that tag will be updated.
+
+        Then after all missing values in the supplied parameters (padding
+        implicit values with their defaults), this checks whether the user-
+        supplied/-parsed parameters satisfy a set of operations against the
+        reference valid input set.
+
+        Parameters
+        -----------
+        reasons : list[str]
+            A list of error strings to update if a check fails. These are higher
+            severity and would deprecate a calculation.
+        warnings : list[str]
+            A list of warning strings to update if a check fails. These are lower
+            severity and would flag a calculation for possible review.
+        valid_input_set: VaspInputSet
+            Valid input set to compare user INCAR parameters to.
+        task_doc : emmet.core TaskDoc | TaskDocument
+            Task document parsed from the calculation directory.
+        parameters : dict[str,Any]
+            Dict of user-supplied/-parsed INCAR parameters.
+        structure: Pymatgen Structure
+            Structure used in the calculation.
+        vasp_version: Sequence[int]
+            Vasp version, e.g., 6.4.1 could be represented as (6,4,1)
+        task_type : TaskType
+            Task type of the calculation.
+        """
+
+        # Instantiate class that updates "dynamic" INCAR tags
+        # (like NBANDS, or hybrid-related parameters)
+
+        working_params = UpdateParameterValues(
+            parameters=parameters,
+            defaults=self.defaults,
+            input_set=valid_input_set,
+            structure=structure,
+            task_doc=task_doc,
+            vasp_version=vasp_version,
+            task_type=task_type,
+            fft_grid_tolerance=self.fft_grid_tolerance,
         )
+        # Update values in the working parameters by adding
+        # defaults to unspecified INCAR tags, and by updating
+        # any INCAR tag that has a specified update method
+        working_params.update_parameters_and_defaults()
 
-    return reasons
+        # Validate each parameter in the set of working parameters
+        simple_validator = BasicValidator()
+        for key in working_params.defaults:
+            simple_validator.check_parameter(
+                reasons=reasons,
+                warnings=warnings,
+                input_tag=working_params.defaults[key].get("alias", key),
+                current_values=working_params.parameters[key],
+                reference_values=working_params.valid_values[key],
+                operations=working_params.defaults[key]["operation"],
+                tolerance=working_params.defaults[key]["tolerance"],
+                append_comments=working_params.defaults[key]["comment"],
+                severity=working_params.defaults[key]["severity"],
+            )
 
 
 class UpdateParameterValues:
