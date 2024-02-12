@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from emmet.core.tasks import TaskDoc
     from emmet.core.vasp.task_valid import TaskDocument
     from pymatgen.core import Structure
+    from pymatgen.io.vasp import Incar
     from typing import Sequence
 
 
@@ -181,7 +182,7 @@ class CheckCommonErrors:
 @dataclass
 class CheckVaspVersion:
     """
-    Check for common calculation errors.
+    Check for common errors related to the version of VASP used.
 
     Parameters
     -----------
@@ -191,7 +192,21 @@ class CheckVaspVersion:
 
     defaults: dict | None = None
 
-    def check(self, reasons: list[str], vasp_version: Sequence[int], parameters: dict, incar: dict) -> None:
+    def check(self, reasons: list[str], vasp_version: Sequence[int], parameters: dict, incar: dict | Incar) -> None:
+        """
+        Check for common errors related to the version of VASP used.
+
+        reasons : list[str]
+            A list of error strings to update if a check fails. These are higher
+            severity and would deprecate a calculation.
+        vasp_version: Sequence[int]
+            Vasp version, e.g., 6.4.1 could be represented as (6,4,1)
+        parameters : dict[str,Any]
+            Dict of user-supplied/-parsed INCAR parameters.
+        incar : dict | Incar
+            INCAR corresponding to the calculation.
+        """
+
         if (
             vasp_version[0] == 5
             and (incar.get("METAGGA", self.defaults["METAGGA"]["value"]) not in [None, "--", "None"])

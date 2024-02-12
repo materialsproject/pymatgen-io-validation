@@ -85,7 +85,7 @@ class IOValidationSettings(BaseSettings):
         description="Number of ionic steps to average over when validating drift forces",
     )
 
-    VASP_DEFAULTS_FILENAME: str | Path = Field(
+    VASP_DEFAULTS_FILENAME: Union[str, Path] = Field(
         default=import_resource_files("pymatgen.io.validation") / "vasp_defaults.yaml",
         description="Path to the  of the YAML file containing default values of VASP parameters.",
     )
