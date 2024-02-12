@@ -23,7 +23,6 @@ from emmet.core.vasp.calc_types import (
     run_type as emmet_run_type,
     task_type as emmet_task_type,
 )
-from monty.serialization import loadfn
 from pymatgen.io.validation.check_incar import CheckIncar
 from pymatgen.io.validation.check_common_errors import (
     CheckCommonErrors,
