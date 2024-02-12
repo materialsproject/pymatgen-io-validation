@@ -119,7 +119,7 @@ class ValidationDoc(EmmetBaseModel):
                 orig_inputs["kpoints"] = orig_inputs["kpoints"].as_dict()
 
         ionic_steps = calcs_reversed[0]["output"]["ionic_steps"]
-        nionic_steps = len(ionic_steps)
+        len(ionic_steps)
 
         potcars = calcs_reversed[0]["input"]["potcar_spec"]
 
@@ -216,12 +216,7 @@ class ValidationDoc(EmmetBaseModel):
                 valid_input_set,
                 structure,
                 task_doc,
-                calcs_reversed,
-                ionic_steps,
-                nionic_steps,
                 parameters,
-                incar,
-                potcars,
                 vasp_version,
                 task_type,
                 fft_grid_tolerance,

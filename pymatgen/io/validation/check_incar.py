@@ -7,58 +7,88 @@ from math import isclose
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
+    from emmet.core.vasp.task_valid import TaskDocument
+    from emmet.core.tasks import TaskDoc
     from typing import Any, Sequence
     from pymatgen.core import Structure
-    from pymatgen.io.vasp import Incar
     from pymatgen.io.vasp.sets import VaspInputSet
 
 _vasp_defaults = loadfn(import_resource_files("pymatgen.io.validation") / "vasp_defaults.yaml")
 
 
 def _check_incar(
-    reasons,
-    warnings,
-    valid_input_set,
-    structure,
-    task_doc,
-    calcs_reversed,
-    ionic_steps,
-    nionic_steps,
-    parameters,
-    incar,
-    potcar,
+    reasons: list[str],
+    warnings: list[str],
+    valid_input_set: VaspInputSet,
+    structure: Structure,
+    task_doc: TaskDoc | TaskDocument,
+    parameters: dict[str, Any],
     vasp_version: Sequence[int],
-    task_type,
-    fft_grid_tolerance,
-):
+    task_type: TaskType,
+    fft_grid_tolerance: float,
+) -> list[str]:
     """
-    note that all changes to `reasons` and `warnings` can be done in-place
-    (and hence there is no need to return those variables after every function call).
-    Any cases where that is not done is just to make the code more readable.
-    # MK: A better description of this class should be included above the current docstring.
-        # I think writing clearly how the whole function operates, in chronological order, would be best.
+    Check calculation parameters related to INCAR input tags.
+
+    This first updates any parameter with a specified update method.
+    In practice, each INCAR tag in `vasp_defaults.yaml` has a "tag"
+    attribute. If there is an update method
+    `UpdateParameterValues.update_{tag.replace(" ","_")}_params`,
+    all parameters with that tag will be updated.
+
+    Then after all missing values in the supplied parameters (padding
+    implicit values with their defaults), this checks whether the user-
+    supplied/-parsed parameters satisfy a set of operations against the
+    reference valid input set.
+
+    Parameters
+    -----------
+    reasons : list[str]
+        A list of error strings to update if a check fails. These are higher
+        severity and would deprecate a calculation.
+    warnings : list[str]
+        A list of warning strings to update if a check fails. These are lower
+        severity and would flag a calculation for possible review.
+    valid_input_set: VaspInputSet
+        Valid input set to compare user INCAR parameters to.
+    structure: Pymatgen Structure
+        Structure used in the calculation.
+    task_doc : emmet.core TaskDoc | TaskDocument
+        Task document parsed from the calculation directory.
+    parameters : dict[str,Any]
+        Dict of user-supplied/-parsed INCAR parameters.
+    vasp_version: Sequence[int]
+        Vasp version, e.g., 6.4.1 could be represented as (6,4,1)
+    task_type : TaskType
+        Task type of the calculation.
+    fft_grid_tolerance: float
+        TODO MK : what was the purpose of this originally?
     """
 
-    working_params = UpdateParameterValues(  # MK: unclear
+    # Instantiate class that updates "dynamic" INCAR tags
+    # (like NBANDS, or hybrid-related parameters)
+
+    # MK: unclear
+    # AK : review
+    working_params = UpdateParameterValues(
         parameters=parameters,
         defaults=_vasp_defaults,
         input_set=valid_input_set,
         structure=structure,
         task_doc=task_doc,
-        calcs_reversed=calcs_reversed,
-        ionic_steps=ionic_steps,
-        nionic_steps=nionic_steps,
-        incar=incar,
-        potcar=potcar,
         vasp_version=vasp_version,
         task_type=task_type,
         fft_grid_tolerance=fft_grid_tolerance,
     )
+    # Update values in the working parameters by adding
+    # defaults to unspecified INCAR tags, and by updating
+    # any INCAR tag that has a specified update method
     working_params.update_parameters_and_defaults()
 
+    # Validate each parameter in the set of working parameters
     simple_validator = BasicValidator()
     for key in working_params.defaults:
         simple_validator.check_parameter(
@@ -119,40 +149,55 @@ class UpdateParameterValues:
 
     def __init__(
         self,
-        parameters: dict,
-        defaults: dict,
+        parameters: dict[str, Any],
+        defaults: dict[str, dict],
         input_set: VaspInputSet,
         structure: Structure,
-        task_doc,
-        calcs_reversed: list,
-        ionic_steps,
-        nionic_steps,
-        incar: Incar,
-        potcar,
+        task_doc: TaskDoc | TaskDocument,
         vasp_version: Sequence[int],
-        task_type,
+        task_type: TaskType,
         fft_grid_tolerance: float,
     ) -> None:
         """
-        Based on details of the input calculation, creates a set of valid inputs that
-        must be matched (or better). Also parses some of the input calc parameters for easier comparison.
-        # MK: unclear. I think a thorough docstring describing how this class init
-        # operates, in chronological order, would be best.
+        Given a set of user parameters, a valid input set, and defaults, update certain tagged parameters.
+
+        Parameters
+        -----------
+        parameters: dict[str,Any]
+            Dict of user-supplied parameters.
+        defaults: dict
+            Dict of default values for parameters, tags for parameters, and the operation to check them.
+        input_set: VaspInputSet
+            Valid input set to compare parameters to.
+        structure: Pymatgen Structure
+            Structure used in the calculation.
+        task_doc : emmet.core TaskDoc | TaskDocument
+            Task document parsed from the calculation directory.
+        vasp_version: Sequence[int]
+            Vasp version, e.g., 6.4.1 could be represented as (6,4,1)
+        task_type : TaskType
+            Task type of the calculation.
+        fft_grid_tolerance: float
+            TODO MK : what was the purpose of this originally?
         """
+
         self.parameters = copy.deepcopy(parameters)
         self.defaults = copy.deepcopy(defaults)
         self.input_set = input_set
-        self.incar = incar
         self.vasp_version = vasp_version
-        self.calcs_reversed = calcs_reversed
         self.structure = structure
         self.valid_values: dict[str, Any] = {}
 
-        self.task_doc = task_doc
+        # convert to dict for consistent handling of attrs
+        self.task_doc = task_doc.model_dump()
+        # Add some underscored values for convenience
         self._fft_grid_tolerance = fft_grid_tolerance
+        self._calcs_reversed = self.task_doc["calcs_reversed"]
+        self._incar = self._calcs_reversed[0]["input"]["incar"]
+        self._ionic_steps = self._calcs_reversed[0]["output"]["ionic_steps"]
+        self._nionic_steps = len(self._ionic_steps)
+        self._potcar = self._calcs_reversed[0]["input"]["potcar_spec"]
         self._task_type = task_type
-        self._ionic_steps = ionic_steps
-        self._nionic_steps = nionic_steps
 
     def update_parameters_and_defaults(self) -> None:
         """Update user parameters and defaults for tags with a specified update method."""
@@ -211,7 +256,7 @@ class UpdateParameterValues:
                 )
                 self.valid_values[key] = valid_value[0] if isinstance(valid_value, list) else valid_value
             else:
-                self.parameters[key] = self.incar.get(key, self.defaults[key]["value"])
+                self.parameters[key] = self._incar.get(key, self.defaults[key]["value"])
             self.defaults[key]["operation"] = "=="
 
     def update_symmetry_params(self) -> None:
@@ -263,7 +308,7 @@ class UpdateParameterValues:
         elif str(self.input_set.incar.get("LREAL")).upper() in ["FALSE"]:
             self.valid_values["LREAL"] = ["FALSE"]
 
-        self.parameters["LREAL"] = str(self.incar.get("LREAL", self.defaults["LREAL"]["value"])).upper()
+        self.parameters["LREAL"] = str(self._incar.get("LREAL", self.defaults["LREAL"]["value"])).upper()
         # PREC.
         if self.input_set.incar.get("PREC", self.defaults["PREC"]["value"]).upper() in ["ACCURATE", "HIGH"]:
             self.valid_values["PREC"] = ["ACCURATE", "ACCURA", "HIGH"]
@@ -305,13 +350,13 @@ class UpdateParameterValues:
             # value after VASP guesses it in the vasprun.xml `parameters`
             # (which would always cause this check to fail, even if the user
             # set EFERMI properly in the INCAR).
-            self.parameters["EFERMI"] = self.incar.get("EFERMI", self.defaults["EFERMI"]["value"])
+            self.parameters["EFERMI"] = self._incar.get("EFERMI", self.defaults["EFERMI"]["value"])
             self.valid_values["EFERMI"] = ["LEGACY", "MIDGAP"]
             self.defaults["EFERMI"]["operation"] = "in"
 
         # IWAVPR.
-        if self.incar.get("IWAVPR"):
-            self.parameters["IWAVPR"] = self.incar["IWAVPR"] if self.incar["IWAVPR"] is not None else 0
+        if self._incar.get("IWAVPR"):
+            self.parameters["IWAVPR"] = self._incar["IWAVPR"] if self._incar["IWAVPR"] is not None else 0
             self.defaults["IWAVPR"].update(
                 {"operation": "==", "comment": "VASP discourages users from setting the IWAVPR tag (as of July 2023)."}
             )
@@ -326,7 +371,7 @@ class UpdateParameterValues:
 
         if (
             self.parameters["ISPIN"] == 2
-            and len(self.calcs_reversed[0]["output"]["outcar"]["magnetization"]) != self.structure.num_sites
+            and len(self._calcs_reversed[0]["output"]["outcar"]["magnetization"]) != self.structure.num_sites
         ):
             self.defaults["LORBIT"].update(
                 {
@@ -384,7 +429,7 @@ class UpdateParameterValues:
     def update_fft_params(self) -> None:
         """Update parameters related to the FFT grid."""
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
-        if any(i for i in ["NGX", "NGY", "NGZ", "NGXF", "NGYF", "NGZF"] if i in self.incar.keys()):
+        if any(i for i in ["NGX", "NGY", "NGZ", "NGXF", "NGYF", "NGZF"] if i in self._incar.keys()):
             self.valid_values["ENMAX"] = max(
                 self.parameters["ENMAX"], self.input_set.incar.get("ENCUT", self.defaults["ENMAX"])
             )
@@ -418,11 +463,11 @@ class UpdateParameterValues:
 
         self.valid_values["LMAXMIX"] = self.input_set.incar.get("LMAXMIX", self.defaults["LMAXMIX"]["value"])
         self.valid_values["LMAXTAU"] = min(self.valid_values["LMAXMIX"] + 2, 6)
-        self.parameters["LMAXTAU"] = self.incar.get("LMAXTAU", self.defaults["LMAXTAU"]["value"])
+        self.parameters["LMAXTAU"] = self._incar.get("LMAXTAU", self.defaults["LMAXTAU"]["value"])
 
         for key in ["LMAXMIX", "LMAXTAU"]:
             if key == "LMAXTAU" and (
-                self.incar.get("METAGGA", self.defaults["METAGGA"]["value"]) in ["--", None, "None"]
+                self._incar.get("METAGGA", self.defaults["METAGGA"]["value"]) in ["--", None, "None"]
             ):
                 continue
 
@@ -461,7 +506,7 @@ class UpdateParameterValues:
 
         This is based on the final bandgap obtained in the calc.
         """
-        bandgap = self.task_doc.output.bandgap
+        bandgap = self.task_doc["output"]["bandgap"]
 
         smearing_comment = f"This is flagged as incorrect because this calculation had a bandgap of {round(bandgap,3)}"
 
@@ -576,10 +621,10 @@ class UpdateParameterValues:
         # NELECT.
         self._NELECT = self.parameters.get("NELECT")
         # Do not check for non-neutral NELECT if NELECT is not in the INCAR
-        if self.incar.get("NELECT"):
+        if self._incar.get("NELECT"):
             self.valid_values["NELECT"] = 0.0
             try:
-                self.parameters["NELECT"] = float(self.calcs_reversed[0]["output"]["structure"]._charge)
+                self.parameters["NELECT"] = float(self._calcs_reversed[0]["output"]["structure"]._charge)
                 self.defaults["NELECT"].update(
                     {
                         "operation": "approx",
@@ -667,12 +712,14 @@ class UpdateParameterValues:
 
         self.valid_values["EDIFFG"] = self.input_set.incar.get("EDIFFG", self.defaults["EDIFFG"]["value"])
 
-        if self.task_doc.output.forces is None:
+        if self.task_doc["output"]["forces"] is None:
             self.defaults["EDIFFG"]["warning"] = "TaskDoc does not contain output forces!"
             self.defaults["EDIFFG"]["operation"] = "auto fail"
 
         elif self.parameters["EDIFFG"] < 0.0:
-            self.parameters["EDIFFG"] = [np.linalg.norm(force_on_atom) for force_on_atom in self.task_doc.output.forces]
+            self.parameters["EDIFFG"] = [
+                np.linalg.norm(force_on_atom) for force_on_atom in self.task_doc["output"]["forces"]
+            ]
             self.valid_values["EDIFFG"] = [abs(self.valid_values["EDIFFG"]) for _ in range(self.structure.num_sites)]
             self.defaults["EDIFFG"].update(
                 {
@@ -682,8 +729,8 @@ class UpdateParameterValues:
             )
 
         elif self.parameters["EDIFFG"] > 0.0 and self.parameters["NSW"] > 0 and self._nionic_steps > 1:
-            energy_of_last_step = self.calcs_reversed[0]["output"]["ionic_steps"][-1]["e_0_energy"]
-            energy_of_second_to_last_step = self.calcs_reversed[0]["output"]["ionic_steps"][-2]["e_0_energy"]
+            energy_of_last_step = self._calcs_reversed[0]["output"]["ionic_steps"][-1]["e_0_energy"]
+            energy_of_second_to_last_step = self._calcs_reversed[0]["output"]["ionic_steps"][-2]["e_0_energy"]
             self.parameters["EDIFFG"] = abs(energy_of_last_step - energy_of_second_to_last_step)
             self.defaults["EDIFFG"]["operation"] = "<="
 
