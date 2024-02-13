@@ -1,4 +1,4 @@
-"""Main module for VASP calculation validation"""
+"""Validate VASP calculations using emmet."""
 from __future__ import annotations
 
 from datetime import datetime

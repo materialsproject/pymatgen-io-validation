@@ -1,4 +1,4 @@
-"""Module for validating VASP KPOINTS files or KSPACING setting in the INCAR"""
+"""Validate VASP KPOINTS files or the KSPACING/KGAMMA INCAR settings."""
 from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np

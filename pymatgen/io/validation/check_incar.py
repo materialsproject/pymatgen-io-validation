@@ -1,4 +1,4 @@
-"""Module for validating VASP INCAR files"""
+"""Validate VASP INCAR files."""
 from __future__ import annotations
 import copy
 from dataclasses import dataclass
