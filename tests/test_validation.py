@@ -7,12 +7,8 @@ from emmet.core.vasp.calculation import PotcarSpec
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
 
-# TODO: add in tests for POTCAR validation
-# TODO: add in tests for POTCAR validation
-# TODO: add in tests for POTCAR validation
 ### TODO: add tests for many other MP input sets (e.g. MPNSCFSet, MPNMRSet, MPScanRelaxSet, Hybrid sets, etc.)
 ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
-### TODO: add in energy-based EDIFFG check
 ### TODO: add in check for MP set where LEFG = True
 ### TODO: add in check for MP set where LOPTICS = True
 
@@ -1103,11 +1099,3 @@ def test_vasp_version_check(test_dir, object_name):
 #     temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[0,0,0], [0,0,0.5]]
 #     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
 #     assert not any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
-
-
-# # template
-# temp_task_doc = copy.deepcopy(task_doc)
-# temp_task_doc.input.parameters["LCHIMAG"] = True
-# temp_task_doc.calcs_reversed[0].input.incar["IWAVPR"] = 1
-# temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-# assert any(["LCHIMAG" in reason for reason in temp_validation_doc.reasons])
