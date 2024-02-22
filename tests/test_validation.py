@@ -3,6 +3,7 @@ import copy
 from conftest import get_test_object
 from pymatgen.io.validation import ValidationDoc
 from emmet.core.tasks import TaskDoc
+from emmet.core.vasp.calculation import PotcarSpec
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
 
@@ -38,6 +39,123 @@ def test_validation_doc_from_directory(test_dir, object_name):
     delattr(valid_validation_doc, "last_updated")
 
     assert test_validation_doc == valid_validation_doc
+
+
+@pytest.mark.parametrize(
+    "object_name",
+    [
+        pytest.param("SiOptimizeDouble", id="SiOptimizeDouble"),
+    ],
+)
+def test_potcar_validation(test_dir, object_name):
+    test_object = get_test_object(object_name)
+    dir_name = test_dir / "vasp" / test_object.folder
+    task_doc = TaskDoc.from_directory(dir_name)
+
+    correct_potcar_summary_stats = [
+        PotcarSpec(
+            titel="PAW_PBE Si 05Jan2001",
+            hash="b2b0ea6feb62e7cde209616683b8f7f5",
+            summary_stats={
+                "keywords": {
+                    "header": [
+                        "dexc",
+                        "eatom",
+                        "eaug",
+                        "enmax",
+                        "enmin",
+                        "icore",
+                        "iunscr",
+                        "lcor",
+                        "lexch",
+                        "lpaw",
+                        "lultra",
+                        "ndata",
+                        "orbitaldescriptions",
+                        "pomass",
+                        "qcut",
+                        "qgam",
+                        "raug",
+                        "rcore",
+                        "rdep",
+                        "rmax",
+                        "rpacor",
+                        "rrkj",
+                        "rwigs",
+                        "step",
+                        "titel",
+                        "vrhfin",
+                        "zval",
+                    ],
+                    "data": [
+                        "localpart",
+                        "gradientcorrectionsusedforxc",
+                        "corecharge-density(partial)",
+                        "atomicpseudocharge-density",
+                        "nonlocalpart",
+                        "reciprocalspacepart",
+                        "realspacepart",
+                        "reciprocalspacepart",
+                        "realspacepart",
+                        "nonlocalpart",
+                        "reciprocalspacepart",
+                        "realspacepart",
+                        "reciprocalspacepart",
+                        "realspacepart",
+                        "pawradialsets",
+                        "(5e20.12)",
+                        "augmentationcharges(nonsperical)",
+                        "uccopanciesinatom",
+                        "grid",
+                        "aepotential",
+                        "corecharge-density",
+                        "kineticenergy-density",
+                        "pspotential",
+                        "corecharge-density(pseudized)",
+                        "pseudowavefunction",
+                        "aewavefunction",
+                        "pseudowavefunction",
+                        "aewavefunction",
+                        "pseudowavefunction",
+                        "aewavefunction",
+                        "pseudowavefunction",
+                        "aewavefunction",
+                        "endofdataset",
+                    ],
+                },
+                "stats": {
+                    "header": {
+                        "MEAN": 9.177306617073173,
+                        "ABSMEAN": 9.246461088617888,
+                        "VAR": 1791.1672020733015,
+                        "MIN": -4.246,
+                        "MAX": 322.069,
+                    },
+                    "data": {
+                        "MEAN": 278.03212972903253,
+                        "ABSMEAN": 281.3973189522769,
+                        "VAR": 4222525.654282597,
+                        "MIN": -92.132623,
+                        "MAX": 24929.6618412,
+                    },
+                },
+            },
+        )
+    ]
+
+    # Check POTCAR (this test should PASS, as we ARE using a MP-compatible pseudopotential)
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_task_doc.calcs_reversed[0].input.potcar_spec = correct_potcar_summary_stats
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert not any(["PSEUDOPOTENTIALS" in reason for reason in temp_validation_doc.reasons])
+
+    # Check POTCAR (this test should FAIL, as we are NOT using an MP-compatible pseudopotential)
+    temp_task_doc = copy.deepcopy(task_doc)
+    incorrect_potcar_summary_stats = copy.deepcopy(correct_potcar_summary_stats)
+    incorrect_potcar_summary_stats[0].summary_stats["stats"]["data"]["MEAN"] = 999999999
+    temp_task_doc.calcs_reversed[0].input.potcar_spec = incorrect_potcar_summary_stats
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert any(["PSEUDOPOTENTIALS" in reason for reason in temp_validation_doc.reasons])
 
 
 @pytest.mark.parametrize(
