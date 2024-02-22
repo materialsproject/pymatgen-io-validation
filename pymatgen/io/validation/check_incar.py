@@ -272,14 +272,10 @@ class UpdateParameterValues:
     def update_symmetry_params(self) -> None:
         """Update symmetry-related parameters."""
         # ISYM.
+        self.valid_values["ISYM"] = [-1, 0, 1, 2]
         if self.parameters["LHFCALC"]:
             self.defaults["ISYM"]["value"] = 3
-
-        # allow ISYM as good or better than what is specified in the valid_input_set.
-        if "ISYM" in self.input_set.incar.keys():
-            self.valid_values["ISYM"] = list(range(-1, self.input_set.incar.get("ISYM") + 1, 1))
-        else:  # otherwise let ISYM = -1, 0, or 2
-            self.valid_values["ISYM"] = [-1, 0, 2]
+            self.valid_values["ISYM"].append(3)
         self.defaults["ISYM"]["operation"] = "in"
 
         # SYMPREC.
@@ -722,7 +718,7 @@ class UpdateParameterValues:
             self.defaults["EDIFFG"]["warning"] = "TaskDoc does not contain output forces!"
             self.defaults["EDIFFG"]["operation"] = "auto fail"
 
-        elif self.parameters["EDIFFG"] < 0.0:
+        elif self.valid_values["EDIFFG"] < 0.0:
             self.parameters["EDIFFG"] = [
                 np.linalg.norm(force_on_atom) for force_on_atom in self.task_doc["output"]["forces"]
             ]
@@ -734,7 +730,8 @@ class UpdateParameterValues:
                 }
             )
 
-        elif self.parameters["EDIFFG"] > 0.0 and self.parameters["NSW"] > 0 and self._nionic_steps > 1:
+        # the latter two checks just ensure the code does not error by indexing out of range
+        elif self.valid_values["EDIFFG"] > 0.0 and self._nionic_steps > 1:
             energy_of_last_step = self._calcs_reversed[0]["output"]["ionic_steps"][-1]["e_0_energy"]
             energy_of_second_to_last_step = self._calcs_reversed[0]["output"]["ionic_steps"][-2]["e_0_energy"]
             self.parameters["EDIFFG"] = abs(energy_of_last_step - energy_of_second_to_last_step)

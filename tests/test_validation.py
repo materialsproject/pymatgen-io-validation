@@ -261,17 +261,36 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["SCALEE" in reason for reason in temp_validation_doc.reasons])
 
-    # EDIFFG / force convergence check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["EDIFFG"] = -0.01
-    temp_task_doc.output.forces = [[10, 10, 10], [10, 10, 10]]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["CONVERGENCE" in reason for reason in temp_validation_doc.reasons])
-
-    # EDIFFG / force convergence check (this check should not raise any invalid reasons)
+    # EDIFFG energy convergence check (this check should not raise any invalid reasons)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(["CONVERGENCE" in reason for reason in temp_validation_doc.reasons])
+
+    # EDIFFG energy convergence check (this check SHOULD error)
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_ionic_step_1 = copy.deepcopy(temp_task_doc.calcs_reversed[0].output.ionic_steps[0])
+    temp_ionic_step_2 = copy.deepcopy(temp_ionic_step_1)
+    temp_ionic_step_1.e_0_energy = -1
+    temp_ionic_step_2.e_0_energy = -2
+    temp_task_doc.calcs_reversed[0].output.ionic_steps = [temp_ionic_step_1, temp_ionic_step_2]
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert any(["CONVERGENCE" in reason for reason in temp_validation_doc.reasons])
+
+    # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
+    # (the below test should NOT fail, because final forces are 0)
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
+    temp_task_doc.output.forces = [[0, 0, 0], [0, 0, 0]]
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert not any(["CONVERGENCE" in reason for reason in temp_validation_doc.reasons])
+
+    # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
+    # (the below test SHOULD fail, because final forces are high)
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
+    temp_task_doc.output.forces = [[10, 10, 10], [10, 10, 10]]
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert any(["CONVERGENCE" in reason for reason in temp_validation_doc.reasons])
 
     # ISMEAR wrong for nonmetal check
     temp_task_doc = copy.deepcopy(task_doc)
@@ -591,6 +610,13 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_task_doc.input.parameters["ISYM"] = 3
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["ISYM" in reason for reason in temp_validation_doc.reasons])
+
+    # ISYM check (should not error with ISYM = 3 for hybrid calcs)
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_task_doc.input.parameters["ISYM"] = 3
+    temp_task_doc.input.parameters["LHFCALC"] = True
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert not any(["ISYM" in reason for reason in temp_validation_doc.reasons])
 
     # SYMPREC check
     temp_task_doc = copy.deepcopy(task_doc)
