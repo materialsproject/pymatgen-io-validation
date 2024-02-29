@@ -575,7 +575,6 @@ class UpdateParameterValues:
                 f"{round(self.valid_values['electronic entropy'], 1)} meV/atom "
                 f"in the VASP wiki. Thus, SIGMA should be decreased."
             ),
-            # "alias": "SIGMA",
             "operation": "<=",
         }
 
@@ -693,20 +692,18 @@ class UpdateParameterValues:
                 # (see https://www.vasp.at/forum/viewtopic.php?t=16942 for more details).
                 cur_ionic_step_energies = [ionic_step["e_fr_energy"] for ionic_step in self._ionic_steps]
                 cur_ionic_step_energy_gradient = np.diff(cur_ionic_step_energies)
-                self.parameters["max gradient"] = round(
+                self.parameters["MAX ENERGY GRADIENT"] = round(
                     max(np.abs(cur_ionic_step_energy_gradient)) / self.structure.num_sites, 3
                 )
-                self.valid_values["max gradient"] = 1
-                self.defaults["max gradient"] = {
+                self.valid_values["MAX ENERGY GRADIENT"] = 1
+                self.defaults["MAX ENERGY GRADIENT"] = {
                     "value": None,
                     "tag": "ionic",
-                    "alias": "POTIM",
+                    # "alias": "POTIM",
                     "operation": "<=",
                     "comment": (
-                        f"The energy changed by a maximum of {self.parameters['max gradient']} eV/atom "
-                        "between ionic steps, which is greater than the maximum "
-                        f"allowed of {self.valid_values['max gradient']} eV/atom. "
-                        "This indicates that POTIM is too high."
+                        f"The energy changed by a maximum of {self.parameters['MAX ENERGY GRADIENT']} eV/atom "
+                        "between ionic steps; this indicates that POTIM is too high."
                     ),
                 }
 
@@ -718,10 +715,12 @@ class UpdateParameterValues:
         self.defaults["EDIFFG"] = {
             "value": 10 * self.valid_values["EDIFF"],
             "category": "ionic",
-            "comment": "CONVERGENCE --> Structure is not converged according to EDIFFG.",
         }
 
         self.valid_values["EDIFFG"] = self.input_set.incar.get("EDIFFG", self.defaults["EDIFFG"]["value"])
+        self.defaults["EDIFFG"][
+            "comment"
+        ] = f"Hence, structure is not converged according to EDIFFG, which should be {self.valid_values['EDIFFG']} or better."
 
         if self.task_doc["output"]["forces"] is None:
             self.defaults["EDIFFG"]["warning"] = "TaskDoc does not contain output forces!"
@@ -737,6 +736,7 @@ class UpdateParameterValues:
                 {
                     "value": self.defaults["EDIFFG"]["value"],
                     "operation": "<=",
+                    "alias": "MAX FINAL FORCE MAGNITUDE",
                 }
             )
 
@@ -746,6 +746,7 @@ class UpdateParameterValues:
             energy_of_second_to_last_step = self._calcs_reversed[0]["output"]["ionic_steps"][-2]["e_0_energy"]
             self.parameters["EDIFFG"] = abs(energy_of_last_step - energy_of_second_to_last_step)
             self.defaults["EDIFFG"]["operation"] = "<="
+            self.defaults["EDIFFG"]["alias"] = "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS"
 
     def update_post_init_params(self):
         """Update any params that depend on other params being set/updated."""
@@ -864,7 +865,7 @@ class BasicValidator:
 
         if not valid_value:
             error_list.append(
-                f"INPUT SETTINGS --> {input_tag}: set to {current_value}, but should be "
+                f"INPUT SETTINGS --> {input_tag}: equal to {current_value}, but should be "
                 f"{operation} {reference_value}. {append_comments}"
             )
 
