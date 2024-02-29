@@ -218,11 +218,11 @@ class UpdateParameterValues:
                 self.categories[self.defaults[key]["tag"]] = []
             self.categories[self.defaults[key]["tag"]].append(key)
 
+        tag_order = [key.replace(" ", "_") for key in self.categories if key != "post_init"] + ["post_init"]
         # add defaults to parameters from the incar as needed
         self.add_defaults_to_parameters(valid_values_source=self.input_set.incar)
-
         # collect list of tags in parameter defaults
-        for tag in {self.defaults[key].get("tag").replace(" ", "_") for key in self.defaults}:
+        for tag in tag_order:
             # check to see if update method for that tag exists, and if so, run it
             update_method_str = f"update_{tag}_params"
             if hasattr(self, update_method_str):
@@ -316,6 +316,7 @@ class UpdateParameterValues:
 
         self.parameters["LREAL"] = str(self._incar.get("LREAL", self.defaults["LREAL"]["value"])).upper()
         # PREC.
+        self.parameters["PREC"] = self.parameters["PREC"].upper()
         if self.input_set.incar.get("PREC", self.defaults["PREC"]["value"]).upper() in ["ACCURATE", "HIGH"]:
             self.valid_values["PREC"] = ["ACCURATE", "ACCURA", "HIGH"]
         else:
@@ -404,11 +405,12 @@ class UpdateParameterValues:
                 aux_str = " This is because it will change some outputs like the magmom on each site."
             self.defaults[key].update(
                 {
-                    "value": [self.defaults[key] for _ in self.parameters[key]],
+                    "value": [self.defaults[key]["value"][0] for _ in self.parameters[key]],
                     "operation": ["==" for _ in self.parameters[key]],
                     "comment": f"{key} should not be set. {aux_str}",
                 }
             )
+            self.valid_values[key] = self.defaults[key]["value"].copy()
 
     def update_hybrid_params(self) -> None:
         """Update params related to hybrid functionals."""
@@ -429,31 +431,32 @@ class UpdateParameterValues:
             self.defaults[key]["operation"] = "==" if isinstance(self.defaults[key]["value"], bool) else "approx"
 
     def update_fft_params(self) -> None:
+        # ensure that ENCUT is appropriately updated
+        self.valid_values["ENMAX"] = self.input_set.incar.get("ENCUT", self.defaults["ENMAX"])
+
+        grid_keys = {"NGX", "NGXF", "NGY", "NGYF", "NGZ", "NGZF"}
         """Update parameters related to the FFT grid."""
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
-        if any(i for i in ["NGX", "NGY", "NGZ", "NGXF", "NGYF", "NGZF"] if i in self._incar.keys()):
-            self.valid_values["ENMAX"] = max(
-                self.parameters["ENMAX"], self.input_set.incar.get("ENCUT", self.defaults["ENMAX"])
-            )
+        if any(i for i in grid_keys if i in self._incar.keys()):
+            self.valid_values["ENMAX"] = max(self.parameters["ENMAX"], self.valid_values["ENMAX"])
+
             (
                 [self.valid_values["NGX"], self.valid_values["NGY"], self.valid_values["NGZ"]],
                 [self.valid_values["NGXF"], self.valid_values["NGYF"], self.valid_values["NGZF"]],
             ) = self.input_set.calculate_ng(custom_encut=self.valid_values["ENMAX"])
 
-            for direction in ["X", "Y", "Z"]:
-                for mod in ["", "F"]:
-                    key = f"NG{direction}{mod}"
-                    self.valid_values[key] = int(self.valid_values[key] * self._fft_grid_tolerance)
+            for key in grid_keys:
+                self.valid_values[key] = int(self.valid_values[key] * self._fft_grid_tolerance)
 
-                    self.defaults[key] = {
-                        "value": self.valid_values[key],
-                        "tag": "fft",
-                        "operation": ">=",
-                        "comment": (
-                            "This likely means the number FFT grid points was modified by the user. "
-                            "If not, please create a GitHub issue."
-                        ),
-                    }
+                self.defaults[key] = {
+                    "value": self.valid_values[key],
+                    "tag": "fft",
+                    "operation": ">=",
+                    "comment": (
+                        "This likely means the number FFT grid points was modified by the user. "
+                        "If not, please create a GitHub issue."
+                    ),
+                }
 
     def update_density_mixing_params(self) -> None:
         """
@@ -736,6 +739,19 @@ class UpdateParameterValues:
             energy_of_second_to_last_step = self._calcs_reversed[0]["output"]["ionic_steps"][-2]["e_0_energy"]
             self.parameters["EDIFFG"] = abs(energy_of_last_step - energy_of_second_to_last_step)
             self.defaults["EDIFFG"]["operation"] = "<="
+
+    def update_post_init_params(self):
+        """Update any params that depend on other params being set/updated."""
+
+        # EBREAK
+        self.defaults["EBREAK"].update(
+            {
+                "value": self.defaults["EDIFF"]["value"] / (4.0 * self.defaults["NBANDS"]["value"]),
+                "operation": "<=",
+                "message": "It is recommended not to update EBREAK from the default value.",
+            }
+        )
+        self.valid_values["EBREAK"] = self.input_set.incar.get("EBREAK", self.defaults["EBREAK"]["value"])
 
 
 class BasicValidator:

@@ -17,7 +17,7 @@ setup(
     version="0.0.1",
     install_requires=["pymatgen>=2022.0.3", "emmet-core>=0.77.1", "pydantic>=2.4.2"],
     extras_require={},
-    package_data={'pymatgen.io.validation':['*.yaml']},
+    package_data={"pymatgen.io.validation": ["*.yaml"]},
     author="Matthew Kuner, Janosh Riebesell, Jason Munro, Aaron Kaplan",
     author_email="matthewkuner@berkeley.edu",
     maintainer="Matthew Kuner",

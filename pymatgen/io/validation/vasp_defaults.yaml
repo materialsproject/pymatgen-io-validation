@@ -39,7 +39,7 @@ DEPER:
   operation: ==
 EBREAK:
   value: 0.0
-  tag: misc
+  tag: post_init
   operation: ==
 EDIFF:
   value: 1.0e-4

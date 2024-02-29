@@ -203,11 +203,16 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["EFIELD" in reason for reason in temp_validation_doc.reasons])
 
-    # ENCUT / ENMAX check
+    # ENMAX / ENCUT checks
+    # Also assert that the ENCUT warning does not asser that ENCUT >= inf
+    # This checks that ENCUT is appropriately updated to be finite, and
+    # not just ENMAX
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ENMAX"] = 1
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ENCUT" in reason for reason in temp_validation_doc.reasons])
+    assert any("ENCUT" in reason for reason in temp_validation_doc.reasons) and all(
+        "should be >= inf." not in reason for reason in temp_validation_doc.reasons
+    )
 
     # EDIFF check
     temp_task_doc = copy.deepcopy(task_doc)
@@ -1077,6 +1082,12 @@ def test_vasp_version_check(test_dir, object_name):
     temp_task_doc.calcs_reversed[0].vasp_version = "4.0.0"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["VASP VERSION" in reason for reason in temp_validation_doc.reasons])
+
+    # Check VASP versions >= 6
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_task_doc.calcs_reversed[0].vasp_version = "6.4.2"
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert all(["VASP VERSION" not in reason for reason in temp_validation_doc.reasons])
 
     # Check for obscure VASP 5 bug with spin-polarized METAGGA calcs
     temp_task_doc = copy.deepcopy(task_doc)

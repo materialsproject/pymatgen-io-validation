@@ -206,7 +206,6 @@ class CheckVaspVersion:
         incar : dict | Incar
             INCAR corresponding to the calculation.
         """
-
         if (
             vasp_version[0] == 5
             and (incar.get("METAGGA", self.defaults["METAGGA"]["value"]) not in [None, "--", "None"])
@@ -217,7 +216,7 @@ class CheckVaspVersion:
                 "in some versions of VASP 5. Please create a new GitHub issue if you believe this "
                 "is not the case and we will consider changing this check!"
             )
-        elif list(vasp_version) != [5, 4, 4] or vasp_version[0] < 6:
+        elif (vasp_version[0] == 5 and list(vasp_version) != [5, 4, 4]) or vasp_version[0] < 6:
             vasp_version_str = ".".join([str(x) for x in vasp_version])
             reasons.append(
                 f"VASP VERSION --> This calculation is using VASP version {vasp_version_str}, "
