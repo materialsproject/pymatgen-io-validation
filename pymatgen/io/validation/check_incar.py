@@ -431,11 +431,12 @@ class UpdateParameterValues:
             self.defaults[key]["operation"] = "==" if isinstance(self.defaults[key]["value"], bool) else "approx"
 
     def update_fft_params(self) -> None:
+        """Update ENCUT and parameters related to the FFT grid."""
+
         # ensure that ENCUT is appropriately updated
         self.valid_values["ENMAX"] = self.input_set.incar.get("ENCUT", self.defaults["ENMAX"])
 
         grid_keys = {"NGX", "NGXF", "NGY", "NGYF", "NGZ", "NGZF"}
-        """Update parameters related to the FFT grid."""
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
         if any(i for i in grid_keys if i in self._incar.keys()):
             self.valid_values["ENMAX"] = max(self.parameters["ENMAX"], self.valid_values["ENMAX"])
