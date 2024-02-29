@@ -727,19 +727,6 @@ class UpdateParameterValues:
             self.defaults["EDIFFG"]["operation"] = "auto fail"
 
         elif self.valid_values["EDIFFG"] < 0.0:
-            # self.parameters["EDIFFG"] = [
-            #     np.linalg.norm(force_on_atom) for force_on_atom in self.task_doc["output"]["forces"]
-            # ]
-            # print(self.parameters["EDIFFG"])
-
-            # self.valid_values["EDIFFG"] = [abs(self.valid_values["EDIFFG"]) for _ in range(self.structure.num_sites)]
-            # self.defaults["EDIFFG"].update(
-            #     {
-            #         "value": [self.defaults["EDIFFG"]["value"] for _ in range(self.structure.num_sites)],
-            #         "operation": ["<=" for _ in range(self.structure.num_sites)],
-            #     }
-            # )
-
             self.parameters["EDIFFG"] = round(
                 max([np.linalg.norm(force_on_atom) for force_on_atom in self.task_doc["output"]["forces"]]), 3
             )
