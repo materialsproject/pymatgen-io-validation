@@ -672,7 +672,8 @@ class UpdateParameterValues:
         # IBRION.
         self.valid_values["IBRION"] = [-1, 1, 2]
         if self.input_set.incar.get("IBRION"):
-            self.valid_values["IBRION"] += [self.input_set.incar["IBRION"]]
+            if self.input_set.incar.get("IBRION") not in self.valid_values["IBRION"]:
+                self.valid_values["IBRION"] = [self.input_set.incar["IBRION"]]
 
         # POTIM.
         if self.parameters["IBRION"] in [1, 2, 3, 5, 6]:
