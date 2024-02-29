@@ -1065,31 +1065,37 @@ def test_vasp_version_check(test_dir, object_name):
     task_doc = TaskDoc.from_directory(dir_name)
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
-    # Check VASP versions < 5.4.4
+    # Check VASP versions < 5.4.4 (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.4.0"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["VASP VERSION" in reason for reason in temp_validation_doc.reasons])
 
-    # Check VASP versions < 5.4
+    # Check VASP versions < 5.4.4 (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.0.0"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["VASP VERSION" in reason for reason in temp_validation_doc.reasons])
 
-    # Check VASP versions < 5
+    # Check VASP versions < 5 (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "4.0.0"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["VASP VERSION" in reason for reason in temp_validation_doc.reasons])
 
-    # Check VASP versions >= 6
+    # Check VASP versions == 5.4.4 (should pass)
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_task_doc.calcs_reversed[0].vasp_version = "5.4.4"
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert all(["VASP VERSION" not in reason for reason in temp_validation_doc.reasons])
+
+    # Check VASP versions >= 6 (should pass)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "6.4.2"
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert all(["VASP VERSION" not in reason for reason in temp_validation_doc.reasons])
 
-    # Check for obscure VASP 5 bug with spin-polarized METAGGA calcs
+    # Check for obscure VASP 5 bug with spin-polarized METAGGA calcs (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.0.0"
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"

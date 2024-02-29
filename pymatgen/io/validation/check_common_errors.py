@@ -216,7 +216,7 @@ class CheckVaspVersion:
                 "in some versions of VASP 5. Please create a new GitHub issue if you believe this "
                 "is not the case and we will consider changing this check!"
             )
-        elif (vasp_version[0] == 5 and list(vasp_version) != [5, 4, 4]) or vasp_version[0] < 6:
+        elif (list(vasp_version) != [5, 4, 4]) and (vasp_version[0] < 6):
             vasp_version_str = ".".join([str(x) for x in vasp_version])
             reasons.append(
                 f"VASP VERSION --> This calculation is using VASP version {vasp_version_str}, "
