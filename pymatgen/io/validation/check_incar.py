@@ -563,18 +563,32 @@ class UpdateParameterValues:
                         self.parameters["electronic entropy"], abs(elec_step["eentropy"] / self.structure.num_sites)
                     )
 
-        self.valid_values["electronic entropy"] = 0.001
+        convert_eV_to_meV = 1000
+        self.parameters["electronic entropy"] *= convert_eV_to_meV
+        self.valid_values["electronic entropy"] = 0.001 * convert_eV_to_meV
+        # self.defaults["electronic entropy"] = {
+        #     "value": 0.0,
+        #     "tag": "smearing",
+        #     "comment": (
+        #         "The entropy term (T*S) in the energy was "
+        #         f"{round(1000 * self.parameters['electronic entropy'], 3)} meV/atom, "
+        #         " which is greater than the "
+        #         f"{round(1000 * self.valid_values['electronic entropy'], 1)} meV/atom "
+        #         f"maximum suggested in the VASP wiki. Thus, SIGMA should be decreased."
+        #     ),
+        #     "alias": "SIGMA",
+        #     "operation": "<=",
+        # }
+
         self.defaults["electronic entropy"] = {
             "value": 0.0,
             "tag": "smearing",
             "comment": (
-                "The entropy term (T*S) in the energy was "
-                f"{round(1000 * self.parameters['electronic entropy'], 3)} meV/atom, "
-                " which is greater than the "
-                f"{round(1000 * self.valid_values['electronic entropy'], 1)} meV/atom "
-                f"maximum suggested in the VASP wiki. Thus, SIGMA should be decreased."
+                "The entropy term (T*S) in the energy is suggested to be less than "
+                f"{round(self.valid_values['electronic entropy'], 1)} meV/atom "
+                f"in the VASP wiki. Thus, SIGMA should be decreased."
             ),
-            "alias": "SIGMA",
+            # "alias": "SIGMA",
             "operation": "<=",
         }
 
