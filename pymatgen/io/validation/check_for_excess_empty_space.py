@@ -1,4 +1,5 @@
 """Module for checking if a structure is not a bulk crystal"""
+
 from pymatgen.analysis.local_env import VoronoiNN
 import numpy as np
 

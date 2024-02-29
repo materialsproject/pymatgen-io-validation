@@ -506,7 +506,7 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # EBREAK check
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["EBREAK"] = 0.1
+    temp_task_doc.calcs_reversed[0].input.incar["EBREAK"] = 0.1
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["EBREAK" in reason for reason in temp_validation_doc.reasons])
 

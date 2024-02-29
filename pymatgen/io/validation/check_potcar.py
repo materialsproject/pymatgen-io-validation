@@ -1,4 +1,5 @@
 """Check POTCAR against known POTCARs in pymatgen, without setting up psp_resources."""
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 from importlib.resources import files as import_resource_files

@@ -37,10 +37,11 @@ DEPER:
   value: 0.3
   tag: misc
   operation: ==
+  comment: "According to the VASP manual, DEPER should not be set by the user."
 EBREAK:
-  value: 0.0
+  value: null
   tag: post_init
-  operation: ==
+  comment: "According to the VASP manual, EBREAK should not be set by the user."
 EDIFF:
   value: 1.0e-4
   tag: electronic

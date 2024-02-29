@@ -1,4 +1,5 @@
 """Validate VASP INCAR files."""
+
 from __future__ import annotations
 import copy
 from dataclasses import dataclass
@@ -671,8 +672,7 @@ class UpdateParameterValues:
         # IBRION.
         self.valid_values["IBRION"] = [-1, 1, 2]
         if self.input_set.incar.get("IBRION"):
-            if self.input_set.incar.get("IBRION") not in self.valid_values["IBRION"]:
-                self.valid_values["IBRION"] = [self.input_set.incar["IBRION"]]
+            self.valid_values["IBRION"] += [self.input_set.incar["IBRION"]]
 
         # POTIM.
         if self.parameters["IBRION"] in [1, 2, 3, 5, 6]:
@@ -746,14 +746,15 @@ class UpdateParameterValues:
         """Update any params that depend on other params being set/updated."""
 
         # EBREAK
-        self.defaults["EBREAK"].update(
-            {
-                "value": self.defaults["EDIFF"]["value"] / (4.0 * self.defaults["NBANDS"]["value"]),
-                "operation": "<=",
-                "message": "It is recommended not to update EBREAK from the default value.",
-            }
-        )
-        self.valid_values["EBREAK"] = self.input_set.incar.get("EBREAK", self.defaults["EBREAK"]["value"])
+        # vasprun includes default EBREAK value, so we check ionic steps
+        # to see if the user set a value for EBREAK.
+        # Note that the NBANDS estimation differs from VASP's documentation,
+        # so we can't check the vasprun value directly
+        if self._incar.get("EBREAK"):
+            self.defaults["EBREAK"]["value"] = self.defaults["EDIFF"]["value"] / (
+                4.0 * self.defaults["NBANDS"]["value"]
+            )
+            self.defaults["EBREAK"]["operation"] = "auto fail"
 
 
 class BasicValidator:
