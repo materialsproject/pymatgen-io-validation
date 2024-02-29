@@ -135,7 +135,7 @@ class ValidationDoc(EmmetBaseModel):
         # Why was this lingering here?
         # task_doc.chemsys
 
-        vasp_version = [int(x) for x in calcs_reversed[0]["vasp_version"].split(".")]
+        vasp_version = [int(x) for x in calcs_reversed[0]["vasp_version"].split(".")[:3]]
 
         if calcs_reversed[0].get("input", {}).get("structure", None):
             structure = calcs_reversed[0]["input"]["structure"]
