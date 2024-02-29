@@ -692,7 +692,9 @@ class UpdateParameterValues:
                 # (see https://www.vasp.at/forum/viewtopic.php?t=16942 for more details).
                 cur_ionic_step_energies = [ionic_step["e_fr_energy"] for ionic_step in self._ionic_steps]
                 cur_ionic_step_energy_gradient = np.diff(cur_ionic_step_energies)
-                self.parameters["max gradient"] = max(np.abs(cur_ionic_step_energy_gradient)) / self.structure.num_sites
+                self.parameters["max gradient"] = round(
+                    max(np.abs(cur_ionic_step_energy_gradient)) / self.structure.num_sites, 3
+                )
                 self.valid_values["max gradient"] = 1
                 self.defaults["max gradient"] = {
                     "value": None,
@@ -700,7 +702,7 @@ class UpdateParameterValues:
                     "alias": "POTIM",
                     "operation": "<=",
                     "comment": (
-                        f"The energy changed by a maximum of {self.valid_values['max gradient']} eV/atom "
+                        f"The energy changed by a maximum of {self.parameters['max gradient']} eV/atom "
                         "between ionic steps, which is greater than the maximum "
                         f"allowed of {self.valid_values['max gradient']} eV/atom. "
                         "This indicates that POTIM is too high."
