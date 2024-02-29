@@ -344,6 +344,20 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["IBRION" in reason for reason in temp_validation_doc.reasons])
 
+    # IBRION check for IBRION = 1 when MP input set uses IBRION = 2 (should pass)
+    ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_task_doc.input.parameters["IBRION"] = 1
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert not any(["IBRION" in reason for reason in temp_validation_doc.reasons])
+
+    # IBRION check for IBRION = -1 when MP input set uses IBRION = 2 (should pass)
+    ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
+    temp_task_doc = copy.deepcopy(task_doc)
+    temp_task_doc.input.parameters["IBRION"] = -1
+    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+    assert not any(["IBRION" in reason for reason in temp_validation_doc.reasons])
+
     # ISIF check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISIF"] = 1
