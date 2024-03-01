@@ -33,6 +33,9 @@ from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
 from pymatgen.io.validation.settings import IOValidationSettings
 
+from importlib.metadata import version
+import requests
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -40,6 +43,22 @@ if TYPE_CHECKING:
 
 SETTINGS = IOValidationSettings()
 _vasp_defaults = loadfn(SETTINGS.VASP_DEFAULTS_FILENAME)
+
+
+def is_package_is_up_to_date(package_name: str):
+    try:
+        cur_version = version(package_name)
+    except:
+        cur_version = "not installed"
+
+    try:
+        response = requests.get(f"https://pypi.org/pypi/{package_name}/json")
+        latest_version = response.json()["info"]["version"]
+    except:
+        latest_version = "package does not exist"
+
+    return cur_version == latest_version
+
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
@@ -67,6 +86,22 @@ class ValidationDoc(EmmetBaseModel):
     #     description="Dictionary of data used to perform validation."
     #     " Useful for post-mortem analysis"
     # )
+
+    def model_post_init(self, ctx):
+        import warnings
+
+        pymatgen_is_up_to_date = is_package_is_up_to_date("pymatgen")
+        if not pymatgen_is_up_to_date:
+            warnings.warn(
+                f"We *STRONGLY* recommend you to update your `pymatgen` package, which is behind the most recent version. "
+                f"Hence, if any pymatgen input sets have been updated, this validator will be outdated."
+            )
+        pymatgen_io_validation_is_up_to_date = is_package_is_up_to_date("pymatgen-io-validation")
+        if not pymatgen_io_validation_is_up_to_date:
+            warnings.warn(
+                f"We *STRONGLY* recommend you to update your `pymatgen-io-validation` package, which is behind the most recent version. "
+                f"Hence, if any checks in this package have been updated, the validator you use will be outdated."
+            )
 
     class Config:  # noqa
         extra = "allow"

@@ -45,3 +45,4 @@ repos:
         args:
           - --namespace-packages
           - --explicit-package-bases
+        additional_dependencies: ['types-requests']

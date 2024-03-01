@@ -26,7 +26,9 @@ classifiers = [
 ]
 dependencies = [
   "pymatgen",
-  "numpy"
+  "numpy",
+  "requests",
+  "typing-extensions",
 ]
 description = "A comprehensive I/O validator for electronic structure calculations"
 dynamic = ["version"]
@@ -40,7 +42,7 @@ requires-python = '>=3.8'
 dev = ["pre-commit>=2.12.1"]
 #docs = ["jupyter-book>=0.13.1",]
 
-tests = ["pytest==8.0.2", "pytest-cov==4.1.0"]
+tests = ["pytest==8.0.2", "pytest-cov==4.1.0", "types-requests"]
 
 
 [tool.setuptools.dynamic]
