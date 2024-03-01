@@ -46,6 +46,7 @@ _vasp_defaults = loadfn(SETTINGS.VASP_DEFAULTS_FILENAME)
 
 
 def is_package_is_up_to_date(package_name: str):
+    """check if a package is up-to-date."""
     try:
         cur_version = version(package_name)
     except Exception:
@@ -88,6 +89,7 @@ class ValidationDoc(EmmetBaseModel):
     # )
 
     def model_post_init(self, ctx):
+        """Warn the user if pymatgen / pymatgen-io-validation is not up-to-date."""
         import warnings
 
         pymatgen_is_up_to_date = is_package_is_up_to_date("pymatgen")
