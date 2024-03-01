@@ -554,25 +554,25 @@ class UpdateParameterValues:
 
         # Also check if SIGMA is too large according to the VASP wiki,
         # which occurs when the entropy term in the energy is greater than 1 meV/atom.
-        self.parameters["electronic entropy"] = -1e20
+        self.parameters["ELECTRONIC ENTROPY"] = -1e20
         for ionic_step in self._ionic_steps:
             electronic_steps = ionic_step["electronic_steps"]
             for elec_step in electronic_steps:
                 if elec_step.get("eentropy", None):
-                    self.parameters["electronic entropy"] = max(
-                        self.parameters["electronic entropy"], abs(elec_step["eentropy"] / self.structure.num_sites)
+                    self.parameters["ELECTRONIC ENTROPY"] = max(
+                        self.parameters["ELECTRONIC ENTROPY"], abs(elec_step["eentropy"] / self.structure.num_sites)
                     )
 
         convert_eV_to_meV = 1000
-        self.parameters["electronic entropy"] *= convert_eV_to_meV
-        self.valid_values["electronic entropy"] = 0.001 * convert_eV_to_meV
+        self.parameters["ELECTRONIC ENTROPY"] = round(self.parameters["ELECTRONIC ENTROPY"] * convert_eV_to_meV, 3)
+        self.valid_values["ELECTRONIC ENTROPY"] = 0.001 * convert_eV_to_meV
 
-        self.defaults["electronic entropy"] = {
+        self.defaults["ELECTRONIC ENTROPY"] = {
             "value": 0.0,
             "tag": "smearing",
             "comment": (
                 "The entropy term (T*S) in the energy is suggested to be less than "
-                f"{round(self.valid_values['electronic entropy'], 1)} meV/atom "
+                f"{round(self.valid_values['ELECTRONIC ENTROPY'], 1)} meV/atom "
                 f"in the VASP wiki. Thus, SIGMA should be decreased."
             ),
             "operation": "<=",
@@ -699,7 +699,6 @@ class UpdateParameterValues:
                 self.defaults["MAX ENERGY GRADIENT"] = {
                     "value": None,
                     "tag": "ionic",
-                    # "alias": "POTIM",
                     "operation": "<=",
                     "comment": (
                         f"The energy changed by a maximum of {self.parameters['MAX ENERGY GRADIENT']} eV/atom "
