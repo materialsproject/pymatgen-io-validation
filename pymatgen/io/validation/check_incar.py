@@ -864,7 +864,7 @@ class BasicValidator:
 
         if not valid_value:
             error_list.append(
-                f"INPUT SETTINGS --> {input_tag}: equal to {current_value}, but should be "
+                f"INPUT SETTINGS --> {input_tag}: is {current_value}, but should be "
                 f"{operation} {reference_value}. {append_comments}"
             )
 
