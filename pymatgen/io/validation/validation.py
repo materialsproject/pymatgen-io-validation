@@ -48,13 +48,13 @@ _vasp_defaults = loadfn(SETTINGS.VASP_DEFAULTS_FILENAME)
 def is_package_is_up_to_date(package_name: str):
     try:
         cur_version = version(package_name)
-    except:
+    except Exception:
         cur_version = "not installed"
 
     try:
         response = requests.get(f"https://pypi.org/pypi/{package_name}/json")
         latest_version = response.json()["info"]["version"]
-    except:
+    except Exception:
         latest_version = "package does not exist"
 
     return cur_version == latest_version
@@ -93,14 +93,14 @@ class ValidationDoc(EmmetBaseModel):
         pymatgen_is_up_to_date = is_package_is_up_to_date("pymatgen")
         if not pymatgen_is_up_to_date:
             warnings.warn(
-                f"We *STRONGLY* recommend you to update your `pymatgen` package, which is behind the most recent version. "
-                f"Hence, if any pymatgen input sets have been updated, this validator will be outdated."
+                "We *STRONGLY* recommend you to update your `pymatgen` package, which is behind the most recent version. "
+                "Hence, if any pymatgen input sets have been updated, this validator will be outdated."
             )
         pymatgen_io_validation_is_up_to_date = is_package_is_up_to_date("pymatgen-io-validation")
         if not pymatgen_io_validation_is_up_to_date:
             warnings.warn(
-                f"We *STRONGLY* recommend you to update your `pymatgen-io-validation` package, which is behind the most recent version. "
-                f"Hence, if any checks in this package have been updated, the validator you use will be outdated."
+                "We *STRONGLY* recommend you to update your `pymatgen-io-validation` package, which is behind the most recent version. "
+                "Hence, if any checks in this package have been updated, the validator you use will be outdated."
             )
 
     class Config:  # noqa
