@@ -28,7 +28,6 @@ dependencies = [
   "pymatgen",
   "numpy",
   "requests",
-  "typing-extensions",
 ]
 description = "A comprehensive I/O validator for electronic structure calculations"
 dynamic = ["version"]
