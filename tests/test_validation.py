@@ -358,8 +358,17 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert not any(["IBRION" in reason for reason in temp_validation_doc.reasons])
 
-    # ISIF check
+    # ISIF check (should pass here)
+    for isif_val in range(0, 9):
+        temp_task_doc = copy.deepcopy(task_doc)
+        temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = isif_val
+        temp_task_doc.input.parameters["ISIF"] = isif_val
+        temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
+        assert not any(["ISIF" in reason for reason in temp_validation_doc.reasons])
+
+    # ISIF check (should fail here)
     temp_task_doc = copy.deepcopy(task_doc)
+    # temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = 1
     temp_task_doc.input.parameters["ISIF"] = 1
     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
     assert any(["ISIF" in reason for reason in temp_validation_doc.reasons])
