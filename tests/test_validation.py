@@ -14,6 +14,29 @@ from pymatgen.io.vasp import Kpoints
 ### TODO: fix logic for calc_type / run_type identification in Emmet!!! Or handle how we interpret them...
 
 
+def run_check(
+    task_doc,
+    error_message_to_search_for: str,
+    should_the_check_pass: bool,
+    vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
+    incar_settings_to_change: dict = {},  # for directly changing the INCAR file
+):
+    for key, value in vasprun_parameters_to_change.items():
+        task_doc.input.parameters[key] = value
+
+    for key, value in incar_settings_to_change.items():
+        task_doc.calcs_reversed[0].input.incar[key] = value
+
+    validation_doc = ValidationDoc.from_task_doc(task_doc)
+    # print(validation_doc)
+    has_specified_error = any([error_message_to_search_for in reason for reason in validation_doc.reasons])
+
+    if should_the_check_pass:
+        assert not has_specified_error
+    else:
+        assert has_specified_error
+
+
 @pytest.mark.parametrize(
     "object_name",
     [
@@ -143,39 +166,14 @@ def test_potcar_validation(test_dir, object_name):
     # Check POTCAR (this test should PASS, as we ARE using a MP-compatible pseudopotential)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.potcar_spec = correct_potcar_summary_stats
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["PSEUDOPOTENTIALS" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "PSEUDOPOTENTIALS", True)
 
     # Check POTCAR (this test should FAIL, as we are NOT using an MP-compatible pseudopotential)
     temp_task_doc = copy.deepcopy(task_doc)
     incorrect_potcar_summary_stats = copy.deepcopy(correct_potcar_summary_stats)
     incorrect_potcar_summary_stats[0].summary_stats["stats"]["data"]["MEAN"] = 999999999
     temp_task_doc.calcs_reversed[0].input.potcar_spec = incorrect_potcar_summary_stats
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["PSEUDOPOTENTIALS" in reason for reason in temp_validation_doc.reasons])
-
-
-def run_check(
-    task_doc,
-    error_message_to_search_for: str,
-    should_the_check_pass: bool,
-    vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
-    incar_settings_to_change: dict = {},  # for directly changing the INCAR file
-):
-    for key, value in vasprun_parameters_to_change.items():
-        task_doc.input.parameters[key] = value
-
-    for key, value in incar_settings_to_change.items():
-        task_doc.calcs_reversed[0].input.incar[key] = value
-
-    validation_doc = ValidationDoc.from_task_doc(task_doc)
-    print(validation_doc)
-    has_specified_error = any([error_message_to_search_for in reason for reason in validation_doc.reasons])
-
-    if should_the_check_pass:
-        assert not has_specified_error
-    else:
-        assert has_specified_error
+    run_check(temp_task_doc, "PSEUDOPOTENTIALS", False)
 
 
 @pytest.mark.parametrize(
@@ -715,30 +713,20 @@ def test_vasp_version_check(test_dir, object_name):
     task_doc = TaskDoc.from_directory(dir_name)
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
-    # Check VASP versions < 5.4.4 (should fail)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].vasp_version = "5.4.0"
-    run_check(temp_task_doc, "VASP VERSION", False)
+    vasp_version_list = [
+        {"vasp_version": "4.0.0", "should_pass": False},
+        {"vasp_version": "5.0.0", "should_pass": False},
+        {"vasp_version": "5.4.0", "should_pass": False},
+        {"vasp_version": "5.4.4", "should_pass": True},
+        {"vasp_version": "6.0.0", "should_pass": True},
+        {"vasp_version": "6.1.3", "should_pass": True},
+        {"vasp_version": "6.4.2", "should_pass": True},
+    ]
 
-    # Check VASP versions < 5.4.4 (should fail)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].vasp_version = "5.0.0"
-    run_check(temp_task_doc, "VASP VERSION", False)
-
-    # Check VASP versions < 5 (should fail)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].vasp_version = "4.0.0"
-    run_check(temp_task_doc, "VASP VERSION", False)
-
-    # Check VASP versions == 5.4.4 (should pass)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].vasp_version = "5.4.4"
-    run_check(temp_task_doc, "VASP VERSION", True)
-
-    # Check VASP versions >= 6 (should pass)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].vasp_version = "6.4.2"
-    run_check(temp_task_doc, "VASP VERSION", True)
+    for check_info in vasp_version_list:
+        temp_task_doc = copy.deepcopy(task_doc)
+        temp_task_doc.calcs_reversed[0].vasp_version = check_info["vasp_version"]
+        run_check(temp_task_doc, "VASP VERSION", check_info["should_pass"])
 
     # Check for obscure VASP 5 bug with spin-polarized METAGGA calcs (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
