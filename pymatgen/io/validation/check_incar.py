@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from pymatgen.core import Structure
     from pymatgen.io.vasp.sets import VaspInputSet
 
+# TODO: fix ISIF getting overwritten by MP input set.
+
 
 @dataclass
 class CheckIncar:

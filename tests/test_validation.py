@@ -11,6 +11,7 @@ from pymatgen.io.vasp import Kpoints
 ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
 ### TODO: add in check for MP set where LEFG = True
 ### TODO: add in check for MP set where LOPTICS = True
+### TODO: fix logic for calc_type / run_type identification in Emmet!!! Or handle how we interpret them...
 
 
 @pytest.mark.parametrize(
@@ -154,6 +155,29 @@ def test_potcar_validation(test_dir, object_name):
     assert any(["PSEUDOPOTENTIALS" in reason for reason in temp_validation_doc.reasons])
 
 
+def run_check(
+    task_doc,
+    error_message_to_search_for: str,
+    should_the_check_pass: bool,
+    vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
+    incar_settings_to_change: dict = {},  # for directly changing the INCAR file
+):
+    for key, value in vasprun_parameters_to_change.items():
+        task_doc.input.parameters[key] = value
+
+    for key, value in incar_settings_to_change.items():
+        task_doc.calcs_reversed[0].input.incar[key] = value
+
+    validation_doc = ValidationDoc.from_task_doc(task_doc)
+    print(validation_doc)
+    has_specified_error = any([error_message_to_search_for in reason for reason in validation_doc.reasons])
+
+    if should_the_check_pass:
+        assert not has_specified_error
+    else:
+        assert has_specified_error
+
+
 @pytest.mark.parametrize(
     "object_name",
     [
@@ -167,41 +191,295 @@ def test_scf_incar_checks(test_dir, object_name):
     task_doc = TaskDoc.from_directory(dir_name)
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
-    # LCHIMAG check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LCHIMAG"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LCHIMAG" in reason for reason in temp_validation_doc.reasons])
+    list_of_checks = [
+        {
+            "err_msg": "LCHIMAG",
+            "should_check_pass": False,
+            "params_to_change": {"LCHIMAG": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LNMR_SYM_RED",
+            "should_check_pass": False,
+            "params_to_change": {"LNMR_SYM_RED": True},
+            "incar_to_change": {},
+        },
+        {"err_msg": "LDIPOL", "should_check_pass": False, "params_to_change": {"LDIPOL": True}, "incar_to_change": {}},
+        {"err_msg": "IDIPOL", "should_check_pass": False, "params_to_change": {"IDIPOL": 2}, "incar_to_change": {}},
+        {"err_msg": "EPSILON", "should_check_pass": False, "params_to_change": {"EPSILON": 1.5}, "incar_to_change": {}},
+        {"err_msg": "EPSILON", "should_check_pass": True, "params_to_change": {"EPSILON": 1}, "incar_to_change": {}},
+        {"err_msg": "EFIELD", "should_check_pass": False, "params_to_change": {"EFIELD": 1}, "incar_to_change": {}},
+        {"err_msg": "EFIELD", "should_check_pass": True, "params_to_change": {"EFIELD": 0}, "incar_to_change": {}},
+        {"err_msg": "EDIFF", "should_check_pass": False, "params_to_change": {"EDIFF": 1e-2}, "incar_to_change": {}},
+        {"err_msg": "EDIFF", "should_check_pass": True, "params_to_change": {"EDIFF": 1e-8}, "incar_to_change": {}},
+        {
+            "err_msg": "ENINI",
+            "should_check_pass": False,
+            "params_to_change": {"ENINI": 1, "IALGO": 48},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "IALGO",
+            "should_check_pass": False,
+            "params_to_change": {"ENINI": 1, "IALGO": 48},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "NBANDS",
+            "should_check_pass": False,
+            "params_to_change": {"NBANDS": 1},
+            "incar_to_change": {},
+        },  # NBANDS too low
+        {
+            "err_msg": "NBANDS",
+            "should_check_pass": True,
+            "params_to_change": {"NBANDS": 40},
+            "incar_to_change": {},
+        },  # NBANDS acceptable
+        {
+            "err_msg": "NBANDS",
+            "should_check_pass": False,
+            "params_to_change": {"NBANDS": 1000},
+            "incar_to_change": {},
+        },  # NBANDS too high
+        {
+            "err_msg": "LREAL",
+            "should_check_pass": False,
+            "params_to_change": {},
+            "incar_to_change": {"LREAL": True},
+        },  # change LREAL in incar because that is how the check is actually done
+        {
+            "err_msg": "LREAL",
+            "should_check_pass": True,
+            "params_to_change": {},
+            "incar_to_change": {"LREAL": False},
+        },  # change LREAL in incar because that is how the check is actually done
+        {"err_msg": "LMAXPAW", "should_check_pass": False, "params_to_change": {"LMAXPAW": 0}, "incar_to_change": {}},
+        {
+            "err_msg": "NLSPLINE",
+            "should_check_pass": False,
+            "params_to_change": {"NLSPLINE": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "ADDGRID",
+            "should_check_pass": False,
+            "params_to_change": {"ADDGRID": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LHFCALC",
+            "should_check_pass": False,
+            "params_to_change": {"LHFCALC": True},
+            "incar_to_change": {},
+        },
+        {"err_msg": "AEXX", "should_check_pass": False, "params_to_change": {"AEXX": 1}, "incar_to_change": {}},
+        {"err_msg": "AGGAC", "should_check_pass": False, "params_to_change": {"AGGAC": 0.5}, "incar_to_change": {}},
+        {"err_msg": "AGGAX", "should_check_pass": False, "params_to_change": {"AGGAX": 0.5}, "incar_to_change": {}},
+        {"err_msg": "ALDAX", "should_check_pass": False, "params_to_change": {"ALDAX": 0.5}, "incar_to_change": {}},
+        {"err_msg": "AMGGAX", "should_check_pass": False, "params_to_change": {"AMGGAX": 0.5}, "incar_to_change": {}},
+        {"err_msg": "ALDAC", "should_check_pass": False, "params_to_change": {"ALDAC": 0.5}, "incar_to_change": {}},
+        {"err_msg": "AMGGAC", "should_check_pass": False, "params_to_change": {"AMGGAC": 0.5}, "incar_to_change": {}},
+        {
+            "err_msg": "IBRION",
+            "should_check_pass": False,
+            "params_to_change": {"IBRION": 3},
+            "incar_to_change": {},
+        },  # disallowed IBRION
+        {
+            "err_msg": "IBRION",
+            "should_check_pass": True,
+            "params_to_change": {"IBRION": 1},
+            "incar_to_change": {},
+        },  # allowed IBRION
+        {
+            "err_msg": "IBRION",
+            "should_check_pass": True,
+            "params_to_change": {"IBRION": -1},
+            "incar_to_change": {},
+        },  # allowed IBRION
+        {"err_msg": "PSTRESS", "should_check_pass": False, "params_to_change": {"PSTRESS": 1}, "incar_to_change": {}},
+        {"err_msg": "SCALEE", "should_check_pass": False, "params_to_change": {"SCALEE": 0.9}, "incar_to_change": {}},
+        {
+            "err_msg": "LNONCOLLINEAR",
+            "should_check_pass": False,
+            "params_to_change": {"LNONCOLLINEAR": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LSORBIT",
+            "should_check_pass": False,
+            "params_to_change": {"LSORBIT": True},
+            "incar_to_change": {},
+        },
+        {"err_msg": "DEPER", "should_check_pass": False, "params_to_change": {"DEPER": 0.5}, "incar_to_change": {}},
+        {
+            "err_msg": "EBREAK",
+            "should_check_pass": False,
+            "params_to_change": {},
+            "incar_to_change": {"EBREAK": 0.1},
+        },  # EBREAK check depends on incar, not vasprun.xml parameters
+        {
+            "err_msg": "GGA_COMPAT",
+            "should_check_pass": False,
+            "params_to_change": {"GGA_COMPAT": False},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "ICORELEVEL",
+            "should_check_pass": False,
+            "params_to_change": {"ICORELEVEL": 1},
+            "incar_to_change": {},
+        },
+        {"err_msg": "IMAGES", "should_check_pass": False, "params_to_change": {"IMAGES": 1}, "incar_to_change": {}},
+        {"err_msg": "IVDW", "should_check_pass": False, "params_to_change": {"IVDW": 1}, "incar_to_change": {}},
+        {"err_msg": "LBERRY", "should_check_pass": False, "params_to_change": {"LBERRY": True}, "incar_to_change": {}},
+        {
+            "err_msg": "LCALCEPS",
+            "should_check_pass": False,
+            "params_to_change": {"LCALCEPS": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LCALCPOL",
+            "should_check_pass": False,
+            "params_to_change": {"LCALCPOL": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LHYPERFINE",
+            "should_check_pass": False,
+            "params_to_change": {"LHYPERFINE": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LKPOINTS_OPT",
+            "should_check_pass": False,
+            "params_to_change": {"LKPOINTS_OPT": True},
+            "incar_to_change": {},
+        },
+        {"err_msg": "LKPROJ", "should_check_pass": False, "params_to_change": {"LKPROJ": True}, "incar_to_change": {}},
+        {"err_msg": "LMP2LT", "should_check_pass": False, "params_to_change": {"LMP2LT": True}, "incar_to_change": {}},
+        {
+            "err_msg": "LSMP2LT",
+            "should_check_pass": False,
+            "params_to_change": {"LSMP2LT": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LOCPROJ",
+            "should_check_pass": False,
+            "params_to_change": {"LOCPROJ": "1 : s : Hy"},
+            "incar_to_change": {},
+        },
+        {"err_msg": "LRPA", "should_check_pass": False, "params_to_change": {"LRPA": True}, "incar_to_change": {}},
+        {
+            "err_msg": "LSPECTRAL",
+            "should_check_pass": False,
+            "params_to_change": {"LSPECTRAL": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LSUBROT",
+            "should_check_pass": False,
+            "params_to_change": {"LSUBROT": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "ML_LMLFF",
+            "should_check_pass": False,
+            "params_to_change": {"ML_LMLFF": True},
+            "incar_to_change": {},
+        },
+        {"err_msg": "WEIMIN", "should_check_pass": False, "params_to_change": {"WEIMIN": 0.01}, "incar_to_change": {}},
+        {"err_msg": "WEIMIN", "should_check_pass": True, "params_to_change": {"WEIMIN": 0.0001}, "incar_to_change": {}},
+        {
+            "err_msg": "IWAVPR",
+            "should_check_pass": False,
+            "params_to_change": {},
+            "incar_to_change": {"IWAVPR": 1},
+        },  # IWAVPR check depends on incar, not vasprun.xml parameters
+        {"err_msg": "LASPH", "should_check_pass": False, "params_to_change": {"LASPH": False}, "incar_to_change": {}},
+        {
+            "err_msg": "LCORR",
+            "should_check_pass": False,
+            "params_to_change": {"LCORR": False, "IALGO": 38},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LCORR",
+            "should_check_pass": True,
+            "params_to_change": {"LCORR": False, "IALGO": 58},
+            "incar_to_change": {},
+        },
+        {"err_msg": "RWIGS", "should_check_pass": False, "params_to_change": {"RWIGS": [1]}, "incar_to_change": {}},
+        {"err_msg": "VCA", "should_check_pass": False, "params_to_change": {"VCA": [0.5]}, "incar_to_change": {}},
+        {"err_msg": "PREC", "should_check_pass": False, "params_to_change": {"PREC": "NORMAL"}, "incar_to_change": {}},
+        {
+            "err_msg": "ROPT",
+            "should_check_pass": False,
+            "params_to_change": {"ROPT": [-0.001]},
+            "incar_to_change": {"LREAL": True},
+        },
+        {"err_msg": "ICHARG", "should_check_pass": False, "params_to_change": {"ICHARG": 11}, "incar_to_change": {}},
+        {"err_msg": "INIWAV", "should_check_pass": False, "params_to_change": {"INIWAV": 0}, "incar_to_change": {}},
+        {"err_msg": "ISTART", "should_check_pass": False, "params_to_change": {"ISTART": 3}, "incar_to_change": {}},
+        {"err_msg": "ISYM", "should_check_pass": False, "params_to_change": {"ISYM": 3}, "incar_to_change": {}},
+        {
+            "err_msg": "ISYM",
+            "should_check_pass": True,
+            "params_to_change": {"ISYM": 3, "LHFCALC": True},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "SYMPREC",
+            "should_check_pass": False,
+            "params_to_change": {"SYMPREC": 1e-2},
+            "incar_to_change": {},
+        },
+        {
+            "err_msg": "LDAUU",
+            "should_check_pass": False,
+            "params_to_change": {"LDAU": True},
+            "incar_to_change": {"LDAUU": [5, 5]},
+        },  # LDAUU check depends on incar, not vasprun.xml parameters
+        {
+            "err_msg": "LDAUJ",
+            "should_check_pass": False,
+            "params_to_change": {"LDAU": True},
+            "incar_to_change": {"LDAUJ": [5, 5]},
+        },  # LDAUJ check depends on incar, not vasprun.xml parameters
+        {
+            "err_msg": "LDAUL",
+            "should_check_pass": False,
+            "params_to_change": {"LDAU": True},
+            "incar_to_change": {"LDAUL": [5, 5]},
+        },  # LDAUL check depends on incar, not vasprun.xml parameters
+        {
+            "err_msg": "LDAUTYPE",
+            "should_check_pass": False,
+            "params_to_change": {"LDAU": True, "LDAUTYPE": [1]},
+            "incar_to_change": {},
+        },
+        {"err_msg": "NWRITE", "should_check_pass": False, "params_to_change": {"NWRITE": 1}, "incar_to_change": {}},
+        {"err_msg": "LEFG", "should_check_pass": False, "params_to_change": {"LEFG": True}, "incar_to_change": {}},
+        {
+            "err_msg": "LOPTICS",
+            "should_check_pass": False,
+            "params_to_change": {"LOPTICS": True},
+            "incar_to_change": {},
+        },
+    ]
 
-    # LNMR_SYM_RED check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LNMR_SYM_RED"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LNMR_SYM_RED" in reason for reason in temp_validation_doc.reasons])
-
-    # LDIPOL check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LDIPOL"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LDIPOL" in reason for reason in temp_validation_doc.reasons])
-
-    # IDIPOL check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IDIPOL"] = 2
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["IDIPOL" in reason for reason in temp_validation_doc.reasons])
-
-    # EPSILON check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["EPSILON"] = 1.5
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["EPSILON" in reason for reason in temp_validation_doc.reasons])
-
-    # EFIELD check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["EFIELD"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["EFIELD" in reason for reason in temp_validation_doc.reasons])
+    for check_info in list_of_checks:
+        temp_task_doc = copy.deepcopy(task_doc)
+        run_check(
+            temp_task_doc,
+            check_info["err_msg"],
+            check_info["should_check_pass"],
+            vasprun_parameters_to_change=check_info["params_to_change"],
+            incar_settings_to_change=check_info["incar_to_change"],
+        )
 
     # ENMAX / ENCUT checks
     # Also assert that the ENCUT warning does not asser that ENCUT >= inf
@@ -209,64 +487,15 @@ def test_scf_incar_checks(test_dir, object_name):
     # not just ENMAX
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ENMAX"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any("ENCUT" in reason for reason in temp_validation_doc.reasons) and all(
-        "should be >= inf." not in reason for reason in temp_validation_doc.reasons
-    )
-
-    # EDIFF check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["EDIFF"] = 1e-2
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["EDIFF" in reason for reason in temp_validation_doc.reasons])
-
-    # IALGO and ENINI checks
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IALGO"] = 48
-    temp_task_doc.input.parameters["ENINI"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ENINI" in reason for reason in temp_validation_doc.reasons])
-    assert any(["IALGO" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "ENCUT", False)
+    run_check(temp_task_doc, "should be >= inf.", True)
 
     # NELECT check
     temp_task_doc = copy.deepcopy(task_doc)
     # must set NELECT in `incar` for NELECT checks!
     temp_task_doc.calcs_reversed[0].input.incar["NELECT"] = 9
     temp_task_doc.calcs_reversed[0].output.structure._charge = 1.0
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["NELECT" in reason for reason in temp_validation_doc.reasons])
-
-    # NBANDS too low check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["NBANDS"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["NBANDS" in reason for reason in temp_validation_doc.reasons])
-
-    # NBANDS too high check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["NBANDS"] = 1000
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["NBANDS" in reason for reason in temp_validation_doc.reasons])
-
-    # LREAL check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.incar[
-        "LREAL"
-    ] = True  # must change `incar` and not `parameters` for LREAL checks!
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LREAL" in reason for reason in temp_validation_doc.reasons])
-
-    # LMAXPAW check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LMAXPAW"] = 0  # should be -100
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LMAXPAW" in reason for reason in temp_validation_doc.reasons])
-
-    # NLSPLINE check for non-NMR calcs
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["NLSPLINE"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["NLSPLINE" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "NELECT", False)
 
     # FFT grid check (NGX, NGY, NGZ, NGXF, NGYF, NGZF)
     # Must change `incar` *and* `parameters` for NG_ checks!
@@ -279,112 +508,26 @@ def test_scf_incar_checks(test_dir, object_name):
         temp_task_doc = copy.deepcopy(task_doc)
         temp_task_doc.calcs_reversed[0].input.incar[key] = 1
         temp_task_doc.input.parameters[key] = 1
-
-        temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-        assert any([key in reason for reason in temp_validation_doc.reasons])
-
-    # ADDGRID check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ADDGRID"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ADDGRID" in reason for reason in temp_validation_doc.reasons])
-
-    # LHFCALC check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LHFCALC"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LHFCALC" in reason for reason in temp_validation_doc.reasons])
-
-    # AEXX check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AEXX"] = 1.0  # should never be set to this
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["AEXX" in reason for reason in temp_validation_doc.reasons])
-
-    # AGGAC check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AGGAC"] = 0.5  # should never be set to this
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["AGGAC" in reason for reason in temp_validation_doc.reasons])
-
-    # AGGAX check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AGGAX"] = 0.5  # should never be set to this
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["AGGAX" in reason for reason in temp_validation_doc.reasons])
-
-    # ALDAX check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ALDAX"] = 0.5  # should never be set to this
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ALDAX" in reason for reason in temp_validation_doc.reasons])
-
-    # AMGGAX check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AMGGAX"] = 0.5  # should never be set to this
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["AMGGAX" in reason for reason in temp_validation_doc.reasons])
-
-    # ALDAC check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ALDAC"] = 0.5  # should never be set to this
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ALDAC" in reason for reason in temp_validation_doc.reasons])
-
-    # AMGGAC check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["AMGGAC"] = 0.5  # should never be set to this
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["AMGGAC" in reason for reason in temp_validation_doc.reasons])
-
-    # IBRION check
-    ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IBRION"] = 3
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["IBRION" in reason for reason in temp_validation_doc.reasons])
-
-    # IBRION check for IBRION = 1 when MP input set uses IBRION = 2 (should pass)
-    ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IBRION"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["IBRION" in reason for reason in temp_validation_doc.reasons])
-
-    # IBRION check for IBRION = -1 when MP input set uses IBRION = 2 (should pass)
-    ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IBRION"] = -1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["IBRION" in reason for reason in temp_validation_doc.reasons])
+        run_check(temp_task_doc, key, False)
 
     # ISIF check (should pass here)
-    for isif_val in range(0, 9):
+    for isif_val in range(3, 9):
         temp_task_doc = copy.deepcopy(task_doc)
-        temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = isif_val
+        temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = 3
         temp_task_doc.input.parameters["ISIF"] = isif_val
-        temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-        assert not any(["ISIF" in reason for reason in temp_validation_doc.reasons])
+        run_check(temp_task_doc, "ISIF", True)
 
     # ISIF check (should fail here)
     temp_task_doc = copy.deepcopy(task_doc)
     # temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = 1
     temp_task_doc.input.parameters["ISIF"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ISIF" in reason for reason in temp_validation_doc.reasons])
-
-    # PSTRESS check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["PSTRESS"] = 1.0
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["PSTRESS" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "ISIF", False)
 
     # POTIM check #1 (checks parameter itself)
     ### TODO: add in second check for POTIM that checks for large energy changes between ionic steps
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["POTIM"] = 10
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["POTIM" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "POTIM", False)
 
     # POTIM check #2 (checks energy change between steps)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -394,19 +537,11 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_ionic_step_1.e_fr_energy = 0
     temp_ionic_step_2.e_fr_energy = 10000
     temp_task_doc.calcs_reversed[0].output.ionic_steps = [temp_ionic_step_1, temp_ionic_step_2]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["POTIM" in reason for reason in temp_validation_doc.reasons])
-
-    # SCALEE check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["SCALEE"] = 0.9
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["SCALEE" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "POTIM", False)
 
     # EDIFFG energy convergence check (this check should not raise any invalid reasons)
     temp_task_doc = copy.deepcopy(task_doc)
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS", True)
 
     # EDIFFG energy convergence check (this check SHOULD fail)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -415,70 +550,61 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_ionic_step_1.e_0_energy = -1
     temp_ionic_step_2.e_0_energy = -2
     temp_task_doc.calcs_reversed[0].output.ionic_steps = [temp_ionic_step_1, temp_ionic_step_2]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS", False)
 
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
     # (the below test should NOT fail, because final forces are 0)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
     temp_task_doc.output.forces = [[0, 0, 0], [0, 0, 0]]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["MAX FINAL FORCE MAGNITUDE" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "MAX FINAL FORCE MAGNITUDE", True)
 
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
     # (the below test SHOULD fail, because final forces are high)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
     temp_task_doc.output.forces = [[10, 10, 10], [10, 10, 10]]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["MAX FINAL FORCE MAGNITUDE" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "MAX FINAL FORCE MAGNITUDE", False)
 
     # ISMEAR wrong for nonmetal check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISMEAR"] = 1
     temp_task_doc.output.bandgap = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ISMEAR" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "ISMEAR", False)
 
     # ISMEAR wrong for metal relaxation check
     temp_task_doc = copy.deepcopy(task_doc)
-    # make ionic_steps be length 2, making this be classified as a relaxation calculation
+    # make ionic_steps be length 2, meaning this gets classified as a relaxation calculation
     temp_task_doc.calcs_reversed[0].output.ionic_steps = 2 * temp_task_doc.calcs_reversed[0].output.ionic_steps
     temp_task_doc.input.parameters["ISMEAR"] = -5
     temp_task_doc.output.bandgap = 0
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ISMEAR" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "ISMEAR", False)
 
     # SIGMA too high for nonmetal with ISMEAR = 0 check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISMEAR"] = 0
     temp_task_doc.input.parameters["SIGMA"] = 0.2
     temp_task_doc.output.bandgap = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["SIGMA" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "SIGMA", False)
 
     # SIGMA too high for nonmetal with ISMEAR = -5 check (should not error)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISMEAR"] = -5
     temp_task_doc.input.parameters["SIGMA"] = 1000  # should not matter
     temp_task_doc.output.bandgap = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["SIGMA" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "SIGMA", True)
 
     # SIGMA too high for metal check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISMEAR"] = 1
     temp_task_doc.input.parameters["SIGMA"] = 0.5
     temp_task_doc.output.bandgap = 0
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["SIGMA" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "SIGMA", False)
 
     # SIGMA too large check (i.e. eentropy term is > 1 meV/atom)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].output.ionic_steps[0].electronic_steps[-1].eentropy = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["The entropy term (T*S)" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "The entropy term (T*S)", False)
 
     # LMAXMIX check for SCF calc
     temp_task_doc = copy.deepcopy(task_doc)
@@ -489,158 +615,13 @@ def test_scf_incar_checks(test_dir, object_name):
     # rather should add a warning
     assert any(["LMAXMIX" in warning for warning in temp_validation_doc.warnings])
 
-    # LNONCOLLINEAR check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LNONCOLLINEAR"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LNONCOLLINEAR" in reason for reason in temp_validation_doc.reasons])
-
-    # LSORBIT check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LSORBIT"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LSORBIT" in reason for reason in temp_validation_doc.reasons])
-
-    # LSORBIT check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LSORBIT"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LSORBIT" in reason for reason in temp_validation_doc.reasons])
-
-    # DEPER check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["DEPER"] = 0.5
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["DEPER" in reason for reason in temp_validation_doc.reasons])
-
-    # EBREAK check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.incar["EBREAK"] = 0.1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["EBREAK" in reason for reason in temp_validation_doc.reasons])
-
-    # GGA_COMPAT check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["GGA_COMPAT"] = False
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["GGA_COMPAT" in reason for reason in temp_validation_doc.reasons])
-
-    # ICORELEVEL check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ICORELEVEL"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ICORELEVEL" in reason for reason in temp_validation_doc.reasons])
-
-    # IMAGES check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IMAGES"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["IMAGES" in reason for reason in temp_validation_doc.reasons])
-
-    # IVDW check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IVDW"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["IVDW" in reason for reason in temp_validation_doc.reasons])
-
-    # LBERRY check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LBERRY"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LBERRY" in reason for reason in temp_validation_doc.reasons])
-
-    # LCALCEPS check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LCALCEPS"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LCALCEPS" in reason for reason in temp_validation_doc.reasons])
-
-    # LCALCPOL check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LCALCPOL"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LCALCPOL" in reason for reason in temp_validation_doc.reasons])
-
-    # LHYPERFINE check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LHYPERFINE"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LHYPERFINE" in reason for reason in temp_validation_doc.reasons])
-
-    # LKPOINTS_OPT check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LKPOINTS_OPT"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LKPOINTS_OPT" in reason for reason in temp_validation_doc.reasons])
-
-    # LKPROJ check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LKPROJ"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LKPROJ" in reason for reason in temp_validation_doc.reasons])
-
-    # LMP2LT check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LMP2LT"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LMP2LT" in reason for reason in temp_validation_doc.reasons])
-
-    # LOCPROJ check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LOCPROJ"] = "1 : s : Hy"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LOCPROJ" in reason for reason in temp_validation_doc.reasons])
-
-    # LRPA check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LRPA"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LRPA" in reason for reason in temp_validation_doc.reasons])
-
-    # LSMP2LT check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LSMP2LT"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LSMP2LT" in reason for reason in temp_validation_doc.reasons])
-
-    # LSPECTRAL check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LSPECTRAL"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LSPECTRAL" in reason for reason in temp_validation_doc.reasons])
-
-    # LSUBROT check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LSUBROT"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LSUBROT" in reason for reason in temp_validation_doc.reasons])
-
-    # ML_LMLFF check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ML_LMLFF"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ML_LMLFF" in reason for reason in temp_validation_doc.reasons])
-
-    # WEIMIN check too high (invalid)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["WEIMIN"] = 0.01
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["WEIMIN" in reason for reason in temp_validation_doc.reasons])
-
-    # WEIMIN check too low (valid)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["WEIMIN"] = 0.0001
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["WEIMIN" in reason for reason in temp_validation_doc.reasons])
-
     # EFERMI check (does not matter for VASP versions before 6.4)
     # must check EFERMI in the *incar*, as it is saved as a numerical value after VASP
     # guesses it in the vasprun.xml `parameters`
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.4.4"
     temp_task_doc.calcs_reversed[0].input.incar["EFERMI"] = 5
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["EFERMI" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "EFERMI", True)
 
     # EFERMI check (matters for VASP versions 6.4 and beyond)
     # must check EFERMI in the *incar*, as it is saved as a numerical value after VASP
@@ -648,42 +629,14 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "6.4.0"
     temp_task_doc.calcs_reversed[0].input.incar["EFERMI"] = 5
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["EFERMI" in reason for reason in temp_validation_doc.reasons])
-
-    # IWAVPR check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.incar["IWAVPR"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["IWAVPR" in reason for reason in temp_validation_doc.reasons])
-
-    # LASPH check too low (valid)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LASPH"] = False
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LASPH" in reason for reason in temp_validation_doc.reasons])
-
-    # LCORR check (checked when IALGO != 58) (should be invalid in this case)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IALGO"] = 38
-    temp_task_doc.input.parameters["LCORR"] = False
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LCORR" in reason for reason in temp_validation_doc.reasons])
-
-    # LCORR check (checked when IALGO != 58) (should be valid in this case)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["IALGO"] = 58
-    temp_task_doc.input.parameters["LCORR"] = False
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["LCORR" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "EFERMI", False)
 
     # LORBIT check (should have magnetization values for ISPIN=2)
     # Should be valid for this case, as no magmoms are expected for ISPIN = 1
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISPIN"] = 1
     temp_task_doc.calcs_reversed[0].output.outcar["magnetization"] = []
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["LORBIT" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "LORBIT", True)
 
     # LORBIT check (should have magnetization values for ISPIN=2)
     # Should be valid in this case, as magmoms are present for ISPIN = 2
@@ -693,124 +646,14 @@ def test_scf_incar_checks(test_dir, object_name):
         {"s": -0.0, "p": 0.0, "d": 0.0, "tot": 0.0},
         {"s": -0.0, "p": 0.0, "d": 0.0, "tot": -0.0},
     )
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["LORBIT" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "LORBIT", True)
 
     # LORBIT check (should have magnetization values for ISPIN=2)
     # Should be invalid in this case, as no magmoms are present for ISPIN = 2
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISPIN"] = 2
     temp_task_doc.calcs_reversed[0].output.outcar["magnetization"] = []
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LORBIT" in reason for reason in temp_validation_doc.reasons])
-
-    # RWIGS check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["RWIGS"] = [1]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["RWIGS" in reason for reason in temp_validation_doc.reasons])
-
-    # VCA check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["VCA"] = [0.5]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["VCA" in reason for reason in temp_validation_doc.reasons])
-
-    # PREC check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["PREC"] = "NORMAL"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["PREC" in reason for reason in temp_validation_doc.reasons])
-
-    # ROPT check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ROPT"] = [-0.001]
-    temp_task_doc.calcs_reversed[0].input.incar["LREAL"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ROPT" in reason for reason in temp_validation_doc.reasons])
-
-    # ICHARG check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ICHARG"] = 11
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ICHARG" in reason for reason in temp_validation_doc.reasons])
-
-    # INIWAV check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["INIWAV"] = 0
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["INIWAV" in reason for reason in temp_validation_doc.reasons])
-
-    # ISTART check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ISTART"] = 3
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ISTART" in reason for reason in temp_validation_doc.reasons])
-
-    # ISYM check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ISYM"] = 3
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ISYM" in reason for reason in temp_validation_doc.reasons])
-
-    # ISYM check (should not error with ISYM = 3 for hybrid calcs)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["ISYM"] = 3
-    temp_task_doc.input.parameters["LHFCALC"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["ISYM" in reason for reason in temp_validation_doc.reasons])
-
-    # SYMPREC check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["SYMPREC"] = 1e-2
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["SYMPREC" in reason for reason in temp_validation_doc.reasons])
-
-    # LDAUU check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LDAU"] = True
-    temp_task_doc.calcs_reversed[0].input.incar["LDAUU"] = [5, 5]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LDAUU" in reason for reason in temp_validation_doc.reasons])
-
-    # LDAUJ check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LDAU"] = True
-    temp_task_doc.calcs_reversed[0].input.incar["LDAUJ"] = [5, 5]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LDAUJ" in reason for reason in temp_validation_doc.reasons])
-
-    # LDAUL check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LDAU"] = True
-    temp_task_doc.calcs_reversed[0].input.incar["LDAUL"] = [5, 5]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LDAUL" in reason for reason in temp_validation_doc.reasons])
-
-    # LDAUTYPE check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LDAU"] = True
-    temp_task_doc.input.parameters["LDAUTYPE"] = [1]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LDAUTYPE" in reason for reason in temp_validation_doc.reasons])
-
-    # NWRITE check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["NWRITE"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["NWRITE" in reason for reason in temp_validation_doc.reasons])
-
-    # LEFG check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LEFG"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LEFG" in reason for reason in temp_validation_doc.reasons])
-
-    # LOPTICS check
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.input.parameters["LOPTICS"] = True
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LOPTICS" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "LORBIT", False)
 
     # LMAXTAU check for METAGGA calcs (A value of 4 should fail for the `La` chemsys (has f electrons))
     temp_task_doc = copy.deepcopy(task_doc)
@@ -820,29 +663,25 @@ def test_scf_incar_checks(test_dir, object_name):
     )
     temp_task_doc.calcs_reversed[0].input.incar["LMAXTAU"] = 4
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LMAXTAU" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "LMAXTAU", False)
 
     # LMAXTAU check for METAGGA calcs (A value of 2 should fail for the `Si` chemsys)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.incar["LMAXTAU"] = 2
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LMAXTAU" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "LMAXTAU", False)
 
     # LMAXTAU should always pass for non-METAGGA calcs
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.incar["LMAXTAU"] = 0
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "None"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["LMAXTAU" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "LMAXTAU", True)
 
     # ENAUG check for r2SCAN calcs
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ENAUG"] = 1
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["ENAUG" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "ENAUG", False)
 
 
 @pytest.mark.parametrize(
@@ -860,8 +699,7 @@ def test_nscf_incar_checks(test_dir, object_name):
     # ICHARG check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ICHARG"] = 11
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["ICHARG" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "ICHARG", True)
 
     # LMAXMIX check for NSCF calc
     temp_task_doc = copy.deepcopy(task_doc)
@@ -898,8 +736,7 @@ def test_nscf_kpoints_checks(test_dir, object_name):
             "generation_style": "line_mode",
         },
     )
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS: explicitly", True)
 
 
 @pytest.mark.parametrize(
@@ -919,33 +756,28 @@ def test_common_error_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
     temp_task_doc.calcs_reversed[0].input.incar["GGA"] = "PE"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["KNOWN BUG" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "KNOWN BUG", False)
 
     # METAGGA and GGA tag check (should not flag any reasons when METAGGA set to None)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "None"
     temp_task_doc.calcs_reversed[0].input.incar["GGA"] = "PE"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["KNOWN BUG" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "KNOWN BUG", True)
 
     # No electronic convergence check (i.e. more electronic steps than NELM)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["NELM"] = 1
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["CONVERGENCE --> Did not achieve electronic" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "CONVERGENCE --> Did not achieve electronic", False)
 
     # Drift forces too high check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].output.outcar["drift"] = [[1, 1, 1]]
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["CONVERGENCE --> Excessive drift" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "CONVERGENCE --> Excessive drift", False)
 
     # Final energy too high check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.output.energy_per_atom = 100
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["LARGE POSITIVE FINAL ENERGY" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "LARGE POSITIVE FINAL ENERGY", False)
 
     # Excessive final magmom check (no elements Gd or Eu present)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -954,8 +786,7 @@ def test_common_error_checks(test_dir, object_name):
         {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
         {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
     )
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["MAGNETISM" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "MAGNETISM", False)
 
     # Excessive final magmom check (elements Gd or Eu present)
     # Should pass here, as it has a final magmom < 10
@@ -968,8 +799,7 @@ def test_common_error_checks(test_dir, object_name):
         {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
         {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
     )
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["MAGNETISM" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "MAGNETISM", True)
 
     # Excessive final magmom check (elements Gd or Eu present)
     # Should not pass here, as it has a final magmom > 10
@@ -982,20 +812,17 @@ def test_common_error_checks(test_dir, object_name):
         {"s": 11.0, "p": 0.0, "d": 0.0, "tot": 11.0},
         {"s": 11.0, "p": 0.0, "d": 0.0, "tot": 11.0},
     )
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["MAGNETISM" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "MAGNETISM", False)
 
     # Element Po present
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.chemsys = "Po"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["COMPOSITION" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "COMPOSITION", False)
 
     # Elements Am present check
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.chemsys = "Am"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["COMPOSITION" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "COMPOSITION", False)
 
 
 def _update_kpoints_for_test(task_doc: TaskDoc, kpoints_updates: dict):
@@ -1027,8 +854,7 @@ def test_kpoints_checks(test_dir, object_name):
         species=["H", "H"],
     )  # HCP structure
     _update_kpoints_for_test(temp_task_doc, {"generation_style": "monkhorst"})
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["INPUT SETTINGS --> KPOINTS or KGAMMA:" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS or KGAMMA:", False)
 
     # Valid mesh type check (should flag FCC structures)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -1036,8 +862,7 @@ def test_kpoints_checks(test_dir, object_name):
         lattice=[[0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]], coords=[[0, 0, 0]], species=["H"]
     )  # FCC structure
     _update_kpoints_for_test(temp_task_doc, {"generation_style": "monkhorst"})
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["INPUT SETTINGS --> KPOINTS or KGAMMA:" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS or KGAMMA:", False)
 
     # Valid mesh type check (should *not* flag BCC structures)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -1045,14 +870,12 @@ def test_kpoints_checks(test_dir, object_name):
         lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["H", "H"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
     )  # BCC structure
     _update_kpoints_for_test(temp_task_doc, {"generation_style": "monkhorst"})
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert not any(["INPUT SETTINGS --> KPOINTS or KGAMMA:" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS or KGAMMA:", True)
 
     # Too few kpoints check
     temp_task_doc = copy.deepcopy(task_doc)
     _update_kpoints_for_test(temp_task_doc, {"kpoints": [[3, 3, 3]]})
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["INPUT SETTINGS --> KPOINTS or KSPACING:" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS or KSPACING:", False)
 
     # Explicit kpoints for SCF calc check
     temp_task_doc = copy.deepcopy(task_doc)
@@ -1066,14 +889,12 @@ def test_kpoints_checks(test_dir, object_name):
             "generation_style": "Reciprocal",
         },
     )
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS: explicitly", False)
 
     # Shifting kpoints for SCF calc check
     temp_task_doc = copy.deepcopy(task_doc)
     _update_kpoints_for_test(temp_task_doc, {"usershift": [0.5, 0, 0]})
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["INPUT SETTINGS --> KPOINTS: shifting" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS: shifting", False)
 
 
 @pytest.mark.parametrize(
@@ -1091,51 +912,31 @@ def test_vasp_version_check(test_dir, object_name):
     # Check VASP versions < 5.4.4 (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.4.0"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["VASP VERSION" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "VASP VERSION", False)
 
     # Check VASP versions < 5.4.4 (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.0.0"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["VASP VERSION" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "VASP VERSION", False)
 
     # Check VASP versions < 5 (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "4.0.0"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["VASP VERSION" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "VASP VERSION", False)
 
     # Check VASP versions == 5.4.4 (should pass)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.4.4"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert all(["VASP VERSION" not in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "VASP VERSION", True)
 
     # Check VASP versions >= 6 (should pass)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "6.4.2"
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert all(["VASP VERSION" not in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "VASP VERSION", True)
 
     # Check for obscure VASP 5 bug with spin-polarized METAGGA calcs (should fail)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].vasp_version = "5.0.0"
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
     temp_task_doc.input.parameters["ISPIN"] = 2
-    temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-    assert any(["POTENTIAL BUG --> We believe" in reason for reason in temp_validation_doc.reasons])
-
-
-# def test_nscf_incar_checks():
-#     test_files_path = Path(__file__).parent.parent.parent.parent.joinpath("test_files").resolve()
-
-#     import json
-#     with open(test_files_path / "test_GGA_NSCF_calc.json", 'r') as f:
-#         task_doc = json.load(f)
-
-#     # Explicit kpoints for NSCF calc check (this should not raise any flags)
-#     temp_task_doc = copy.deepcopy(task_doc)
-#     temp_task_doc.calcs_reversed[0].input.kpoints["kpoints"] = [[0,0,0], [0,0,0.5]]
-#     temp_validation_doc = ValidationDoc.from_task_doc(temp_task_doc)
-#     assert not any(["INPUT SETTINGS --> KPOINTS: explicitly" in reason for reason in temp_validation_doc.reasons])
+    run_check(temp_task_doc, "POTENTIAL BUG --> We believe", False)
