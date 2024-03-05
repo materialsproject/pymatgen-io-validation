@@ -191,6 +191,9 @@ def test_scf_incar_checks(test_dir, object_name):
     task_doc = TaskDoc.from_directory(dir_name)
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
+    # Pay *very* close attention to whether a tag is modified in the incar or in the vasprun.xml's parameters!
+    # Some parameters are validated from one or the other of these items, depending on whether VASP
+    # changes the value between the INCAR and the vasprun.xml (which it often does)
     list_of_checks = [
         {"err_msg": "LCHIMAG", "should_pass": False, "vasprun": {"LCHIMAG": True}, "incar": {}},
         {"err_msg": "LNMR_SYM_RED", "should_pass": False, "vasprun": {"LNMR_SYM_RED": True}, "incar": {}},
@@ -314,7 +317,7 @@ def test_scf_incar_checks(test_dir, object_name):
         run_check(temp_task_doc, key, False)
 
     # ISIF check (should pass here)
-    for isif_val in range(3, 9):
+    for isif_val in range(2, 9):
         temp_task_doc = copy.deepcopy(task_doc)
         temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = 3
         temp_task_doc.input.parameters["ISIF"] = isif_val
@@ -322,7 +325,7 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # ISIF check (should fail here)
     temp_task_doc = copy.deepcopy(task_doc)
-    # temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = 1
+    temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = 1
     temp_task_doc.input.parameters["ISIF"] = 1
     run_check(temp_task_doc, "ISIF", False)
 
