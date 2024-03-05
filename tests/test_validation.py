@@ -207,12 +207,7 @@ def test_scf_incar_checks(test_dir, object_name):
         {"err_msg": "EFIELD", "should_pass": True, "vasprun": {"EFIELD": 0}, "incar": {}},
         {"err_msg": "EDIFF", "should_pass": False, "vasprun": {"EDIFF": 1e-2}, "incar": {}},
         {"err_msg": "EDIFF", "should_pass": True, "vasprun": {"EDIFF": 1e-8}, "incar": {}},
-        {
-            "err_msg": "ENINI",
-            "should_pass": False,
-            "vasprun": {"ENINI": 1, "IALGO": 48},
-            "incar": {},
-        },
+        {"err_msg": "ENINI", "should_pass": False, "vasprun": {"ENINI": 1, "IALGO": 48}, "incar": {}},
         {
             "err_msg": "IALGO",
             "should_pass": False,
