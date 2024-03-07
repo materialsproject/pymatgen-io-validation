@@ -77,6 +77,14 @@ class ValidationDoc(EmmetBaseModel):
     # )
 
     def model_post_init(self, context: Any) -> None:
+        """
+        Optionally check whether package versions are up to date with PyPI.
+
+        Parameters
+        -----------
+        context : .Any
+            Has no effect at present, kept to retain structure of pydantic .BaseModel
+        """
         if self.check_package_versions:
             from check_package_versions import package_version_check
 
