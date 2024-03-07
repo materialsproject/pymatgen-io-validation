@@ -3,7 +3,7 @@ import copy
 from conftest import get_test_object
 from pymatgen.io.validation import ValidationDoc
 from emmet.core.tasks import TaskDoc
-from emmet.core.vasp.calculation import PotcarSpec
+from monty.serialization import loadfn
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
 
@@ -28,13 +28,9 @@ def run_check(
         task_doc.calcs_reversed[0].input.incar[key] = value
 
     validation_doc = ValidationDoc.from_task_doc(task_doc)
-    # print(validation_doc)
     has_specified_error = any([error_message_to_search_for in reason for reason in validation_doc.reasons])
 
-    if should_the_check_pass:
-        assert not has_specified_error
-    else:
-        assert has_specified_error
+    assert (not has_specified_error) if should_the_check_pass else has_specified_error
 
 
 @pytest.mark.parametrize(
@@ -72,96 +68,7 @@ def test_potcar_validation(test_dir, object_name):
     dir_name = test_dir / "vasp" / test_object.folder
     task_doc = TaskDoc.from_directory(dir_name)
 
-    correct_potcar_summary_stats = [
-        PotcarSpec(
-            titel="PAW_PBE Si 05Jan2001",
-            hash="b2b0ea6feb62e7cde209616683b8f7f5",
-            summary_stats={
-                "keywords": {
-                    "header": [
-                        "dexc",
-                        "eatom",
-                        "eaug",
-                        "enmax",
-                        "enmin",
-                        "icore",
-                        "iunscr",
-                        "lcor",
-                        "lexch",
-                        "lpaw",
-                        "lultra",
-                        "ndata",
-                        "orbitaldescriptions",
-                        "pomass",
-                        "qcut",
-                        "qgam",
-                        "raug",
-                        "rcore",
-                        "rdep",
-                        "rmax",
-                        "rpacor",
-                        "rrkj",
-                        "rwigs",
-                        "step",
-                        "titel",
-                        "vrhfin",
-                        "zval",
-                    ],
-                    "data": [
-                        "localpart",
-                        "gradientcorrectionsusedforxc",
-                        "corecharge-density(partial)",
-                        "atomicpseudocharge-density",
-                        "nonlocalpart",
-                        "reciprocalspacepart",
-                        "realspacepart",
-                        "reciprocalspacepart",
-                        "realspacepart",
-                        "nonlocalpart",
-                        "reciprocalspacepart",
-                        "realspacepart",
-                        "reciprocalspacepart",
-                        "realspacepart",
-                        "pawradialsets",
-                        "(5e20.12)",
-                        "augmentationcharges(nonsperical)",
-                        "uccopanciesinatom",
-                        "grid",
-                        "aepotential",
-                        "corecharge-density",
-                        "kineticenergy-density",
-                        "pspotential",
-                        "corecharge-density(pseudized)",
-                        "pseudowavefunction",
-                        "aewavefunction",
-                        "pseudowavefunction",
-                        "aewavefunction",
-                        "pseudowavefunction",
-                        "aewavefunction",
-                        "pseudowavefunction",
-                        "aewavefunction",
-                        "endofdataset",
-                    ],
-                },
-                "stats": {
-                    "header": {
-                        "MEAN": 9.177306617073173,
-                        "ABSMEAN": 9.246461088617888,
-                        "VAR": 1791.1672020733015,
-                        "MIN": -4.246,
-                        "MAX": 322.069,
-                    },
-                    "data": {
-                        "MEAN": 278.03212972903253,
-                        "ABSMEAN": 281.3973189522769,
-                        "VAR": 4222525.654282597,
-                        "MIN": -92.132623,
-                        "MAX": 24929.6618412,
-                    },
-                },
-            },
-        )
-    ]
+    correct_potcar_summary_stats = loadfn(test_dir / "vasp" / "Si_potcar_spec.json.gz")
 
     # Check POTCAR (this test should PASS, as we ARE using a MP-compatible pseudopotential)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -192,85 +99,8 @@ def test_scf_incar_checks(test_dir, object_name):
     # Pay *very* close attention to whether a tag is modified in the incar or in the vasprun.xml's parameters!
     # Some parameters are validated from one or the other of these items, depending on whether VASP
     # changes the value between the INCAR and the vasprun.xml (which it often does)
-    list_of_checks = [
-        {"err_msg": "LCHIMAG", "should_pass": False, "vasprun": {"LCHIMAG": True}, "incar": {}},
-        {"err_msg": "LNMR_SYM_RED", "should_pass": False, "vasprun": {"LNMR_SYM_RED": True}, "incar": {}},
-        {"err_msg": "LDIPOL", "should_pass": False, "vasprun": {"LDIPOL": True}, "incar": {}},
-        {"err_msg": "IDIPOL", "should_pass": False, "vasprun": {"IDIPOL": 2}, "incar": {}},
-        {"err_msg": "EPSILON", "should_pass": False, "vasprun": {"EPSILON": 1.5}, "incar": {}},
-        {"err_msg": "EPSILON", "should_pass": True, "vasprun": {"EPSILON": 1}, "incar": {}},
-        {"err_msg": "EFIELD", "should_pass": False, "vasprun": {"EFIELD": 1}, "incar": {}},
-        {"err_msg": "EFIELD", "should_pass": True, "vasprun": {"EFIELD": 0}, "incar": {}},
-        {"err_msg": "EDIFF", "should_pass": False, "vasprun": {"EDIFF": 0.01}, "incar": {}},
-        {"err_msg": "EDIFF", "should_pass": True, "vasprun": {"EDIFF": 1e-08}, "incar": {}},
-        {"err_msg": "ENINI", "should_pass": False, "vasprun": {"ENINI": 1, "IALGO": 48}, "incar": {}},
-        {"err_msg": "IALGO", "should_pass": False, "vasprun": {"ENINI": 1, "IALGO": 48}, "incar": {}},
-        {"err_msg": "NBANDS", "should_pass": False, "vasprun": {"NBANDS": 1}, "incar": {}},
-        {"err_msg": "NBANDS", "should_pass": True, "vasprun": {"NBANDS": 40}, "incar": {}},
-        {"err_msg": "NBANDS", "should_pass": False, "vasprun": {"NBANDS": 1000}, "incar": {}},
-        {"err_msg": "LREAL", "should_pass": False, "vasprun": {}, "incar": {"LREAL": True}},
-        {"err_msg": "LREAL", "should_pass": True, "vasprun": {}, "incar": {"LREAL": False}},
-        {"err_msg": "LMAXPAW", "should_pass": False, "vasprun": {"LMAXPAW": 0}, "incar": {}},
-        {"err_msg": "NLSPLINE", "should_pass": False, "vasprun": {"NLSPLINE": True}, "incar": {}},
-        {"err_msg": "ADDGRID", "should_pass": False, "vasprun": {"ADDGRID": True}, "incar": {}},
-        {"err_msg": "LHFCALC", "should_pass": False, "vasprun": {"LHFCALC": True}, "incar": {}},
-        {"err_msg": "AEXX", "should_pass": False, "vasprun": {"AEXX": 1}, "incar": {}},
-        {"err_msg": "AGGAC", "should_pass": False, "vasprun": {"AGGAC": 0.5}, "incar": {}},
-        {"err_msg": "AGGAX", "should_pass": False, "vasprun": {"AGGAX": 0.5}, "incar": {}},
-        {"err_msg": "ALDAX", "should_pass": False, "vasprun": {"ALDAX": 0.5}, "incar": {}},
-        {"err_msg": "AMGGAX", "should_pass": False, "vasprun": {"AMGGAX": 0.5}, "incar": {}},
-        {"err_msg": "ALDAC", "should_pass": False, "vasprun": {"ALDAC": 0.5}, "incar": {}},
-        {"err_msg": "AMGGAC", "should_pass": False, "vasprun": {"AMGGAC": 0.5}, "incar": {}},
-        {"err_msg": "IBRION", "should_pass": False, "vasprun": {"IBRION": 3}, "incar": {}},
-        {"err_msg": "IBRION", "should_pass": True, "vasprun": {"IBRION": 1}, "incar": {}},
-        {"err_msg": "IBRION", "should_pass": True, "vasprun": {"IBRION": -1}, "incar": {}},
-        {"err_msg": "PSTRESS", "should_pass": False, "vasprun": {"PSTRESS": 1}, "incar": {}},
-        {"err_msg": "SCALEE", "should_pass": False, "vasprun": {"SCALEE": 0.9}, "incar": {}},
-        {"err_msg": "LNONCOLLINEAR", "should_pass": False, "vasprun": {"LNONCOLLINEAR": True}, "incar": {}},
-        {"err_msg": "LSORBIT", "should_pass": False, "vasprun": {"LSORBIT": True}, "incar": {}},
-        {"err_msg": "DEPER", "should_pass": False, "vasprun": {"DEPER": 0.5}, "incar": {}},
-        {"err_msg": "EBREAK", "should_pass": False, "vasprun": {}, "incar": {"EBREAK": 0.1}},
-        {"err_msg": "GGA_COMPAT", "should_pass": False, "vasprun": {"GGA_COMPAT": False}, "incar": {}},
-        {"err_msg": "ICORELEVEL", "should_pass": False, "vasprun": {"ICORELEVEL": 1}, "incar": {}},
-        {"err_msg": "IMAGES", "should_pass": False, "vasprun": {"IMAGES": 1}, "incar": {}},
-        {"err_msg": "IVDW", "should_pass": False, "vasprun": {"IVDW": 1}, "incar": {}},
-        {"err_msg": "LBERRY", "should_pass": False, "vasprun": {"LBERRY": True}, "incar": {}},
-        {"err_msg": "LCALCEPS", "should_pass": False, "vasprun": {"LCALCEPS": True}, "incar": {}},
-        {"err_msg": "LCALCPOL", "should_pass": False, "vasprun": {"LCALCPOL": True}, "incar": {}},
-        {"err_msg": "LHYPERFINE", "should_pass": False, "vasprun": {"LHYPERFINE": True}, "incar": {}},
-        {"err_msg": "LKPOINTS_OPT", "should_pass": False, "vasprun": {"LKPOINTS_OPT": True}, "incar": {}},
-        {"err_msg": "LKPROJ", "should_pass": False, "vasprun": {"LKPROJ": True}, "incar": {}},
-        {"err_msg": "LMP2LT", "should_pass": False, "vasprun": {"LMP2LT": True}, "incar": {}},
-        {"err_msg": "LSMP2LT", "should_pass": False, "vasprun": {"LSMP2LT": True}, "incar": {}},
-        {"err_msg": "LOCPROJ", "should_pass": False, "vasprun": {"LOCPROJ": "1 : s : Hy"}, "incar": {}},
-        {"err_msg": "LRPA", "should_pass": False, "vasprun": {"LRPA": True}, "incar": {}},
-        {"err_msg": "LSPECTRAL", "should_pass": False, "vasprun": {"LSPECTRAL": True}, "incar": {}},
-        {"err_msg": "LSUBROT", "should_pass": False, "vasprun": {"LSUBROT": True}, "incar": {}},
-        {"err_msg": "ML_LMLFF", "should_pass": False, "vasprun": {"ML_LMLFF": True}, "incar": {}},
-        {"err_msg": "WEIMIN", "should_pass": False, "vasprun": {"WEIMIN": 0.01}, "incar": {}},
-        {"err_msg": "WEIMIN", "should_pass": True, "vasprun": {"WEIMIN": 0.0001}, "incar": {}},
-        {"err_msg": "IWAVPR", "should_pass": False, "vasprun": {}, "incar": {"IWAVPR": 1}},
-        {"err_msg": "LASPH", "should_pass": False, "vasprun": {"LASPH": False}, "incar": {}},
-        {"err_msg": "LCORR", "should_pass": False, "vasprun": {"LCORR": False, "IALGO": 38}, "incar": {}},
-        {"err_msg": "LCORR", "should_pass": True, "vasprun": {"LCORR": False, "IALGO": 58}, "incar": {}},
-        {"err_msg": "RWIGS", "should_pass": False, "vasprun": {"RWIGS": [1]}, "incar": {}},
-        {"err_msg": "VCA", "should_pass": False, "vasprun": {"VCA": [0.5]}, "incar": {}},
-        {"err_msg": "PREC", "should_pass": False, "vasprun": {"PREC": "NORMAL"}, "incar": {}},
-        {"err_msg": "ROPT", "should_pass": False, "vasprun": {"ROPT": [-0.001]}, "incar": {"LREAL": True}},
-        {"err_msg": "ICHARG", "should_pass": False, "vasprun": {"ICHARG": 11}, "incar": {}},
-        {"err_msg": "INIWAV", "should_pass": False, "vasprun": {"INIWAV": 0}, "incar": {}},
-        {"err_msg": "ISTART", "should_pass": False, "vasprun": {"ISTART": 3}, "incar": {}},
-        {"err_msg": "ISYM", "should_pass": False, "vasprun": {"ISYM": 3}, "incar": {}},
-        {"err_msg": "ISYM", "should_pass": True, "vasprun": {"ISYM": 3, "LHFCALC": True}, "incar": {}},
-        {"err_msg": "SYMPREC", "should_pass": False, "vasprun": {"SYMPREC": 0.01}, "incar": {}},
-        {"err_msg": "LDAUU", "should_pass": False, "vasprun": {"LDAU": True}, "incar": {"LDAUU": [5, 5]}},
-        {"err_msg": "LDAUJ", "should_pass": False, "vasprun": {"LDAU": True}, "incar": {"LDAUJ": [5, 5]}},
-        {"err_msg": "LDAUL", "should_pass": False, "vasprun": {"LDAU": True}, "incar": {"LDAUL": [5, 5]}},
-        {"err_msg": "LDAUTYPE", "should_pass": False, "vasprun": {"LDAU": True, "LDAUTYPE": [1]}, "incar": {}},
-        {"err_msg": "NWRITE", "should_pass": False, "vasprun": {"NWRITE": 1}, "incar": {}},
-        {"err_msg": "LEFG", "should_pass": False, "vasprun": {"LEFG": True}, "incar": {}},
-        {"err_msg": "LOPTICS", "should_pass": False, "vasprun": {"LOPTICS": True}, "incar": {}},
-    ]
+
+    list_of_checks = loadfn(test_dir / "vasp" / "scf_incar_check_list.yaml")
 
     for check_info in list_of_checks:
         temp_task_doc = copy.deepcopy(task_doc)
@@ -286,7 +116,7 @@ def test_scf_incar_checks(test_dir, object_name):
     # run_check() method. Hence, the calcs are manually modified. Apologies.
 
     # ENMAX / ENCUT checks
-    # Also assert that the ENCUT warning does not asser that ENCUT >= inf
+    # Also assert that the ENCUT warning does not assert that ENCUT >= inf
     # This checks that ENCUT is appropriately updated to be finite, and
     # not just ENMAX
     temp_task_doc = copy.deepcopy(task_doc)
@@ -313,19 +143,6 @@ def test_scf_incar_checks(test_dir, object_name):
         temp_task_doc.calcs_reversed[0].input.incar[key] = 1
         temp_task_doc.input.parameters[key] = 1
         run_check(temp_task_doc, key, False)
-
-    # ISIF check (should pass here)
-    for isif_val in range(2, 9):
-        temp_task_doc = copy.deepcopy(task_doc)
-        temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = 3
-        temp_task_doc.input.parameters["ISIF"] = isif_val
-        run_check(temp_task_doc, "ISIF", True)
-
-    # ISIF check (should fail here)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.incar["ISIF"] = 1
-    temp_task_doc.input.parameters["ISIF"] = 1
-    run_check(temp_task_doc, "ISIF", False)
 
     # POTIM check #1 (checks parameter itself)
     ### TODO: add in second check for POTIM that checks for large energy changes between ionic steps

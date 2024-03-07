@@ -33,33 +33,13 @@ from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
 from pymatgen.io.validation.settings import IOValidationSettings
 
-from importlib.metadata import version
-import requests
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
 
 SETTINGS = IOValidationSettings()
 _vasp_defaults = loadfn(SETTINGS.VASP_DEFAULTS_FILENAME)
-
-
-def is_package_is_up_to_date(package_name: str):
-    """check if a package is up-to-date."""
-    try:
-        cur_version = version(package_name)
-    except Exception:
-        cur_version = "not installed"
-
-    try:
-        response = requests.get(f"https://pypi.org/pypi/{package_name}/json")
-        latest_version = response.json()["info"]["version"]
-    except Exception:
-        latest_version = "package does not exist"
-
-    return cur_version == latest_version
-
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
@@ -78,6 +58,14 @@ class ValidationDoc(EmmetBaseModel):
         description="Last updated date for this document",
         default_factory=datetime.utcnow,
     )
+    check_package_versions: bool = Field(
+        False,
+        description=(
+            "Whether to check if the currently installed versions "
+            "of pymatgen and pymatgen-io-validation are the most "
+            "up to date versions on PyPI."
+        ),
+    )
 
     reasons: list[str] = Field(None, description="List of deprecation tags detailing why this task isn't valid")
 
@@ -88,22 +76,11 @@ class ValidationDoc(EmmetBaseModel):
     #     " Useful for post-mortem analysis"
     # )
 
-    def model_post_init(self, ctx):
-        """Warn the user if pymatgen / pymatgen-io-validation is not up-to-date."""
-        import warnings
+    def model_post_init(self, context: Any) -> None:
+        if self.check_package_versions:
+            from check_package_versions import package_version_check
 
-        pymatgen_is_up_to_date = is_package_is_up_to_date("pymatgen")
-        if not pymatgen_is_up_to_date:
-            warnings.warn(
-                "We *STRONGLY* recommend you to update your `pymatgen` package, which is behind the most recent version. "
-                "Hence, if any pymatgen input sets have been updated, this validator will be outdated."
-            )
-        pymatgen_io_validation_is_up_to_date = is_package_is_up_to_date("pymatgen-io-validation")
-        if not pymatgen_io_validation_is_up_to_date:
-            warnings.warn(
-                "We *STRONGLY* recommend you to update your `pymatgen-io-validation` package, which is behind the most recent version. "
-                "Hence, if any checks in this package have been updated, the validator you use will be outdated."
-            )
+            package_version_check()
 
     class Config:  # noqa
         extra = "allow"
@@ -155,8 +132,6 @@ class ValidationDoc(EmmetBaseModel):
             orig_inputs = task_doc.orig_inputs.model_dump()
             if orig_inputs["kpoints"] is not None:
                 orig_inputs["kpoints"] = orig_inputs["kpoints"].as_dict()
-
-        calcs_reversed[0]["output"]["ionic_steps"]
 
         potcars = calcs_reversed[0]["input"]["potcar_spec"]
 
