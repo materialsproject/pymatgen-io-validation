@@ -37,7 +37,7 @@ from pymatgen.io.validation.settings import IOValidationSettings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, Union
+    from typing import Any
 
 SETTINGS = IOValidationSettings()
 _vasp_defaults = loadfn(SETTINGS.VASP_DEFAULTS_FILENAME)
@@ -97,7 +97,7 @@ class ValidationDoc(EmmetBaseModel):
     @classmethod
     def from_task_doc(
         cls,
-        task_doc: Union[TaskDoc | TaskDocument],
+        task_doc: TaskDoc | TaskDocument,
         input_sets: dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
         check_potcar: bool = True,
         kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
@@ -123,7 +123,7 @@ class ValidationDoc(EmmetBaseModel):
                 initial equillibriation period. Note this is in eV per atom.
         """
 
-        if isinstance(task_doc,TaskDocument):
+        if isinstance(task_doc, TaskDocument):
             task_doc = TaskDoc(**task_doc.model_dump())
 
         bandgap = task_doc.output.bandgap

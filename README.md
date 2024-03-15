@@ -57,7 +57,7 @@ Rationale
 | IMAGES | IMAGES must be set to 0 to match MP calculations. |
 | INIWAV | INIWAV must be set as the VASP default of 1 to be consistent with MP calculations. |
 | ISPIN | All values of ISPIN are allowed, though it should be noted that virtuall all MP calculations permit spin symmetry breaking, and have ferromagnetic, antiferrogmanetic, or nonmagnetic ordering. |
-| ISMEAR | The appropriate ISMEAR depends on the bandgap of the material (which cannot be known a priori). As per the VASP manual: for metals (bandgap = 0), any ISMEAR value in [0, 1, 2] is acceptable. For nonmetals (bandgap > 0), any ISMEAR value in [-5, 0] is acceptable. Hence, for those who are performing normal relaxations/static calculations and want to ensure their calculations are MP-compatible, we recommend setting ISMEAR to 0. | 
+| ISMEAR | The appropriate ISMEAR depends on the bandgap of the material (which cannot be known a priori). As per the VASP manual: for metals (bandgap = 0), any ISMEAR value in [0, 1, 2] is acceptable. For nonmetals (bandgap > 0), any ISMEAR value in [-5, 0] is acceptable. Hence, for those who are performing normal relaxations/static calculations and want to ensure their calculations are MP-compatible, we recommend setting ISMEAR to 0. |
 | ISIF | MP allows any ISIF $\geq 2$. This value is restricted as such simply because all ISIF values $\geq 2$ output the complete stress tensor. |
 | ISYM | ISYM must be one of -1, 0, 1, 2, except for when the relevant MP input set uses a hybrid functional, in which case ISYM=3 is also allowed. |
 | ISTART | ISTART must be one of: 0, 1, 2. |

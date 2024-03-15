@@ -110,12 +110,23 @@ class CheckPotcar:
                 "other errors have been seen. Hence, it is marked as invalid."
             )
 
-    def compare_potcar_stats(self, potcar_stats_1: dict, potcar_stats_2 : dict) -> bool:
-        """ Utility function to compare PotcarSingle._summary_stats. """
+    def compare_potcar_stats(self, potcar_stats_1: dict, potcar_stats_2: dict) -> bool:
+        """Utility function to compare PotcarSingle._summary_stats."""
 
-        if (
-            not all(potcar_stats_1.get(key) for key in ("keywords","stats",))
-            or (not all(potcar_stats_2.get(key) for key in ("keywords","stats",)))
+        if not all(
+            potcar_stats_1.get(key)
+            for key in (
+                "keywords",
+                "stats",
+            )
+        ) or (
+            not all(
+                potcar_stats_2.get(key)
+                for key in (
+                    "keywords",
+                    "stats",
+                )
+            )
         ):
             return False
 
@@ -127,10 +138,10 @@ class CheckPotcar:
         data_match = False
         if key_match:
             data_diff = [
-                abs(potcar_stats_1["stats"].get(key,{}).get(stat) - potcar_stats_2["stats"].get(key,{}).get(stat))  # type: ignore
+                abs(potcar_stats_1["stats"].get(key, {}).get(stat) - potcar_stats_2["stats"].get(key, {}).get(stat))  # type: ignore
                 for stat in ["MEAN", "ABSMEAN", "VAR", "MIN", "MAX"]
                 for key in ["header", "data"]
             ]
             data_match = all(np.array(data_diff) < self.data_match_tol)
-        
+
         return key_match and data_match

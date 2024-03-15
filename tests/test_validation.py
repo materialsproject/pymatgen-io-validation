@@ -552,6 +552,7 @@ def test_vasp_version_check(test_dir, object_name):
     temp_task_doc.input.parameters["ISPIN"] = 2
     run_check(temp_task_doc, "POTENTIAL BUG --> We believe", False)
 
+
 def test_task_document(test_dir):
 
     from emmet.core.vasp.task_valid import TaskDocument
@@ -561,21 +562,16 @@ def test_task_document(test_dir):
         str(test_dir / "vasp" / "TaskDocuments" / "MP_compatible_GaAs_r2SCAN_static_TaskDocument.json.gz")
     )
     calcs["non-compliant"] = loadfn(
-         str(test_dir / "vasp" / "TaskDocuments" / "MP_incompatible_GaAs_r2SCAN_static_TaskDocument.json.gz")       
+        str(test_dir / "vasp" / "TaskDocuments" / "MP_incompatible_GaAs_r2SCAN_static_TaskDocument.json.gz")
     )
 
     valid_docs = {}
     for calc in calcs:
-        valid_docs[calc] = ValidationDoc.from_task_doc(
-            TaskDocument(**calcs[calc])
-        )
+        valid_docs[calc] = ValidationDoc.from_task_doc(TaskDocument(**calcs[calc]))
 
     assert valid_docs["compliant"].valid
     assert not valid_docs["non-compliant"].valid
 
-    expected_reasons = ["KPOINTS","ENCUT","ENAUG"]
+    expected_reasons = ["KPOINTS", "ENCUT", "ENAUG"]
     for expected_reason in expected_reasons:
-        assert any(
-            expected_reason in reason 
-            for reason in valid_docs["non-compliant"].reasons
-        )
+        assert any(expected_reason in reason for reason in valid_docs["non-compliant"].reasons)
