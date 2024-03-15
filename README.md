@@ -72,7 +72,7 @@ Rationale
 | LCALCPOL | LCALCPOL  must be set to False (the VASP default). |
 | LCHIMAG | LCHIMAG must be set to False (the VASP default). |
 | LCORR | LCORR must be set to True (the VASP default) for calculations with IALGO = 58. |
-| LDAU / LDAUU / LDAUJ / LDAUL / LDAUTYPE | For DFT$+U$ calculations, all parameters corresponding to $+U$ or $+J$ corrections must exactly match those specified in the relevant MP input set. Alternatively, LDAU = False (DFT) is always acceptable. |
+| LDAU / LDAUU / LDAUJ / LDAUL / LDAUTYPE | For DFT$`+U`$ calculations, all parameters corresponding to $+U$ or $+J$ corrections must exactly match those specified in the relevant MP input set. Alternatively, LDAU = False (DFT) is always acceptable. |
 | LDIPOL | LDIPOL must be set to False (the VASP default). |
 | LMONO | LMONO must be set to False (the VASP default). |
 | LEFG | LEFG must be set to False (the VASP default), unless explicitly specified to be True by the relevant MP input set. |
@@ -110,4 +110,4 @@ Rationale
 | SYMPREC | SYMPREC must be less than or equal to 1e-3 (as this is the maximum value that the Custodian package will set SYMPREC as of March 2024). |
 | SIGMA | There are several rules for setting SIGMA:  <ol> <li> SIGMA  must be $\leq 0.05$ for non-metals (bandgap $>  0$). </li> <li> SIGMA must be $\leq 0.2$ for a metal (bandgap = 0). </li> <li> For metals, the SIGMA value must be small enough that the entropy term in the energy is $\leq$ 1 meV/atom (as suggested by the VASP manual). </li> </ol> |
 | VCA | MP data does not include Virtual Crystal Approximation (VCA) calculations from VASP. As such, this parameter should not be set. |
-| VASP version | The following versions of VASP are allowed: 5.4.4 or $>$ 6.0.0. Versions $<=$ 5.4.3 are not allowed. Version 6.3.1, for example, is allowed. |
+| VASP version | The following versions of VASP are allowed: 5.4.4 or $>$ 6.0.0. For example, versions $<=$ 5.4.3 are not allowed, whereas version 6.3.1 is allowed. |
