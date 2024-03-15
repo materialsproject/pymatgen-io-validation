@@ -15,6 +15,7 @@ from pymatgen.io.vasp.sets import VaspInputSet
 from pymatgen.io.vasp.sets import MPMetalRelaxSet
 
 from emmet.core.tasks import TaskDoc
+from emmet.core.vasp.task_valid import TaskDocument
 from emmet.core.base import EmmetBaseModel
 from emmet.core.mpid import MPID
 from emmet.core.vasp.calc_types.enums import CalcType, TaskType
@@ -33,10 +34,10 @@ from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
 from pymatgen.io.validation.settings import IOValidationSettings
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    pass
+    from typing import Any, Union
 
 SETTINGS = IOValidationSettings()
 _vasp_defaults = loadfn(SETTINGS.VASP_DEFAULTS_FILENAME)
@@ -96,7 +97,7 @@ class ValidationDoc(EmmetBaseModel):
     @classmethod
     def from_task_doc(
         cls,
-        task_doc: TaskDoc,
+        task_doc: Union[TaskDoc | TaskDocument],
         input_sets: dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
         check_potcar: bool = True,
         kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
@@ -121,6 +122,9 @@ class ValidationDoc(EmmetBaseModel):
             max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
                 initial equillibriation period. Note this is in eV per atom.
         """
+
+        if isinstance(task_doc,TaskDocument):
+            task_doc = TaskDoc(**task_doc.model_dump())
 
         bandgap = task_doc.output.bandgap
         calcs_reversed = task_doc.calcs_reversed

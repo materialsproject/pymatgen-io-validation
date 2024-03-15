@@ -79,24 +79,12 @@ class CheckPotcar:
                     incorrect_potcars.append(potcar["titel"].split(" ")[1])
                     continue
 
-                key_match = False
-                data_match = False
                 for ref_psp in reference_summary_stats:
-                    key_match = all(
-                        set(ref_psp["keywords"][key]) == set(potcar["summary_stats"]["keywords"][key])  # type: ignore
-                        for key in ["header", "data"]
-                    )
 
-                    data_diff = [
-                        abs(ref_psp["stats"][key][stat] - potcar["summary_stats"]["stats"][key][stat])  # type: ignore
-                        for stat in ["MEAN", "ABSMEAN", "VAR", "MIN", "MAX"]
-                        for key in ["header", "data"]
-                    ]
-                    data_match = all(np.array(data_diff) < self.data_match_tol)
-                    if key_match and data_match:
+                    if found_match := self.compare_potcar_stats(ref_psp, potcar["summary_stats"]):
                         break
 
-                if (not key_match) or (not data_match):
+                if not found_match:
                     incorrect_potcars.append(potcar["titel"].split(" ")[1])
 
             if len(incorrect_potcars) > 0:
@@ -114,10 +102,35 @@ class CheckPotcar:
                 )
 
         except KeyError as e:
-            print(e)
+            print(f"POTCAR check exception: {e}")
             # Assume it is an old calculation without potcar_spec data and treat it as failing the POTCAR check
             reasons.append(
                 "Issue validating POTCARS --> Likely due to an old version of Emmet "
                 "(wherein potcar summary_stats is not saved in TaskDoc), though "
                 "other errors have been seen. Hence, it is marked as invalid."
             )
+
+    def compare_potcar_stats(self, potcar_stats_1: dict, potcar_stats_2 : dict) -> bool:
+        """ Utility function to compare PotcarSingle._summary_stats. """
+
+        if (
+            not all(potcar_stats_1.get(key) for key in ("keywords","stats",))
+            or (not all(potcar_stats_2.get(key) for key in ("keywords","stats",)))
+        ):
+            return False
+
+        key_match = all(
+            set(potcar_stats_1["keywords"].get(key)) == set(potcar_stats_2["keywords"].get(key))  # type: ignore
+            for key in ["header", "data"]
+        )
+
+        data_match = False
+        if key_match:
+            data_diff = [
+                abs(potcar_stats_1["stats"].get(key,{}).get(stat) - potcar_stats_2["stats"].get(key,{}).get(stat))  # type: ignore
+                for stat in ["MEAN", "ABSMEAN", "VAR", "MIN", "MAX"]
+                for key in ["header", "data"]
+            ]
+            data_match = all(np.array(data_diff) < self.data_match_tol)
+        
+        return key_match and data_match
