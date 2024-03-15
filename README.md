@@ -26,9 +26,9 @@ Contributors
 =====
 
 * [Matthew Kuner](https://github.com/matthewkuner) (lead), email: matthewkuner@gmail.com
+* [Aaron Kaplan](https://github.com/esoteric-ephemera)
 * [Janosh Riebesell](https://github.com/janosh)
 * [Jason Munro](https://github.com/munrojm)
-* [Aaron Kaplan](https://github.com/esoteric-ephemera)
 
 
 Rationale
