@@ -34,11 +34,11 @@ Contributors
 Rationale
 ====
 
-| Parameter | Reason |
+| **Parameter** | **Reason** |
 | ---- | ---- |
 | ADDGRID | ADDGRID must be set to False. MP uses ADDGRID = False, as the VASP manual states “please do not use this tag [ADDGRID] as default in all your calculations!”. ADDGRID can affect the outputted forces, hence all calculations are thus required to have ADDGRID = False for compatibility. |
 | AEXX / AMGGAX / AMGGAC / AGGAX / ALDAC / ALDAX | These parameters should be the VASP defaults unless otherwise specified in a given MP input set, as changing them is effectively a change to the level of theory. |
-| ALGO / IALGO | ALGO must be in [“Normal”, “Conjugate”, “All”, “Fast”,, “Exact”]. (This corresponds to an IALGO of [38, 58, 58, 68, 90], respectively). |
+| ALGO / IALGO | ALGO must be one of: "Normal", "Conjugate", "All", "Fast","Exact". (This corresponds to an IALGO of 38, 58, 58, 68, 90, respectively). |
 | DEPER / EBREAK / WEIMIN | DEPER, EBREAK, and WEIMIN should not be changed according to the VASP wiki, hence MP requires them to remain as their default values. |
 | EDIFF | EDIFF must be equal to or greater than the value in the relevant MP input set. This will ensure compatibility between results with those in the MP Database. |
 | EDIFFG | Should be the same or better than in the relevant MP input set. For MP input sets with an energy-based cutoff, the calculation must have an energy change between the last two steps be less in magnitude than the specified EDIFFG (so even if your calculation uses force-based convergence, the energy must converge within the MP input set’s specification). The same logic applies to MP input sets with force-based EDIFFG settings. |
@@ -110,4 +110,4 @@ Rationale
 | SYMPREC | SYMPREC must be less than or equal to 1e-3 (as this is the maximum value that the Custodian package will set SYMPREC as of March 2024). |
 | SIGMA | There are several rules for setting SIGMA:  <ol> <li> SIGMA  must be $\leq 0.05$ for non-metals (bandgap $>  0$). </li> <li> SIGMA must be $\leq 0.2$ for a metal (bandgap = 0). </li> <li> For metals, the SIGMA value must be small enough that the entropy term in the energy is $\leq$ 1 meV/atom (as suggested by the VASP manual). </li> </ol> |
 | VCA | MP data does not include Virtual Crystal Approximation (VCA) calculations from VASP. As such, this parameter should not be set. |
-| VASP version | The following versions of VASP are allowed: 5.4.4 or $>$6.0.0. Versions $<=$ 5.4.3 are not allowed. Version 6.3.1, for example, is allowed. |
+| VASP version | The following versions of VASP are allowed: 5.4.4 or $>$ 6.0.0. Versions $<=$ 5.4.3 are not allowed. Version 6.3.1, for example, is allowed. |
