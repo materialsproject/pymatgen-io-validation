@@ -80,7 +80,6 @@ class CheckPotcar:
                     continue
 
                 for ref_psp in reference_summary_stats:
-
                     if found_match := self.compare_potcar_stats(ref_psp, potcar["summary_stats"]):
                         break
 

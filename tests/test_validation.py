@@ -559,10 +559,10 @@ def test_task_document(test_dir):
 
     calcs = {}
     calcs["compliant"] = loadfn(
-        str(test_dir / "vasp" / "TaskDocuments" / "MP_compatible_GaAs_r2SCAN_static_TaskDocument.json.gz")
+        str(test_dir / "vasp" / "TaskDocuments" / "MP_compatible_GaAs_r2SCAN_static_TaskDocument.json.gz"), cls=None
     )
     calcs["non-compliant"] = loadfn(
-        str(test_dir / "vasp" / "TaskDocuments" / "MP_incompatible_GaAs_r2SCAN_static_TaskDocument.json.gz")
+        str(test_dir / "vasp" / "TaskDocuments" / "MP_incompatible_GaAs_r2SCAN_static_TaskDocument.json.gz"), cls=None
     )
 
     valid_docs = {}
