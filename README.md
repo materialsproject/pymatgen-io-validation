@@ -1,7 +1,7 @@
 pymatgen-io-validation
 =====
 
-This package is an extension to `pymatgen` for performing I/O validation. Specifically, this package checks for discrepancies between a specific calculation and a provided input set; it also checks for known bugs when certain input parameters are used in combination, alongside several other small checks. The initial motivation for creating this package was to validate VASP calculations performed by groups outside of the Materials Project (MP), enabling their raw data to be included in the MP Database.
+This package is an extension to `pymatgen` for performing I/O validation. Specifically, this package checks for discrepancies between a specific calculation and a provided input set; it also checks for known bugs when certain input parameters are used in combination, alongside several other small checks. The motivation for creating this package was to ensure VASP calculations performed by groups outside of the Materials Project (MP) are compliant with MP data, thus enabling their raw data to be included in the MP Database.
 
 
 Usage
