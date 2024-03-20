@@ -7,6 +7,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      # For pypi trusted publishing
+      id-token: write
     strategy:
       max-parallel: 1
       matrix:
@@ -30,6 +33,8 @@ jobs:
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@master
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          # user: __token__
+          # password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
+          verbose: true
           packages_dir: dist/
