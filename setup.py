@@ -24,7 +24,8 @@ setup(
     url="https://github.com/matthewkuner/pymatgen-io-validation",
     license="BSD",
     description="A comprehensive I/O validator for electronic structure calculations",
-    long_description=desc,
+    long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     keywords=["pymatgen"],
     classifiers=[
         "Programming Language :: Python :: 3",
