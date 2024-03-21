@@ -21,7 +21,7 @@ setup(
     author="Matthew Kuner, Janosh Riebesell, Jason Munro, Aaron Kaplan",
     author_email="matthewkuner@berkeley.edu",
     maintainer="Matthew Kuner",
-    url="https://github.com/matthewkuner/pymatgen-io-validation",
+    url="https://github.com/materialsproject/pymatgen-io-validation",
     license="BSD",
     description="A comprehensive I/O validator for electronic structure calculations",
     long_description=open('README.md').read(),
