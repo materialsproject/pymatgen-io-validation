@@ -41,7 +41,7 @@ requires-python = '>=3.8'
 dev = ["pre-commit>=2.12.1"]
 #docs = ["jupyter-book>=0.13.1",]
 
-tests = ["pytest==8.0.2", "pytest-cov==4.1.0", "types-requests"]
+tests = ["pytest==8.1.1", "pytest-cov==4.1.0", "types-requests"]
 
 
 [tool.setuptools.dynamic]
