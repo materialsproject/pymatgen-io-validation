@@ -118,8 +118,6 @@ class CheckIncar:
                 append_comments=working_params.defaults[key]["comment"],
                 severity=working_params.defaults[key]["severity"],
             )
-            # if key == "ISIF":
-            #    print("batz",key,working_params.parameters[key], parameters.get("ISIF"),working_params.valid_values[key],working_params.defaults[key])
 
 
 class UpdateParameterValues:
