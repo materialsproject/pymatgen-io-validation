@@ -872,7 +872,8 @@ class BasicValidator:
         if not valid_value:
             error_list.append(
                 f"INPUT SETTINGS --> {input_tag}: is {current_value}, but should be "
-                f"{operation} {reference_value}. {append_comments}"
+                f"{'' if operation == 'auto fail' else operation + ' '}{reference_value}."
+                f"{' ' if len(append_comments) > 0 else ''}{append_comments}"
             )
 
     def check_parameter(

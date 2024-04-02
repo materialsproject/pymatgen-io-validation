@@ -50,7 +50,7 @@ class CheckPotcar:
         if not self.potcar_summary_stats:
             return
 
-        if potcars is None:
+        if potcars is None or any(potcar.get("summary_stats") is None for potcar in potcars):
             reasons.append(
                 "PSEUDOPOTENTIALS --> Missing POTCAR files. "
                 "Alternatively, our potcar checker may have an issue--please create a GitHub issue if you "
