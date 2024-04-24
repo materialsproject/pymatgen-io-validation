@@ -7,23 +7,46 @@ from math import isclose
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 
+from pymatgen.io.validation.common import BaseValidator
+
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from emmet.core.vasp.task_valid import TaskDocument
-    from emmet.core.tasks import TaskDoc
     from typing import Any, Sequence
     from pymatgen.core import Structure
     from pymatgen.io.vasp.sets import VaspInputSet
 
 # TODO: fix ISIF getting overwritten by MP input set.
 
-
 @dataclass
-class CheckIncar:
+class CheckIncar(BaseValidator):
     """
     Check calculation parameters related to INCAR input tags.
 
+    Because this class checks many INCAR tags in sequence, while it
+    inherits from the `pymatgen.io.validation.common.BaseValidator`
+    class, it also defines a custom `check` method.
+
+    reasons : list[str]
+        A list of error strings to update if a check fails. These are higher
+        severity and would deprecate a calculation.
+    warnings : list[str]
+        A list of warning strings to update if a check fails. These are lower
+        severity and would flag a calculation for possible review.
+    valid_input_set: VaspInputSet
+        Valid input set to compare user INCAR parameters to.
+    task_doc : dict
+        Task document parsed from the calculation directory, as a dict
+    parameters : dict[str,Any]
+        Dict of user-supplied/-parsed INCAR parameters.
+    structure: Pymatgen Structure
+        Structure used in the calculation.
+    vasp_version: Sequence[int]
+        Vasp version, e.g., 6.4.1 could be represented as (6,4,1)
+    task_type : TaskType
+        Task type of the calculation.
+    name : str = "Check INCAR tags"
+        Name of the validator.
     defaults : dict
         Dict of default parameters.
     fft_grid_tolerance: float
@@ -36,20 +59,19 @@ class CheckIncar:
         as valid.
     """
 
+    reasons: list[str]
+    warnings: list[str]
+    valid_input_set: VaspInputSet = None
+    task_doc: dict = None
+    parameters: dict[str, Any] = None
+    structure: Structure = None
+    vasp_version: Sequence[int] = None
+    task_type: TaskType = None
+    name : str = "Check INCAR tags"
     defaults: dict | None = None
     fft_grid_tolerance: float | None = None
-
-    def check(
-        self,
-        reasons: list[str],
-        warnings: list[str],
-        valid_input_set: VaspInputSet,
-        task_doc: TaskDoc | TaskDocument,
-        parameters: dict[str, Any],
-        structure: Structure,
-        vasp_version: Sequence[int],
-        task_type: TaskType,
-    ) -> None:
+    
+    def check(self) -> None:
         """
         Check calculation parameters related to INCAR input tags.
 
@@ -63,40 +85,19 @@ class CheckIncar:
         implicit values with their defaults), this checks whether the user-
         supplied/-parsed parameters satisfy a set of operations against the
         reference valid input set.
-
-        Parameters
-        -----------
-        reasons : list[str]
-            A list of error strings to update if a check fails. These are higher
-            severity and would deprecate a calculation.
-        warnings : list[str]
-            A list of warning strings to update if a check fails. These are lower
-            severity and would flag a calculation for possible review.
-        valid_input_set: VaspInputSet
-            Valid input set to compare user INCAR parameters to.
-        task_doc : emmet.core TaskDoc | TaskDocument
-            Task document parsed from the calculation directory.
-        parameters : dict[str,Any]
-            Dict of user-supplied/-parsed INCAR parameters.
-        structure: Pymatgen Structure
-            Structure used in the calculation.
-        vasp_version: Sequence[int]
-            Vasp version, e.g., 6.4.1 could be represented as (6,4,1)
-        task_type : TaskType
-            Task type of the calculation.
         """
 
         # Instantiate class that updates "dynamic" INCAR tags
         # (like NBANDS, or hybrid-related parameters)
 
         working_params = UpdateParameterValues(
-            parameters=parameters,
+            parameters=self.parameters,
             defaults=self.defaults,
-            input_set=valid_input_set,
-            structure=structure,
-            task_doc=task_doc,
-            vasp_version=vasp_version,
-            task_type=task_type,
+            input_set=self.valid_input_set,
+            structure=self.structure,
+            task_doc=self.task_doc,
+            vasp_version=self.vasp_version,
+            task_type=self.task_type,
             fft_grid_tolerance=self.fft_grid_tolerance,
         )
         # Update values in the working parameters by adding
@@ -107,9 +108,14 @@ class CheckIncar:
         # Validate each parameter in the set of working parameters
         simple_validator = BasicValidator()
         for key in working_params.defaults:
+
+            if self.fast and len(self.reasons) > 0:
+                # fast check: stop checking whenever a single check fails
+                break
+
             simple_validator.check_parameter(
-                reasons=reasons,
-                warnings=warnings,
+                reasons=self.reasons,
+                warnings=self.warnings,
                 input_tag=working_params.defaults[key].get("alias", key),
                 current_values=working_params.parameters[key],
                 reference_values=working_params.valid_values[key],
@@ -118,7 +124,6 @@ class CheckIncar:
                 append_comments=working_params.defaults[key]["comment"],
                 severity=working_params.defaults[key]["severity"],
             )
-
 
 class UpdateParameterValues:
     """
@@ -164,7 +169,7 @@ class UpdateParameterValues:
         defaults: dict[str, dict],
         input_set: VaspInputSet,
         structure: Structure,
-        task_doc: TaskDoc | TaskDocument,
+        task_doc: dict,
         vasp_version: Sequence[int],
         task_type: TaskType,
         fft_grid_tolerance: float,
@@ -182,8 +187,8 @@ class UpdateParameterValues:
             Valid input set to compare parameters to.
         structure: Pymatgen Structure
             Structure used in the calculation.
-        task_doc : emmet.core TaskDoc | TaskDocument
-            Task document parsed from the calculation directory.
+        task_doc : dict
+            Task document parsed from the calculation directory, as a dict
         vasp_version: Sequence[int]
             Vasp version, e.g., 6.4.1 could be represented as (6,4,1)
         task_type : TaskType
@@ -201,8 +206,7 @@ class UpdateParameterValues:
         self.structure = structure
         self.valid_values: dict[str, Any] = {}
 
-        # convert to dict for consistent handling of attrs
-        self.task_doc = task_doc.model_dump()
+        self.task_doc = task_doc
         # Add some underscored values for convenience
         self._fft_grid_tolerance = fft_grid_tolerance
         self._calcs_reversed = self.task_doc["calcs_reversed"]
@@ -229,7 +233,7 @@ class UpdateParameterValues:
             # check to see if update method for that tag exists, and if so, run it
             update_method_str = f"update_{tag}_params"
             if hasattr(self, update_method_str):
-                self.__getattribute__(update_method_str)()
+                getattr(self, update_method_str)()
 
         # add defaults to parameters from the defaults as needed
         self.add_defaults_to_parameters()

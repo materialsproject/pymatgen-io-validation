@@ -92,6 +92,14 @@ class IOValidationSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="pymatgen_io_validation_", extra="ignore")
 
+    FAST_VALIDATION : bool = Field(
+        default = False,
+        description = (
+            "Whether to attempt to find all reasons a calculation fails (False), "
+            "or stop validation if any single check fails."
+        )
+    )
+
     @model_validator(mode="before")
     @classmethod
     def load_default_settings(cls, values):

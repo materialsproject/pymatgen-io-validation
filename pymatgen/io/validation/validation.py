@@ -18,6 +18,7 @@ from emmet.core.tasks import TaskDoc
 from emmet.core.vasp.task_valid import TaskDocument
 from emmet.core.base import EmmetBaseModel
 from emmet.core.mpid import MPID
+from emmet.core.utils import jsanitize
 from emmet.core.vasp.calc_types.enums import CalcType, TaskType
 from emmet.core.vasp.calc_types import (
     RunType,
@@ -25,6 +26,7 @@ from emmet.core.vasp.calc_types import (
     run_type as emmet_run_type,
     task_type as emmet_task_type,
 )
+from pymatgen.core import Structure
 from pymatgen.io.validation.check_incar import CheckIncar
 from pymatgen.io.validation.check_common_errors import (
     CheckCommonErrors,
@@ -86,6 +88,9 @@ class ValidationDoc(EmmetBaseModel):
         context : .Any
             Has no effect at present, kept to retain structure of pydantic .BaseModel
         """
+
+        self.valid = len(self.reasons) == 0
+
         if self.check_package_versions:
             from check_package_versions import package_version_check
 
@@ -98,6 +103,38 @@ class ValidationDoc(EmmetBaseModel):
     def from_task_doc(
         cls,
         task_doc: TaskDoc | TaskDocument,
+        **kwargs
+    ) -> ValidationDoc:
+        """
+        Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
+
+        Kwargs:
+            task_doc: the task document to process
+            input_sets: a dictionary of task_types -> pymatgen input set for validation
+            potcar_summary_stats: Dictionary of potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.
+            kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
+            allow_kpoint_shifts: Whether to consider a task valid if kpoints are shifted by the user
+            allow_explicit_kpoint_mesh: Whether to consider a task valid if the user defines an explicit kpoint mesh
+            fft_grid_tolerance: Relative tolerance for FFT grid parameters to still be a valid
+            num_ionic_steps_to_avg_drift_over: Number of ionic steps to average over when validating drift forces
+            max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
+                initial equillibriation period. Note this is in eV per atom.
+            fast : whether to stop validation when any check fails
+        """
+
+        if isinstance(task_doc, TaskDocument):
+            task_doc = TaskDoc(**task_doc.model_dump())
+
+        return cls.from_dict(
+            jsanitize(task_doc),
+            **kwargs
+        )
+
+
+    @classmethod
+    def from_dict(
+        cls,
+        task_doc: dict,
         input_sets: dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
         check_potcar: bool = True,
         kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
@@ -106,6 +143,7 @@ class ValidationDoc(EmmetBaseModel):
         fft_grid_tolerance: float = SETTINGS.VASP_FFT_GRID_TOLERANCE,
         num_ionic_steps_to_avg_drift_over: int = SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
         max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
+        fast : bool = SETTINGS.FAST_VALIDATION
     ) -> ValidationDoc:
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
@@ -121,125 +159,119 @@ class ValidationDoc(EmmetBaseModel):
             num_ionic_steps_to_avg_drift_over: Number of ionic steps to average over when validating drift forces
             max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
                 initial equillibriation period. Note this is in eV per atom.
+            fast : whether to stop validation when any check fails
         """
 
-        if isinstance(task_doc, TaskDocument):
-            task_doc = TaskDoc(**task_doc.model_dump())
+        bandgap = task_doc["output"]["bandgap"]
+        calcs_reversed = task_doc["calcs_reversed"]
 
-        bandgap = task_doc.output.bandgap
-        calcs_reversed = task_doc.calcs_reversed
-        calcs_reversed = [
-            calc.model_dump() for calc in calcs_reversed
-        ]  # convert to dictionary to use built-in `.get()` method
+        # used for most input tag checks (as this is more reliable than examining the INCAR file directly in most cases)
+        parameters = task_doc["input"]["parameters"]
 
-        parameters = (
-            task_doc.input.parameters
-        )  # used for most input tag checks (as this is more reliable than examining the INCAR file directly in most cases)
-        incar = calcs_reversed[0]["input"][
-            "incar"
-        ]  # used for INCAR tag checks where you need to look at the actual INCAR (semi-rare)
-        if task_doc.orig_inputs is None:
-            orig_inputs = {}
-        else:
-            orig_inputs = task_doc.orig_inputs.model_dump()
-            if orig_inputs["kpoints"] is not None:
-                orig_inputs["kpoints"] = orig_inputs["kpoints"].as_dict()
+        # used for INCAR tag checks where you need to look at the actual INCAR (semi-rare)
+        incar = calcs_reversed[0]["input"]["incar"]
 
-        potcars = calcs_reversed[0]["input"]["potcar_spec"]
+        orig_inputs = {} if (task_doc["orig_inputs"] is None) else task_doc["orig_inputs"]
 
-        calc_type = _get_calc_type(calcs_reversed, orig_inputs)
-        task_type = _get_task_type(calcs_reversed, orig_inputs)
-        run_type = _get_run_type(calcs_reversed)
-
-        if allow_explicit_kpoint_mesh == "auto":
-            if "NSCF" in calc_type.name:
-                allow_explicit_kpoint_mesh = True
-            else:
-                allow_explicit_kpoint_mesh = False
-
-        # Why was this lingering here?
-        # task_doc.chemsys
+        cls_kwargs : dict[str,Any] = {
+            "task_id" : task_doc["task_id"] if task_doc["task_id"] else -1, # Unsure about what might be a better way to do this...
+            "calc_type": _get_calc_type(calcs_reversed, orig_inputs),
+            "task_type": _get_task_type(calcs_reversed, orig_inputs),
+            "run_type": _get_run_type(calcs_reversed),
+            "reasons" : [],
+            "warnings": [],
+        }
 
         vasp_version = [int(x) for x in calcs_reversed[0]["vasp_version"].split(".")[:3]]
+        CheckVaspVersion(
+            reasons = cls_kwargs["reasons"],
+            warnings = cls_kwargs["warnings"],
+            vasp_version = vasp_version,
+            parameters = parameters, 
+            incar = incar,
+            defaults = _vasp_defaults,
+            fast = fast,
+        ).check()
+
+        if len(cls_kwargs["reasons"]) > 0 and fast:
+            return cls(valid=False, **cls_kwargs)
+
+        if allow_explicit_kpoint_mesh == "auto":
+            allow_explicit_kpoint_mesh = True if "NSCF" in cls_kwargs["calc_type"].name else False
 
         if calcs_reversed[0].get("input", {}).get("structure", None):
             structure = calcs_reversed[0]["input"]["structure"]
         else:
-            structure = task_doc.input.structure or task_doc.output.structure
-
-        reasons = []
-        # data = {}  # type: ignore
-        warnings: list[str] = []
-
-        if f"{run_type}".upper() not in {"GGA", "GGA+U", "PBE", "PBE+U", "R2SCAN"}:
-            reasons.append(f"FUNCTIONAL --> Functional {run_type} not currently accepted.")
+            structure = task_doc["input"]["structure"] or task_doc["output"]["structure"]
+        structure = Structure.from_dict(structure)
 
         try:
-            valid_input_set = _get_input_set(run_type, task_type, calc_type, structure, input_sets, bandgap)
+            valid_input_set = _get_input_set(cls_kwargs["run_type"], cls_kwargs["task_type"], cls_kwargs["calc_type"], structure, input_sets, bandgap)
         except Exception as e:
-            reasons.append(
+            cls_kwargs["reasons"].append(
                 "NO MATCHING MP INPUT SET --> no matching MP input set was found. If you believe this to be a mistake, please create a GitHub issue."
             )
             valid_input_set = None
             print(f"Error while finding MP input set: {e}.")
+        
+        if valid_input_set:
 
-        if parameters == {} or parameters is None:
-            reasons.append(
-                "CAN NOT PROPERLY PARSE CALCULATION --> Issue parsing input parameters from the vasprun.xml file."
-            )
-        elif valid_input_set:
-            # Get subset of POTCAR summary stats to validate calculation
-
-            if check_potcar:
-                CheckPotcar().check(
-                    reasons=reasons, valid_input_set=valid_input_set, structure=structure, potcars=potcars
-                )
+            # Tests ordered by expected computational burden - help optimize `fast` check
 
             # TODO: check for surface/slab calculations!!!!!!
 
-            CheckVaspVersion(defaults=_vasp_defaults).check(reasons, vasp_version, parameters, incar)
-
             CheckCommonErrors(
+                reasons =cls_kwargs["reasons"],
+                warnings=cls_kwargs["warnings"],
+                task_doc=task_doc,
+                parameters=parameters,
+                structure=structure,
+                run_type = cls_kwargs["run_type"],
+                fast = fast,
                 defaults=_vasp_defaults,
                 valid_max_allowed_scf_gradient=max_allowed_scf_gradient,
                 num_ionic_steps_to_avg_drift_over=num_ionic_steps_to_avg_drift_over,
-            ).check(reasons=reasons, warnings=warnings, task_doc=task_doc, parameters=parameters, structure=structure)
+            ).check()
 
             CheckKpointsKspacing(
+                reasons = cls_kwargs["reasons"],
+                warnings = cls_kwargs["warnings"],
+                valid_input_set=valid_input_set,
+                kpoints=calcs_reversed[0]["input"]["kpoints"],
+                structure=structure,
                 defaults=_vasp_defaults,
                 kpts_tolerance=kpts_tolerance,
                 allow_explicit_kpoint_mesh=allow_explicit_kpoint_mesh,
                 allow_kpoint_shifts=allow_kpoint_shifts,
-            ).check(
-                reasons=reasons,
-                valid_input_set=valid_input_set,
-                kpoints=calcs_reversed[0]["input"]["kpoints"],
-                structure=structure,
-            )
+                fast = fast,
+            ).check()
 
-            CheckIncar(defaults=_vasp_defaults, fft_grid_tolerance=fft_grid_tolerance).check(
-                reasons=reasons,
-                warnings=warnings,
+            # Get subset of POTCAR summary stats to validate calculation
+
+            if check_potcar:
+                CheckPotcar(
+                    reasons = cls_kwargs["reasons"],
+                    warnings = cls_kwargs["warnings"],
+                    valid_input_set = valid_input_set,
+                    structure = structure,
+                    potcars = calcs_reversed[0]["input"]["potcar_spec"],
+                    fast = fast,
+                ).check()
+
+            CheckIncar(
+                reasons =cls_kwargs["reasons"],
+                warnings=cls_kwargs["warnings"],
                 valid_input_set=valid_input_set,
                 task_doc=task_doc,
                 parameters=parameters,
                 structure=structure,
                 vasp_version=vasp_version,
-                task_type=task_type,
-            )
+                task_type=cls_kwargs["task_type"],
+                defaults=_vasp_defaults, 
+                fft_grid_tolerance=fft_grid_tolerance
+            ).check()
 
-        # Unsure about what might be a better way to do this...
-        task_id = task_doc.task_id if task_doc.task_id else -1
-
-        return cls(
-            task_id=task_id,
-            calc_type=calc_type,
-            run_type=run_type,
-            task_type=task_type,
-            valid=len(reasons) == 0,
-            reasons=reasons,
-            warnings=warnings,
-        )
+        return cls(valid=len(cls_kwargs["reasons"]) == 0, **cls_kwargs)
 
     @classmethod
     def from_directory(
