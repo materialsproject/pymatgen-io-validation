@@ -267,17 +267,13 @@ class ValidationDoc(EmmetBaseModel):
                 task_type=cls_kwargs["task_type"],
                 defaults=_vasp_defaults,
                 fft_grid_tolerance=fft_grid_tolerance,
-                fast = fast,
+                fast=fast,
             ).check()
 
         return cls(valid=len(cls_kwargs["reasons"]) == 0, **cls_kwargs)
 
     @classmethod
-    def from_directory(
-        cls,
-        dir_name: Path | str,
-        **kwargs
-    ) -> ValidationDoc:
+    def from_directory(cls, dir_name: Path | str, **kwargs) -> ValidationDoc:
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
 
@@ -301,7 +297,7 @@ class ValidationDoc(EmmetBaseModel):
             )
 
             return cls.from_task_doc(task_doc=task_doc, **kwargs)
-            
+
         except Exception as e:
             if "no vasp files found" in str(e).lower():
                 raise Exception(f"NO CALCULATION FOUND --> {dir_name} is not a VASP calculation directory.")

@@ -20,7 +20,7 @@ def run_check(
     should_the_check_pass: bool,
     vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
     incar_settings_to_change: dict = {},  # for directly changing the INCAR file,
-    validation_doc_kwargs : dict = {}, # any kwargs to pass to the ValidationDoc class
+    validation_doc_kwargs: dict = {},  # any kwargs to pass to the ValidationDoc class
 ):
     for key, value in vasprun_parameters_to_change.items():
         task_doc.input.parameters[key] = value
@@ -28,7 +28,7 @@ def run_check(
     for key, value in incar_settings_to_change.items():
         task_doc.calcs_reversed[0].input.incar[key] = value
 
-    validation_doc = ValidationDoc.from_task_doc(task_doc,**validation_doc_kwargs)
+    validation_doc = ValidationDoc.from_task_doc(task_doc, **validation_doc_kwargs)
     has_specified_error = any([error_message_to_search_for in reason for reason in validation_doc.reasons])
 
     assert (not has_specified_error) if should_the_check_pass else has_specified_error
@@ -564,11 +564,12 @@ def test_task_document(test_dir):
 
     expected_reasons = ["KPOINTS", "ENCUT", "ENAUG"]
     for expected_reason in expected_reasons:
-        assert any(expected_reason in reason for reason in valid_docs["non-compliant"].reasons)        
+        assert any(expected_reason in reason for reason in valid_docs["non-compliant"].reasons)
+
 
 def test_fast_mode():
     task_doc = test_data_task_docs["SiStatic"]
-    valid_doc = ValidationDoc.from_task_doc(task_doc,check_potcar=False)
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar=False)
 
     # Without POTCAR check, this doc is valid
     assert valid_doc.valid
@@ -587,34 +588,37 @@ def test_fast_mode():
     # should only get version error in reasons
     task_doc.calcs_reversed[0].vasp_version = "4.0.0"
     task_doc.input.parameters["NBANDS"] = -5
-    bad_incar_updates = {"METAGGA": "R2SCAN", "GGA": "PE",}
+    bad_incar_updates = {
+        "METAGGA": "R2SCAN",
+        "GGA": "PE",
+    }
     task_doc.calcs_reversed[0].input.incar.update(bad_incar_updates)
-    
-    _update_kpoints_for_test(task_doc, {"kpoints": [[1,1,2]]})
-    
-    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = True, fast = True)
+
+    _update_kpoints_for_test(task_doc, {"kpoints": [[1, 1, 2]]})
+
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar=True, fast=True)
     assert len(valid_doc.reasons) == 1
     assert "VASP VERSION" in valid_doc.reasons[0]
 
     # Now correct version, should just get METAGGA / GGA bug
     task_doc.calcs_reversed[0].vasp_version = "6.3.2"
-    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = True, fast = True)
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar=True, fast=True)
     assert len(valid_doc.reasons) == 1
     assert "KNOWN BUG" in valid_doc.reasons[0]
 
     # Now remove GGA tag, get k-point density error
     task_doc.calcs_reversed[0].input.incar.pop("GGA")
-    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = True, fast = True)
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar=True, fast=True)
     assert len(valid_doc.reasons) == 1
     assert "INPUT SETTINGS --> KPOINTS or KSPACING:" in valid_doc.reasons[0]
 
     # Now restore k-points and check POTCAR --> get error
     _update_kpoints_for_test(task_doc, og_kpoints)
-    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = True, fast = True)
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar=True, fast=True)
     assert len(valid_doc.reasons) == 1
     assert "PSEUDOPOTENTIALS" in valid_doc.reasons[0]
 
     # Without POTCAR check, should get INCAR check error for NGX
-    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = False, fast = True)
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar=False, fast=True)
     assert len(valid_doc.reasons) == 1
     assert "NBANDS" in valid_doc.reasons[0]
