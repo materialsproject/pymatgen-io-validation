@@ -50,9 +50,9 @@ class CheckKpointsKspacing(BaseValidator):
         Whether to permit shifting the origin of the k-point mesh from Gamma.
     """
 
-    reasons : list[str]
-    warnings : list[str]
-    name : str = "Check k-point density"
+    reasons: list[str]
+    warnings: list[str]
+    name: str = "Check k-point density"
     valid_input_set: VaspInputSet = None
     kpoints: Kpoints | dict = None
     structure: Structure = None
@@ -89,7 +89,7 @@ class CheckKpointsKspacing(BaseValidator):
 
     def _check_explicit_mesh_permitted(self) -> None:
         # Check for explicit kpoint meshes
-        
+
         if (not self.allow_explicit_kpoint_mesh) and len(self.kpoints["kpoints"]) > 1:
             self.reasons.append(
                 "INPUT SETTINGS --> KPOINTS: explicitly defining "
@@ -109,9 +109,7 @@ class CheckKpointsKspacing(BaseValidator):
             self.kpoints = self.kpoints.as_dict()
 
         cur_num_kpts = max(
-            self.kpoints.get("nkpoints", 0), 
-            np.prod(self.kpoints.get("kpoints")), 
-            len(self.kpoints.get("kpoints"))
+            self.kpoints.get("nkpoints", 0), np.prod(self.kpoints.get("kpoints")), len(self.kpoints.get("kpoints"))
         )
         if cur_num_kpts < valid_num_kpts:
             self.reasons.append(
@@ -121,7 +119,7 @@ class CheckKpointsKspacing(BaseValidator):
 
     def _check_kpoint_mesh_symmetry(self) -> None:
         # check for valid kpoint mesh (which depends on symmetry of the structure)
-        
+
         cur_kpoint_style = self.kpoints.get("generation_style").lower()
         is_hexagonal = self.structure.lattice.is_hexagonal()
         is_face_centered = self.structure.get_space_group_info()[0][0] == "F"

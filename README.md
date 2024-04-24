@@ -7,7 +7,7 @@ This package is an extension to `pymatgen` for performing I/O validation. Specif
 Installation
 =====
 
-You can install this package by simply running 
+You can install this package by simply running
 
 `pip install pymatgen-io-validation`
 

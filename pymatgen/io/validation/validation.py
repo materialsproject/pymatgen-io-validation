@@ -100,11 +100,7 @@ class ValidationDoc(EmmetBaseModel):
         extra = "allow"
 
     @classmethod
-    def from_task_doc(
-        cls,
-        task_doc: TaskDoc | TaskDocument,
-        **kwargs
-    ) -> ValidationDoc:
+    def from_task_doc(cls, task_doc: TaskDoc | TaskDocument, **kwargs) -> ValidationDoc:
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
 
@@ -125,11 +121,7 @@ class ValidationDoc(EmmetBaseModel):
         if isinstance(task_doc, TaskDocument):
             task_doc = TaskDoc(**task_doc.model_dump())
 
-        return cls.from_dict(
-            jsanitize(task_doc),
-            **kwargs
-        )
-
+        return cls.from_dict(jsanitize(task_doc), **kwargs)
 
     @classmethod
     def from_dict(
@@ -143,7 +135,7 @@ class ValidationDoc(EmmetBaseModel):
         fft_grid_tolerance: float = SETTINGS.VASP_FFT_GRID_TOLERANCE,
         num_ionic_steps_to_avg_drift_over: int = SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
         max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
-        fast : bool = SETTINGS.FAST_VALIDATION
+        fast: bool = SETTINGS.FAST_VALIDATION,
     ) -> ValidationDoc:
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
@@ -173,24 +165,26 @@ class ValidationDoc(EmmetBaseModel):
 
         orig_inputs = {} if (task_doc["orig_inputs"] is None) else task_doc["orig_inputs"]
 
-        cls_kwargs : dict[str,Any] = {
-            "task_id" : task_doc["task_id"] if task_doc["task_id"] else -1, # Unsure about what might be a better way to do this...
+        cls_kwargs: dict[str, Any] = {
+            "task_id": (
+                task_doc["task_id"] if task_doc["task_id"] else -1
+            ),  # Unsure about what might be a better way to do this...
             "calc_type": _get_calc_type(calcs_reversed, orig_inputs),
             "task_type": _get_task_type(calcs_reversed, orig_inputs),
             "run_type": _get_run_type(calcs_reversed),
-            "reasons" : [],
+            "reasons": [],
             "warnings": [],
         }
 
         vasp_version = [int(x) for x in calcs_reversed[0]["vasp_version"].split(".")[:3]]
         CheckVaspVersion(
-            reasons = cls_kwargs["reasons"],
-            warnings = cls_kwargs["warnings"],
-            vasp_version = vasp_version,
-            parameters = parameters, 
-            incar = incar,
-            defaults = _vasp_defaults,
-            fast = fast,
+            reasons=cls_kwargs["reasons"],
+            warnings=cls_kwargs["warnings"],
+            vasp_version=vasp_version,
+            parameters=parameters,
+            incar=incar,
+            defaults=_vasp_defaults,
+            fast=fast,
         ).check()
 
         if len(cls_kwargs["reasons"]) > 0 and fast:
@@ -206,14 +200,16 @@ class ValidationDoc(EmmetBaseModel):
         structure = Structure.from_dict(structure)
 
         try:
-            valid_input_set = _get_input_set(cls_kwargs["run_type"], cls_kwargs["task_type"], cls_kwargs["calc_type"], structure, input_sets, bandgap)
+            valid_input_set = _get_input_set(
+                cls_kwargs["run_type"], cls_kwargs["task_type"], cls_kwargs["calc_type"], structure, input_sets, bandgap
+            )
         except Exception as e:
             cls_kwargs["reasons"].append(
                 "NO MATCHING MP INPUT SET --> no matching MP input set was found. If you believe this to be a mistake, please create a GitHub issue."
             )
             valid_input_set = None
             print(f"Error while finding MP input set: {e}.")
-        
+
         if valid_input_set:
 
             # Tests ordered by expected computational burden - help optimize `fast` check
@@ -221,21 +217,21 @@ class ValidationDoc(EmmetBaseModel):
             # TODO: check for surface/slab calculations!!!!!!
 
             CheckCommonErrors(
-                reasons =cls_kwargs["reasons"],
+                reasons=cls_kwargs["reasons"],
                 warnings=cls_kwargs["warnings"],
                 task_doc=task_doc,
                 parameters=parameters,
                 structure=structure,
-                run_type = cls_kwargs["run_type"],
-                fast = fast,
+                run_type=cls_kwargs["run_type"],
+                fast=fast,
                 defaults=_vasp_defaults,
                 valid_max_allowed_scf_gradient=max_allowed_scf_gradient,
                 num_ionic_steps_to_avg_drift_over=num_ionic_steps_to_avg_drift_over,
             ).check()
 
             CheckKpointsKspacing(
-                reasons = cls_kwargs["reasons"],
-                warnings = cls_kwargs["warnings"],
+                reasons=cls_kwargs["reasons"],
+                warnings=cls_kwargs["warnings"],
                 valid_input_set=valid_input_set,
                 kpoints=calcs_reversed[0]["input"]["kpoints"],
                 structure=structure,
@@ -243,23 +239,23 @@ class ValidationDoc(EmmetBaseModel):
                 kpts_tolerance=kpts_tolerance,
                 allow_explicit_kpoint_mesh=allow_explicit_kpoint_mesh,
                 allow_kpoint_shifts=allow_kpoint_shifts,
-                fast = fast,
+                fast=fast,
             ).check()
 
             # Get subset of POTCAR summary stats to validate calculation
 
             if check_potcar:
                 CheckPotcar(
-                    reasons = cls_kwargs["reasons"],
-                    warnings = cls_kwargs["warnings"],
-                    valid_input_set = valid_input_set,
-                    structure = structure,
-                    potcars = calcs_reversed[0]["input"]["potcar_spec"],
-                    fast = fast,
+                    reasons=cls_kwargs["reasons"],
+                    warnings=cls_kwargs["warnings"],
+                    valid_input_set=valid_input_set,
+                    structure=structure,
+                    potcars=calcs_reversed[0]["input"]["potcar_spec"],
+                    fast=fast,
                 ).check()
 
             CheckIncar(
-                reasons =cls_kwargs["reasons"],
+                reasons=cls_kwargs["reasons"],
                 warnings=cls_kwargs["warnings"],
                 valid_input_set=valid_input_set,
                 task_doc=task_doc,
@@ -267,8 +263,8 @@ class ValidationDoc(EmmetBaseModel):
                 structure=structure,
                 vasp_version=vasp_version,
                 task_type=cls_kwargs["task_type"],
-                defaults=_vasp_defaults, 
-                fft_grid_tolerance=fft_grid_tolerance
+                defaults=_vasp_defaults,
+                fft_grid_tolerance=fft_grid_tolerance,
             ).check()
 
         return cls(valid=len(cls_kwargs["reasons"]) == 0, **cls_kwargs)

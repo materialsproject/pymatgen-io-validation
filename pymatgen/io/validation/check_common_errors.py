@@ -54,14 +54,14 @@ class CheckCommonErrors(BaseValidator):
         Number of ionic steps to average over to yield the drift in total energy.
     """
 
-    reasons : list[str]
-    warnings : list[str]
+    reasons: list[str]
+    warnings: list[str]
     task_doc: TaskDoc | TaskDocument = None
     parameters: dict = None
     structure: Structure = None
     run_type: RunType = None
-    name : str = "Check common errors"
-    fast : bool = False
+    name: str = "Check common errors"
+    fast: bool = False
     defaults: dict | None = None
     # TODO: make this also work for elements Gd and Eu, which have magmoms >5 in at least one of their pure structures
     valid_max_magmoms: dict[str, float] = field(default_factory=lambda: {"Gd": 10.0, "Eu": 10.0})
@@ -72,11 +72,11 @@ class CheckCommonErrors(BaseValidator):
     def __post_init__(self):
         self.incar = self.task_doc["calcs_reversed"][0]["input"]["incar"]
         self.ionic_steps = self.task_doc["calcs_reversed"][0]["output"]["ionic_steps"]
-    
+
     def _check_run_type(self) -> None:
         if f"{self.run_type}".upper() not in {"GGA", "GGA+U", "PBE", "PBE+U", "R2SCAN"}:
             self.reasons.append(f"FUNCTIONAL --> Functional {self.run_type} not currently accepted.")
-        
+
     def _check_parse(self) -> None:
         if self.parameters == {} or self.parameters is None:
             self.reasons.append(
@@ -150,7 +150,9 @@ class CheckCommonErrors(BaseValidator):
 
     def _check_large_magmoms(self) -> None:
         # Check for excessively large final magnetic moments
-        cur_magmoms = [abs(mag["tot"]) for mag in self.task_doc["calcs_reversed"][0]["output"]["outcar"]["magnetization"]]
+        cur_magmoms = [
+            abs(mag["tot"]) for mag in self.task_doc["calcs_reversed"][0]["output"]["outcar"]["magnetization"]
+        ]
         bad_site_magmom_msgs = []
         if len(cur_magmoms) > 0:
             for site_num in range(0, len(self.structure)):
@@ -201,6 +203,7 @@ class CheckCommonErrors(BaseValidator):
                 "which are not currently being accepted."
             )
 
+
 @dataclass
 class CheckVaspVersion(BaseValidator):
     """
@@ -229,12 +232,13 @@ class CheckVaspVersion(BaseValidator):
     defaults : dict
         Dict of default parameters
     """
-    reasons : list[str]
-    warnings : list[str]
+
+    reasons: list[str]
+    warnings: list[str]
     vasp_version: Sequence[int] = None
     parameters: dict = None
     incar: dict | Incar = None
-    name : str = "VASP version validator"
+    name: str = "VASP version validator"
     defaults: dict | None = None
 
     def _check_vasp_version(self) -> None:

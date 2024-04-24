@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 # TODO: fix ISIF getting overwritten by MP input set.
 
+
 @dataclass
 class CheckIncar(BaseValidator):
     """
@@ -67,10 +68,10 @@ class CheckIncar(BaseValidator):
     structure: Structure = None
     vasp_version: Sequence[int] = None
     task_type: TaskType = None
-    name : str = "Check INCAR tags"
+    name: str = "Check INCAR tags"
     defaults: dict | None = None
     fft_grid_tolerance: float | None = None
-    
+
     def check(self) -> None:
         """
         Check calculation parameters related to INCAR input tags.
@@ -124,6 +125,7 @@ class CheckIncar(BaseValidator):
                 append_comments=working_params.defaults[key]["comment"],
                 severity=working_params.defaults[key]["severity"],
             )
+
 
 class UpdateParameterValues:
     """

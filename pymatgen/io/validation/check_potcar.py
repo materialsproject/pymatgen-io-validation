@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pymatgen.core import Structure
-    from pymatgen.io.vasp import Potcar
     from pymatgen.io.vasp.sets import VaspInputSet
 
 _potcar_summary_stats = loadfn(import_resource_files("pymatgen.io.vasp") / "potcar-summary-stats.json.bz2")
+
 
 @dataclass
 class CheckPotcar(BaseValidator):
@@ -48,19 +48,19 @@ class CheckPotcar(BaseValidator):
         True: stop validation when any single check fails
     """
 
-    reasons : list[str]
-    warnings : list[str]
+    reasons: list[str]
+    warnings: list[str]
     valid_input_set: VaspInputSet = None
     structure: Structure = None
     potcars: dict = None
-    name : str = "Check POTCARs"
+    name: str = "Check POTCARs"
     potcar_summary_stats: dict = field(default_factory=lambda: _potcar_summary_stats)
     data_match_tol: float = 1.0e-6
-    fast : bool = False
+    fast: bool = False
 
     def _check_potcar_spec(self):
         """
-        Checks to make sure the POTCAR is equivalent to the correct POTCAR from the pymatgen input set.        """
+        Checks to make sure the POTCAR is equivalent to the correct POTCAR from the pymatgen input set."""
 
         if not self.potcar_summary_stats:
             # If no reference summary stats specified, or we're only doing a quick check,

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+
 @dataclass
 class BaseValidator:
     """
@@ -31,10 +32,11 @@ class BaseValidator:
             True: stop validation if any check fails.
             False: perform all checks.
     """
-    reasons : list[str]
-    warnings : list[str]
-    name : str = "Base validator class"
-    fast : bool = False
+
+    reasons: list[str]
+    warnings: list[str]
+    name: str = "Base validator class"
+    fast: bool = False
 
     def check(self) -> None:
         """
@@ -42,12 +44,12 @@ class BaseValidator:
 
         See class docstr for an example.
         """
-                
-        checklist = set(attr for attr in dir(self) if attr.startswith("_check_"))
+
+        checklist = {attr for attr in dir(self) if attr.startswith("_check_")}
         for attr in checklist:
 
             if self.fast and len(self.reasons) > 0:
                 # fast check: stop checking whenever a single check fails
                 break
 
-            getattr(self,attr)()
+            getattr(self, attr)()
