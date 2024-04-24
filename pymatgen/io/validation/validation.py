@@ -104,8 +104,9 @@ class ValidationDoc(EmmetBaseModel):
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
 
-        Kwargs:
+        Args:
             task_doc: the task document to process
+        Possible kwargs for `from_dict` method:
             input_sets: a dictionary of task_types -> pymatgen input set for validation
             potcar_summary_stats: Dictionary of potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.
             kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
@@ -142,6 +143,7 @@ class ValidationDoc(EmmetBaseModel):
 
         Args:
             task_doc: the task document to process
+        Kwargs:
             input_sets: a dictionary of task_types -> pymatgen input set for validation
             potcar_summary_stats: Dictionary of potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.
             kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
@@ -265,6 +267,7 @@ class ValidationDoc(EmmetBaseModel):
                 task_type=cls_kwargs["task_type"],
                 defaults=_vasp_defaults,
                 fft_grid_tolerance=fft_grid_tolerance,
+                fast = fast,
             ).check()
 
         return cls(valid=len(cls_kwargs["reasons"]) == 0, **cls_kwargs)
@@ -273,20 +276,14 @@ class ValidationDoc(EmmetBaseModel):
     def from_directory(
         cls,
         dir_name: Path | str,
-        input_sets: dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
-        check_potcar: bool = True,
-        kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
-        allow_kpoint_shifts: bool = SETTINGS.VASP_ALLOW_KPT_SHIFT,
-        allow_explicit_kpoint_mesh: str | bool = SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
-        fft_grid_tolerance: float = SETTINGS.VASP_FFT_GRID_TOLERANCE,
-        num_ionic_steps_to_avg_drift_over: int = SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
-        max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
+        **kwargs
     ) -> ValidationDoc:
         """
         Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
 
         Args:
             dir_name: the directory containing the calculation files to process
+        Possible kwargs for `from_dict` method:
             input_sets: a dictionary of task_types -> pymatgen input set for validation
             check_potcar: Whether to check POTCARs against known libraries.
             kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
@@ -303,21 +300,9 @@ class ValidationDoc(EmmetBaseModel):
                 volumetric_files=(),
             )
 
-            validation_doc = ValidationDoc.from_task_doc(
-                task_doc=task_doc,
-                input_sets=input_sets,
-                check_potcar=check_potcar,
-                kpts_tolerance=kpts_tolerance,
-                allow_kpoint_shifts=allow_kpoint_shifts,
-                allow_explicit_kpoint_mesh=allow_explicit_kpoint_mesh,
-                fft_grid_tolerance=fft_grid_tolerance,
-                num_ionic_steps_to_avg_drift_over=num_ionic_steps_to_avg_drift_over,
-                max_allowed_scf_gradient=max_allowed_scf_gradient,
-            )
-
-            return validation_doc
+            return cls.from_task_doc(task_doc=task_doc, **kwargs)
+            
         except Exception as e:
-            print(e)
             if "no vasp files found" in str(e).lower():
                 raise Exception(f"NO CALCULATION FOUND --> {dir_name} is not a VASP calculation directory.")
             else:

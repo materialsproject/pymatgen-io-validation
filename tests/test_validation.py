@@ -1,6 +1,6 @@
 import pytest
 import copy
-from conftest import get_test_object
+from conftest import get_test_object, test_data_task_docs
 from pymatgen.io.validation import ValidationDoc
 from emmet.core.tasks import TaskDoc
 from monty.serialization import loadfn
@@ -19,7 +19,8 @@ def run_check(
     error_message_to_search_for: str,
     should_the_check_pass: bool,
     vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
-    incar_settings_to_change: dict = {},  # for directly changing the INCAR file
+    incar_settings_to_change: dict = {},  # for directly changing the INCAR file,
+    validation_doc_kwargs : dict = {}, # any kwargs to pass to the ValidationDoc class
 ):
     for key, value in vasprun_parameters_to_change.items():
         task_doc.input.parameters[key] = value
@@ -27,7 +28,7 @@ def run_check(
     for key, value in incar_settings_to_change.items():
         task_doc.calcs_reversed[0].input.incar[key] = value
 
-    validation_doc = ValidationDoc.from_task_doc(task_doc)
+    validation_doc = ValidationDoc.from_task_doc(task_doc,**validation_doc_kwargs)
     has_specified_error = any([error_message_to_search_for in reason for reason in validation_doc.reasons])
 
     assert (not has_specified_error) if should_the_check_pass else has_specified_error
@@ -44,7 +45,7 @@ def test_validation_doc_from_directory(test_dir, object_name):
     dir_name = test_dir / "vasp" / test_object.folder
     test_validation_doc = ValidationDoc.from_directory(dir_name=dir_name)
 
-    task_doc = TaskDoc.from_directory(dir_name)
+    task_doc = test_data_task_docs[object_name]
     valid_validation_doc = ValidationDoc.from_task_doc(task_doc)
 
     # The attributes below will always be different because the objects are created at
@@ -64,9 +65,8 @@ def test_validation_doc_from_directory(test_dir, object_name):
     ],
 )
 def test_potcar_validation(test_dir, object_name):
-    test_object = get_test_object(object_name)
-    dir_name = test_dir / "vasp" / test_object.folder
-    task_doc = TaskDoc.from_directory(dir_name)
+
+    task_doc = test_data_task_docs[object_name]
 
     correct_potcar_summary_stats = loadfn(test_dir / "vasp" / "Si_potcar_spec.json.gz")
 
@@ -91,9 +91,7 @@ def test_potcar_validation(test_dir, object_name):
     ],
 )
 def test_scf_incar_checks(test_dir, object_name):
-    test_object = get_test_object(object_name)
-    dir_name = test_dir / "vasp" / test_object.folder
-    task_doc = TaskDoc.from_directory(dir_name)
+    task_doc = test_data_task_docs[object_name]
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # Pay *very* close attention to whether a tag is modified in the incar or in the vasprun.xml's parameters!
@@ -311,10 +309,8 @@ def test_scf_incar_checks(test_dir, object_name):
         pytest.param("SiNonSCFUniform", id="SiNonSCFUniform"),
     ],
 )
-def test_nscf_incar_checks(test_dir, object_name):
-    test_object = get_test_object(object_name)
-    dir_name = test_dir / "vasp" / test_object.folder
-    task_doc = TaskDoc.from_directory(dir_name)
+def test_nscf_incar_checks(object_name):
+    task_doc = test_data_task_docs[object_name]
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # ICHARG check
@@ -338,10 +334,8 @@ def test_nscf_incar_checks(test_dir, object_name):
         pytest.param("SiNonSCFUniform", id="SiNonSCFUniform"),
     ],
 )
-def test_nscf_kpoints_checks(test_dir, object_name):
-    test_object = get_test_object(object_name)
-    dir_name = test_dir / "vasp" / test_object.folder
-    task_doc = TaskDoc.from_directory(dir_name)
+def test_nscf_kpoints_checks(object_name):
+    task_doc = test_data_task_docs[object_name]
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # Explicit kpoints for NSCF calc check (this should not raise any flags for NSCF calcs)
@@ -367,10 +361,8 @@ def test_nscf_kpoints_checks(test_dir, object_name):
         # pytest.param("SiStatic", id="SiStatic"),
     ],
 )
-def test_common_error_checks(test_dir, object_name):
-    test_object = get_test_object(object_name)
-    dir_name = test_dir / "vasp" / test_object.folder
-    task_doc = TaskDoc.from_directory(dir_name)
+def test_common_error_checks(object_name):
+    task_doc = test_data_task_docs[object_name]
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # METAGGA and GGA tag check (should never be set together)
@@ -461,10 +453,8 @@ def _update_kpoints_for_test(task_doc: TaskDoc, kpoints_updates: dict):
         pytest.param("SiOptimizeDouble", id="SiOptimizeDouble"),
     ],
 )
-def test_kpoints_checks(test_dir, object_name):
-    test_object = get_test_object(object_name)
-    dir_name = test_dir / "vasp" / test_object.folder
-    task_doc = TaskDoc.from_directory(dir_name)
+def test_kpoints_checks(object_name):
+    task_doc = test_data_task_docs[object_name]
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # Valid mesh type check (should flag HCP structures)
@@ -524,10 +514,8 @@ def test_kpoints_checks(test_dir, object_name):
         pytest.param("SiOptimizeDouble", id="SiOptimizeDouble"),
     ],
 )
-def test_vasp_version_check(test_dir, object_name):
-    test_object = get_test_object(object_name)
-    dir_name = test_dir / "vasp" / test_object.folder
-    task_doc = TaskDoc.from_directory(dir_name)
+def test_vasp_version_check(object_name):
+    task_doc = test_data_task_docs[object_name]
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     vasp_version_list = [
@@ -568,10 +556,65 @@ def test_task_document(test_dir):
     valid_docs = {}
     for calc in calcs:
         valid_docs[calc] = ValidationDoc.from_task_doc(TaskDocument(**calcs[calc]))
+        # quickly check that `from_dict` and `from_task_doc` give same document
+        assert set(ValidationDoc.from_dict(calcs[calc]).reasons) == set(valid_docs[calc].reasons)
 
     assert valid_docs["compliant"].valid
     assert not valid_docs["non-compliant"].valid
 
     expected_reasons = ["KPOINTS", "ENCUT", "ENAUG"]
     for expected_reason in expected_reasons:
-        assert any(expected_reason in reason for reason in valid_docs["non-compliant"].reasons)
+        assert any(expected_reason in reason for reason in valid_docs["non-compliant"].reasons)        
+
+def test_fast_mode():
+    task_doc = test_data_task_docs["SiStatic"]
+    valid_doc = ValidationDoc.from_task_doc(task_doc,check_potcar=False)
+
+    # Without POTCAR check, this doc is valid
+    assert valid_doc.valid
+
+    # Now introduce sequence of changes to test how fast validation works
+    # Check order:
+    # 1. VASP version
+    # 2. Common errors (known bugs, missing output, etc.)
+    # 3. K-point density
+    # 4. POTCAR check
+    # 5. INCAR check
+
+    og_kpoints = task_doc.calcs_reversed[0].input.kpoints
+    # Introduce series of errors, then ablate them
+    # use unacceptable version and set METAGGA and GGA simultaneously ->
+    # should only get version error in reasons
+    task_doc.calcs_reversed[0].vasp_version = "4.0.0"
+    task_doc.input.parameters["NBANDS"] = -5
+    bad_incar_updates = {"METAGGA": "R2SCAN", "GGA": "PE",}
+    task_doc.calcs_reversed[0].input.incar.update(bad_incar_updates)
+    
+    _update_kpoints_for_test(task_doc, {"kpoints": [[1,1,2]]})
+    
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = True, fast = True)
+    assert len(valid_doc.reasons) == 1
+    assert "VASP VERSION" in valid_doc.reasons[0]
+
+    # Now correct version, should just get METAGGA / GGA bug
+    task_doc.calcs_reversed[0].vasp_version = "6.3.2"
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = True, fast = True)
+    assert len(valid_doc.reasons) == 1
+    assert "KNOWN BUG" in valid_doc.reasons[0]
+
+    # Now remove GGA tag, get k-point density error
+    task_doc.calcs_reversed[0].input.incar.pop("GGA")
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = True, fast = True)
+    assert len(valid_doc.reasons) == 1
+    assert "INPUT SETTINGS --> KPOINTS or KSPACING:" in valid_doc.reasons[0]
+
+    # Now restore k-points and check POTCAR --> get error
+    _update_kpoints_for_test(task_doc, og_kpoints)
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = True, fast = True)
+    assert len(valid_doc.reasons) == 1
+    assert "PSEUDOPOTENTIALS" in valid_doc.reasons[0]
+
+    # Without POTCAR check, should get INCAR check error for NGX
+    valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar = False, fast = True)
+    assert len(valid_doc.reasons) == 1
+    assert "NBANDS" in valid_doc.reasons[0]

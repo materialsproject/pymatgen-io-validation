@@ -1,11 +1,13 @@
-from pathlib import Path
 
+from emmet.core.tasks import TaskDoc
+from pathlib import Path
 import pytest
 
+_test_dir = Path(__file__).parent.joinpath("test_files").resolve()
 
 @pytest.fixture(scope="session")
 def test_dir():
-    return Path(__file__).parent.joinpath("test_files").resolve()
+    return _test_dir
 
 
 def assert_schemas_equal(test_schema, valid_schema):
@@ -249,3 +251,8 @@ objects = {cls.__name__: cls for cls in SchemaTestData.__subclasses__()}
 def get_test_object(object_name):
     """Get the schema test data object from the class name."""
     return objects[object_name]
+
+test_data_task_docs = {
+    k : TaskDoc.from_directory(dir_name = _test_dir / "vasp" / v.folder)
+    for k, v in objects.items()
+}
