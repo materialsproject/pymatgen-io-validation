@@ -61,14 +61,6 @@ class ValidationDoc(EmmetBaseModel):
         description="Last updated date for this document",
         default_factory=datetime.utcnow,
     )
-    check_package_versions: bool = Field(
-        False,
-        description=(
-            "Whether to check if the currently installed versions "
-            "of pymatgen and pymatgen-io-validation are the most "
-            "up to date versions on PyPI."
-        ),
-    )
 
     reasons: list[str] = Field(None, description="List of deprecation tags detailing why this task isn't valid")
 
@@ -90,11 +82,6 @@ class ValidationDoc(EmmetBaseModel):
         """
 
         self.valid = len(self.reasons) == 0
-
-        if self.check_package_versions:
-            from check_package_versions import package_version_check
-
-            package_version_check()
 
     class Config:  # noqa
         extra = "allow"

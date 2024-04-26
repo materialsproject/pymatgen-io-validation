@@ -11,7 +11,7 @@ def package_version_check() -> None:
 
     packages = {
         "pymatgen": "Hence, if any pymatgen input sets have been updated, this validator will be outdated.",
-        "pymagen-io-validation": "Hence, if any checks in this package have been updated, the validator you use will be outdated.",
+        "pymatgen-io-validation": "Hence, if any checks in this package have been updated, the validator you use will be outdated.",
     }
 
     for package, context_msg in packages.items():

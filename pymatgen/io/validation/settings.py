@@ -26,6 +26,13 @@ class IOValidationSettings(BaseSettings):
 
     config_file: str = Field(DEFAULT_CONFIG_FILE_PATH, description="File to load alternative defaults from")
 
+    CHECK_PYPI_AT_LOAD : bool = Field(
+        False, description = (
+            "Whether to do a version check when this module is loaded. "
+            "Helps user ensure most recent parameter checks are used."
+        )
+    )
+
     VASP_KPTS_TOLERANCE: float = Field(
         0.9,
         description="Relative tolerance for kpt density to still be a valid task document",
