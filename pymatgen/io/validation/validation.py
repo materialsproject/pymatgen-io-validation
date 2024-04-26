@@ -190,7 +190,7 @@ class ValidationDoc(EmmetBaseModel):
         ).check()
 
         if len(cls_kwargs["reasons"]) > 0 and fast:
-            return cls(valid=False, **cls_kwargs)
+            return cls(**cls_kwargs)
 
         if allow_explicit_kpoint_mesh == "auto":
             allow_explicit_kpoint_mesh = True if "NSCF" in cls_kwargs["calc_type"].name else False
@@ -215,6 +215,13 @@ class ValidationDoc(EmmetBaseModel):
         if valid_input_set:
 
             # Tests ordered by expected computational burden - help optimize `fast` check
+            # Intuitively, more important checks (INCAR, KPOINTS, and POTCAR settings) would come first
+            # But to optimize speed in fast mode (relevant for validating a large batch of calculations)
+            # the faster checks have to come first:
+            #   1. VASP version
+            #   2. Common errors (known bugs in VASP, erratic SCF convergence, etc.)
+            #   3. KPOINTS or KSPACING (from INCAR)
+            #   4. INCAR (many sequential checks of possible INCAR tags + updating defaults)
 
             # TODO: check for surface/slab calculations!!!!!!
 
@@ -244,8 +251,6 @@ class ValidationDoc(EmmetBaseModel):
                 fast=fast,
             ).check()
 
-            # Get subset of POTCAR summary stats to validate calculation
-
             if check_potcar:
                 CheckPotcar(
                     reasons=cls_kwargs["reasons"],
@@ -270,7 +275,7 @@ class ValidationDoc(EmmetBaseModel):
                 fast=fast,
             ).check()
 
-        return cls(valid=len(cls_kwargs["reasons"]) == 0, **cls_kwargs)
+        return cls(**cls_kwargs)
 
     @classmethod
     def from_directory(cls, dir_name: Path | str, **kwargs) -> ValidationDoc:
