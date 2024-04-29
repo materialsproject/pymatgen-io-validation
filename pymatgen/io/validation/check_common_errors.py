@@ -101,7 +101,7 @@ class CheckCommonErrors(BaseValidator):
         if self.incar.get("ALGO", self.defaults["ALGO"]["value"]).lower() != "chi":
             # Response function calculations are non-self-consistent: only one ionic step, no electronic SCF
             if self.parameters.get("LEPSILON", self.defaults["LEPSILON"]["value"]):
-                
+
                 final_esteps = self.ionic_steps[-1]["electronic_steps"]
                 to_check = {"e_wo_entrp", "e_fr_energy", "e_0_energy"}
 
@@ -115,7 +115,8 @@ class CheckCommonErrors(BaseValidator):
 
             else:
                 conv_steps = [
-                    len(self.ionic_steps[i]["electronic_steps"]) < self.parameters.get("NELM", self.defaults["NELM"]["value"])
+                    len(self.ionic_steps[i]["electronic_steps"])
+                    < self.parameters.get("NELM", self.defaults["NELM"]["value"])
                     for i in range(len(self.ionic_steps))
                 ]
                 is_converged = all(conv_steps)
