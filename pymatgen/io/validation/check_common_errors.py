@@ -97,25 +97,34 @@ class CheckCommonErrors(BaseValidator):
 
     def _check_electronic_convergence(self) -> None:
         # check if structure electronically converged
-        final_esteps = (
-            self.ionic_steps[-1]["electronic_steps"]
-            if self.incar.get("ALGO", self.defaults["ALGO"]["value"]).lower() != "chi"
-            else 0
-        )
-        # In a response function run there is no ionic steps, there is no scf step
-        if self.parameters.get("LEPSILON", self.defaults["LEPSILON"]["value"]):
-            i = 1
-            to_check = {"e_wo_entrp", "e_fr_energy", "e_0_energy"}
-            while set(final_esteps[i]) == to_check:
-                i += 1
-            is_converged = i + 1 != self.parameters.get("NELM", self.defaults["NELM"]["value"])
-        else:
-            is_converged = len(final_esteps) < self.parameters.get("NELM", self.defaults["NELM"]["value"])
 
-        if not is_converged:
-            self.reasons.append(
-                "CONVERGENCE --> Did not achieve electronic convergence in the final ionic step. NELM should be increased."
-            )
+        if self.incar.get("ALGO", self.defaults["ALGO"]["value"]).lower() != "chi":
+            # Response function calculations are non-self-consistent: only one ionic step, no electronic SCF
+            if self.parameters.get("LEPSILON", self.defaults["LEPSILON"]["value"]):
+                
+                final_esteps = self.ionic_steps[-1]["electronic_steps"]
+                to_check = {"e_wo_entrp", "e_fr_energy", "e_0_energy"}
+
+                for i in range(len(final_esteps)):
+                    if set(final_esteps[i]) != to_check:
+                        break
+                    i += 1
+
+                is_converged = i + 1 < self.parameters.get("NELM", self.defaults["NELM"]["value"])
+                n_non_conv = 1
+
+            else:
+                conv_steps = [
+                    len(self.ionic_steps[i]["electronic_steps"]) < self.parameters.get("NELM", self.defaults["NELM"]["value"])
+                    for i in range(len(self.ionic_steps))
+                ]
+                is_converged = all(conv_steps)
+                n_non_conv = len([step for step in conv_steps if not step])
+
+            if not is_converged:
+                self.reasons.append(
+                    f"CONVERGENCE --> Did not achieve electronic convergence in {n_non_conv} ionic step(s). NELM should be increased."
+                )
 
     def _check_drift_forces(self) -> None:
         # Check if drift force is too large
