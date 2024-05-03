@@ -1,7 +1,7 @@
 name: publish new version to PyPI
 
-on:
-  release:
+on: release
+  # release:
     # types: [published]
 
 jobs:
