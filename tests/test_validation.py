@@ -443,6 +443,8 @@ def _update_kpoints_for_test(task_doc: TaskDoc, kpoints_updates: dict):
         kpoints = task_doc.calcs_reversed[0].input.kpoints.as_dict()
     elif isinstance(task_doc.calcs_reversed[0].input.kpoints, dict):
         kpoints = task_doc.calcs_reversed[0].input.kpoints.copy()
+    if isinstance(kpoints_updates, Kpoints):
+        kpoints_updates = kpoints_updates.as_dict()
     kpoints.update(kpoints_updates)
     task_doc.calcs_reversed[0].input.kpoints = Kpoints.from_dict(kpoints)
 

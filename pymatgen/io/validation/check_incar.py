@@ -564,12 +564,10 @@ class UpdateParameterValues:
         # which occurs when the entropy term in the energy is greater than 1 meV/atom.
         self.parameters["ELECTRONIC ENTROPY"] = -1e20
         for ionic_step in self._ionic_steps:
-            electronic_steps = ionic_step["electronic_steps"]
-            for elec_step in electronic_steps:
-                if elec_step.get("eentropy", None):
-                    self.parameters["ELECTRONIC ENTROPY"] = max(
-                        self.parameters["ELECTRONIC ENTROPY"], abs(elec_step["eentropy"] / self.structure.num_sites)
-                    )
+            if eentropy := ionic_step["electronic_steps"][-1].get("eentropy"):
+                self.parameters["ELECTRONIC ENTROPY"] = max(
+                    self.parameters["ELECTRONIC ENTROPY"], abs(eentropy / self.structure.num_sites)
+                )
 
         convert_eV_to_meV = 1000
         self.parameters["ELECTRONIC ENTROPY"] = round(self.parameters["ELECTRONIC ENTROPY"] * convert_eV_to_meV, 3)
