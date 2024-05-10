@@ -63,6 +63,8 @@ class IOValidationSettings(BaseSettings):
             "PBESol Structure Optimization": "pymatgen.io.vasp.sets.MPScanRelaxSet",
             "GGA Static": "pymatgen.io.vasp.sets.MPStaticSet",
             "GGA+U Static": "pymatgen.io.vasp.sets.MPStaticSet",
+            "PBE Static": "pymatgen.io.vasp.sets.MPStaticSet",
+            "PBE+U Static": "pymatgen.io.vasp.sets.MPStaticSet",
             "R2SCAN Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
             "SCAN Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
             "PBESol Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
