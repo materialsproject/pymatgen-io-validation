@@ -15,7 +15,7 @@ setup(
     name="pymatgen-io-validation",
     packages=find_namespace_packages(include=["pymatgen.io.*"]),
     version="0.0.3",
-    install_requires=["pymatgen>=2022.0.3", "emmet-core>=0.77.1", "pydantic>=2.4.2", "requests>=2.28.1"],
+    install_requires=["pymatgen>=2024.5.1", "emmet-core>=0.83.6", "pydantic>=2.4.2", "requests>=2.28.1"],
     extras_require={},
     package_data={"pymatgen.io.validation": ["*.yaml"]},
     author="Matthew Kuner, Janosh Riebesell, Jason Munro, Aaron Kaplan",
