@@ -224,7 +224,7 @@ LNONCOLLINEAR:
   tag: ncl
   operation: ==
 LOCPROJ:
-  value: None
+  value: NONE
   tag: misc
   operation: ==
 LOPTICS:
