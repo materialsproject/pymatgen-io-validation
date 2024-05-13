@@ -866,6 +866,9 @@ class BasicValidator:
 
         append_comments = append_comments or ""
 
+        if isinstance(current_value, str):
+            current_value = current_value.upper()
+        
         kwargs: dict[str, Any] = {}
         if operation == "approx" and isinstance(current_value, float):
             kwargs.update({"rel_tol": tolerance or self.tolerance, "abs_tol": 0.0})
