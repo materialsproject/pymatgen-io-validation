@@ -53,7 +53,7 @@ class ValidationDoc(EmmetBaseModel):
     Validation document for a VASP calculation
     """
 
-    task_id: MPID = Field(..., description="The task_id for this validation document")
+    task_id: MPID | None = Field(None, description="The task_id for this validation document")
 
     valid: bool = Field(False, description="Whether this task is valid or not")
 
@@ -155,9 +155,7 @@ class ValidationDoc(EmmetBaseModel):
         orig_inputs = {} if (task_doc["orig_inputs"] is None) else task_doc["orig_inputs"]
 
         cls_kwargs: dict[str, Any] = {
-            "task_id": (
-                task_doc["task_id"] if task_doc["task_id"] else -1
-            ),  # Unsure about what might be a better way to do this...
+            "task_id": task_doc["task_id"] if task_doc["task_id"] else None,
             "calc_type": _get_calc_type(calcs_reversed, orig_inputs),
             "task_type": _get_task_type(calcs_reversed, orig_inputs),
             "run_type": _get_run_type(calcs_reversed),
