@@ -53,7 +53,7 @@ class ValidationDoc(EmmetBaseModel):
     Validation document for a VASP calculation
     """
 
-    task_id: MPID | None = Field(None, description="The task_id for this validation document")
+    task_id: MPID = Field(None, description="The task_id for this validation document")
 
     valid: bool = Field(False, description="Whether this task is valid or not")
 
