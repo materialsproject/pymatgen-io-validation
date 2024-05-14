@@ -7,7 +7,7 @@ import os
 
 SETUP_PTH = os.path.dirname(os.path.abspath(__file__))
 
-with open(os.path.join(SETUP_PTH, "README.md")) as f:
+with open(os.path.join(SETUP_PTH, "README.md"), encoding="utf8") as f:
     desc = f.read()
 
 
