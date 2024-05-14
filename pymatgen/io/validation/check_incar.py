@@ -109,7 +109,6 @@ class CheckIncar(BaseValidator):
         # Validate each parameter in the set of working parameters
         simple_validator = BasicValidator()
         for key in working_params.defaults:
-
             if self.fast and len(self.reasons) > 0:
                 # fast check: stop checking whenever a single check fails
                 break
@@ -326,7 +325,10 @@ class UpdateParameterValues:
         self.parameters["LREAL"] = str(self._incar.get("LREAL", self.defaults["LREAL"]["value"])).upper()
         # PREC.
         self.parameters["PREC"] = self.parameters["PREC"].upper()
-        if self.input_set.incar.get("PREC", self.defaults["PREC"]["value"]).upper() in ["ACCURATE", "HIGH"]:
+        if self.input_set.incar.get("PREC", self.defaults["PREC"]["value"]).upper() in [
+            "ACCURATE",
+            "HIGH",
+        ]:
             self.valid_values["PREC"] = ["ACCURATE", "ACCURA", "HIGH"]
         else:
             raise ValueError("Validation code check for PREC tag needs to be updated to account for a new input set!")
@@ -374,7 +376,10 @@ class UpdateParameterValues:
         if self._incar.get("IWAVPR"):
             self.parameters["IWAVPR"] = self._incar["IWAVPR"] if self._incar["IWAVPR"] is not None else 0
             self.defaults["IWAVPR"].update(
-                {"operation": "==", "comment": "VASP discourages users from setting the IWAVPR tag (as of July 2023)."}
+                {
+                    "operation": "==",
+                    "comment": "VASP discourages users from setting the IWAVPR tag (as of July 2023).",
+                }
             )
 
         # LCORR.
@@ -451,8 +456,16 @@ class UpdateParameterValues:
             self.valid_values["ENMAX"] = max(self.parameters["ENMAX"], self.valid_values["ENMAX"])
 
             (
-                [self.valid_values["NGX"], self.valid_values["NGY"], self.valid_values["NGZ"]],
-                [self.valid_values["NGXF"], self.valid_values["NGYF"], self.valid_values["NGZF"]],
+                [
+                    self.valid_values["NGX"],
+                    self.valid_values["NGY"],
+                    self.valid_values["NGZ"],
+                ],
+                [
+                    self.valid_values["NGXF"],
+                    self.valid_values["NGYF"],
+                    self.valid_values["NGZF"],
+                ],
             ) = self.input_set.calculate_ng(custom_encut=self.valid_values["ENMAX"])
 
             for key in grid_keys:
@@ -566,7 +579,8 @@ class UpdateParameterValues:
         for ionic_step in self._ionic_steps:
             if eentropy := ionic_step["electronic_steps"][-1].get("eentropy"):
                 self.parameters["ELECTRONIC ENTROPY"] = max(
-                    self.parameters["ELECTRONIC ENTROPY"], abs(eentropy / self.structure.num_sites)
+                    self.parameters["ELECTRONIC ENTROPY"],
+                    abs(eentropy / self.structure.num_sites),
                 )
 
         convert_eV_to_meV = 1000
@@ -702,7 +716,8 @@ class UpdateParameterValues:
                 cur_ionic_step_energies = [ionic_step["e_fr_energy"] for ionic_step in self._ionic_steps]
                 cur_ionic_step_energy_gradient = np.diff(cur_ionic_step_energies)
                 self.parameters["MAX ENERGY GRADIENT"] = round(
-                    max(np.abs(cur_ionic_step_energy_gradient)) / self.structure.num_sites, 3
+                    max(np.abs(cur_ionic_step_energy_gradient)) / self.structure.num_sites,
+                    3,
                 )
                 self.valid_values["MAX ENERGY GRADIENT"] = 1
                 self.defaults["MAX ENERGY GRADIENT"] = {
@@ -736,7 +751,8 @@ class UpdateParameterValues:
 
         elif self.valid_values["EDIFFG"] < 0.0:
             self.parameters["EDIFFG"] = round(
-                max([np.linalg.norm(force_on_atom) for force_on_atom in self.task_doc["output"]["forces"]]), 3
+                max([np.linalg.norm(force_on_atom) for force_on_atom in self.task_doc["output"]["forces"]]),
+                3,
             )
 
             self.valid_values["EDIFFG"] = abs(self.valid_values["EDIFFG"])
@@ -788,7 +804,17 @@ class BasicValidator:
     """
 
     # avoiding dunder methods because these raise too many NotImplemented's
-    operations: set[str | None] = {"==", ">", ">=", "<", "<=", "in", "approx", "auto fail", None}
+    operations: set[str | None] = {
+        "==",
+        ">",
+        ">=",
+        "<",
+        "<=",
+        "in",
+        "approx",
+        "auto fail",
+        None,
+    }
 
     def __init__(self, global_tolerance=1.0e-4) -> None:
         """Set math.isclose tolerance"""

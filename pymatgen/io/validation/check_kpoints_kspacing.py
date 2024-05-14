@@ -109,7 +109,9 @@ class CheckKpointsKspacing(BaseValidator):
             self.kpoints = self.kpoints.as_dict()
 
         cur_num_kpts = max(
-            self.kpoints.get("nkpoints", 0), np.prod(self.kpoints.get("kpoints")), len(self.kpoints.get("kpoints"))
+            self.kpoints.get("nkpoints", 0),
+            np.prod(self.kpoints.get("kpoints")),
+            len(self.kpoints.get("kpoints")),
         )
         if cur_num_kpts < valid_num_kpts:
             self.reasons.append(

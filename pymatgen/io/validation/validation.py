@@ -190,7 +190,12 @@ class ValidationDoc(EmmetBaseModel):
 
         try:
             valid_input_set = _get_input_set(
-                cls_kwargs["run_type"], cls_kwargs["task_type"], cls_kwargs["calc_type"], structure, input_sets, bandgap
+                cls_kwargs["run_type"],
+                cls_kwargs["task_type"],
+                cls_kwargs["calc_type"],
+                structure,
+                input_sets,
+                bandgap,
             )
         except Exception as e:
             cls_kwargs["reasons"].append(
@@ -200,7 +205,6 @@ class ValidationDoc(EmmetBaseModel):
             print(f"Error while finding MP input set: {e}.")
 
         if valid_input_set:
-
             # Tests ordered by expected computational burden - help optimize `fast` check
             # Intuitively, more important checks (INCAR, KPOINTS, and POTCAR settings) would come first
             # But to optimize speed in fast mode (relevant for validating a large batch of calculations)

@@ -1,4 +1,4 @@
-""" Optionally check whether package versions are up to date. """
+"""Optionally check whether package versions are up to date."""
 
 from __future__ import annotations
 from importlib.metadata import version

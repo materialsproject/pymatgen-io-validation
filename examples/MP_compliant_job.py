@@ -9,7 +9,6 @@ from pymatgen.core import Structure, Lattice
 
 
 def get_GaAs_structure(a0: float = 5.6) -> Structure:
-
     lattice_vectors = a0 * np.array([[0.0 if i == j else 0.5 for j in range(3)] for i in range(3)])
     return Structure(
         lattice=Lattice(lattice_vectors),
@@ -32,9 +31,11 @@ def assign_meta(flow, metadata: dict, name: str | None = None):
 
 
 def get_MP_compliant_r2SCAN_flow(
-    structure: Structure, user_incar_settings: dict | None = None, metadata: dict | None = None, name: str | None = None
+    structure: Structure,
+    user_incar_settings: dict | None = None,
+    metadata: dict | None = None,
+    name: str | None = None,
 ) -> Flow:
-
     from atomate2.vasp.jobs.mp import MPMetaGGAStaticMaker
     from atomate2.vasp.powerups import update_user_incar_settings
 
@@ -53,7 +54,6 @@ def get_MP_compliant_r2SCAN_flow(
 
 
 def run_job_fully_locally(flow, job_store=None):
-
     from jobflow import run_locally, JobStore
     from maggma.stores import MemoryStore
 
@@ -66,7 +66,6 @@ def run_job_fully_locally(flow, job_store=None):
 
 
 def MP_compliant_calc():
-
     structure = get_GaAs_structure()
     flow = get_MP_compliant_r2SCAN_flow(
         structure=structure,
@@ -84,7 +83,6 @@ def MP_compliant_calc():
 
 
 def MP_non_compliant_calc():
-
     structure = get_GaAs_structure()
     flow = get_MP_compliant_r2SCAN_flow(
         structure=structure,
@@ -103,16 +101,17 @@ def MP_non_compliant_calc():
 
 
 def MP_flows() -> None:
-
     compliant_task_doc = MP_compliant_calc()
     dumpfn(jsanitize(compliant_task_doc), "./MP_compatible_GaAs_r2SCAN_static.json.gz")
 
     non_compliant_task_doc = MP_non_compliant_calc()
-    dumpfn(jsanitize(non_compliant_task_doc), "./MP_incompatible_GaAs_r2SCAN_static.json.gz")
+    dumpfn(
+        jsanitize(non_compliant_task_doc),
+        "./MP_incompatible_GaAs_r2SCAN_static.json.gz",
+    )
 
 
 def generate_task_documents(cdir, task_id: str | None = None, filename: str | None = None) -> TaskDocument:
-
     from atomate.vasp.drones import VaspDrone
     from emmet.core.mpid import MPID
 
@@ -130,5 +129,4 @@ def generate_task_documents(cdir, task_id: str | None = None, filename: str | No
 
 
 if __name__ == "__main__":
-
     MP_flows()

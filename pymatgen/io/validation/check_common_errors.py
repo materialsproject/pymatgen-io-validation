@@ -84,7 +84,6 @@ class CheckCommonErrors(BaseValidator):
             )
 
     def _check_gga_and_metagga(self) -> None:
-
         # Check for cases where both GGA and METAGGA are set. This should *not* be allowed, as it can erroneously change
         # the outputted energy significantly. See https://github.com/materialsproject/atomate2/issues/453#issuecomment-1699605867
         # for more details.
@@ -101,7 +100,6 @@ class CheckCommonErrors(BaseValidator):
         if self.incar.get("ALGO", self.defaults["ALGO"]["value"]).lower() != "chi":
             # Response function calculations are non-self-consistent: only one ionic step, no electronic SCF
             if self.parameters.get("LEPSILON", self.defaults["LEPSILON"]["value"]):
-
                 final_esteps = self.ionic_steps[-1]["electronic_steps"]
                 to_check = {"e_wo_entrp", "e_fr_energy", "e_0_energy"}
 

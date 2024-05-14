@@ -65,7 +65,6 @@ def test_validation_doc_from_directory(test_dir, object_name):
     ],
 )
 def test_potcar_validation(test_dir, object_name):
-
     task_doc = test_data_task_docs[object_name]
 
     correct_potcar_summary_stats = loadfn(test_dir / "vasp" / "Si_potcar_spec.json.gz")
@@ -155,7 +154,10 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_ionic_step_2 = copy.deepcopy(temp_ionic_step_1)
     temp_ionic_step_1.e_fr_energy = 0
     temp_ionic_step_2.e_fr_energy = 10000
-    temp_task_doc.calcs_reversed[0].output.ionic_steps = [temp_ionic_step_1, temp_ionic_step_2]
+    temp_task_doc.calcs_reversed[0].output.ionic_steps = [
+        temp_ionic_step_1,
+        temp_ionic_step_2,
+    ]
     run_check(temp_task_doc, "POTIM", False)
 
     # EDIFFG energy convergence check (this check should not raise any invalid reasons)
@@ -168,7 +170,10 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_ionic_step_2 = copy.deepcopy(temp_ionic_step_1)
     temp_ionic_step_1.e_0_energy = -1
     temp_ionic_step_2.e_0_energy = -2
-    temp_task_doc.calcs_reversed[0].output.ionic_steps = [temp_ionic_step_1, temp_ionic_step_2]
+    temp_task_doc.calcs_reversed[0].output.ionic_steps = [
+        temp_ionic_step_1,
+        temp_ionic_step_2,
+    ]
     run_check(temp_task_doc, "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS", False)
 
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
@@ -278,7 +283,9 @@ def test_scf_incar_checks(test_dir, object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.chemsys = "La"
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["La", "La"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
+        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]],
+        species=["La", "La"],
+        coords=[[0, 0, 0], [0.5, 0.5, 0.5]],
     )
     temp_task_doc.calcs_reversed[0].input.incar["LMAXTAU"] = 4
     temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
@@ -406,7 +413,9 @@ def test_common_error_checks(object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISPIN"] = 2
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["Gd", "Eu"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
+        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]],
+        species=["Gd", "Eu"],
+        coords=[[0, 0, 0], [0.5, 0.5, 0.5]],
     )
     temp_task_doc.calcs_reversed[0].output.outcar["magnetization"] = (
         {"s": 9.0, "p": 0.0, "d": 0.0, "tot": 9.0},
@@ -419,7 +428,9 @@ def test_common_error_checks(object_name):
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.input.parameters["ISPIN"] = 2
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["Gd", "Eu"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
+        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]],
+        species=["Gd", "Eu"],
+        coords=[[0, 0, 0], [0.5, 0.5, 0.5]],
     )
     temp_task_doc.calcs_reversed[0].output.outcar["magnetization"] = (
         {"s": 11.0, "p": 0.0, "d": 0.0, "tot": 11.0},
@@ -462,7 +473,11 @@ def test_kpoints_checks(object_name):
     # Valid mesh type check (should flag HCP structures)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[0.5, -0.866025403784439, 0], [0.5, 0.866025403784439, 0], [0, 0, 1.6329931618554521]],
+        lattice=[
+            [0.5, -0.866025403784439, 0],
+            [0.5, 0.866025403784439, 0],
+            [0, 0, 1.6329931618554521],
+        ],
         coords=[[0, 0, 0], [0.333333333333333, -0.333333333333333, 0.5]],
         species=["H", "H"],
     )  # HCP structure
@@ -472,7 +487,9 @@ def test_kpoints_checks(object_name):
     # Valid mesh type check (should flag FCC structures)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]], coords=[[0, 0, 0]], species=["H"]
+        lattice=[[0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]],
+        coords=[[0, 0, 0]],
+        species=["H"],
     )  # FCC structure
     _update_kpoints_for_test(temp_task_doc, {"generation_style": "monkhorst"})
     run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS or KGAMMA:", False)
@@ -480,7 +497,9 @@ def test_kpoints_checks(object_name):
     # Valid mesh type check (should *not* flag BCC structures)
     temp_task_doc = copy.deepcopy(task_doc)
     temp_task_doc.calcs_reversed[0].input.structure = Structure(
-        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]], species=["H", "H"], coords=[[0, 0, 0], [0.5, 0.5, 0.5]]
+        lattice=[[2.9, 0, 0], [0, 2.9, 0], [0, 0, 2.9]],
+        species=["H", "H"],
+        coords=[[0, 0, 0], [0.5, 0.5, 0.5]],
     )  # BCC structure
     _update_kpoints_for_test(temp_task_doc, {"generation_style": "monkhorst"})
     run_check(temp_task_doc, "INPUT SETTINGS --> KPOINTS or KGAMMA:", True)
@@ -544,15 +563,16 @@ def test_vasp_version_check(object_name):
 
 
 def test_task_document(test_dir):
-
     from emmet.core.vasp.task_valid import TaskDocument
 
     calcs = {}
     calcs["compliant"] = loadfn(
-        str(test_dir / "vasp" / "TaskDocuments" / "MP_compatible_GaAs_r2SCAN_static_TaskDocument.json.gz"), cls=None
+        str(test_dir / "vasp" / "TaskDocuments" / "MP_compatible_GaAs_r2SCAN_static_TaskDocument.json.gz"),
+        cls=None,
     )
     calcs["non-compliant"] = loadfn(
-        str(test_dir / "vasp" / "TaskDocuments" / "MP_incompatible_GaAs_r2SCAN_static_TaskDocument.json.gz"), cls=None
+        str(test_dir / "vasp" / "TaskDocuments" / "MP_incompatible_GaAs_r2SCAN_static_TaskDocument.json.gz"),
+        cls=None,
     )
 
     valid_docs = {}

@@ -110,9 +110,13 @@ class CheckPotcar(BaseValidator):
                 # format error string
                 incorrect_potcars = [potcar.split("_")[0] for potcar in incorrect_potcars]
                 if len(incorrect_potcars) == 2:
-                    incorrect_potcars = ", ".join(incorrect_potcars[:-1]) + f" and {incorrect_potcars[-1]}"  # type: ignore
+                    incorrect_potcars = (
+                        ", ".join(incorrect_potcars[:-1]) + f" and {incorrect_potcars[-1]}"
+                    )  # type: ignore
                 elif len(incorrect_potcars) >= 3:
-                    incorrect_potcars = ", ".join(incorrect_potcars[:-1]) + "," + f" and {incorrect_potcars[-1]}"  # type: ignore
+                    incorrect_potcars = (
+                        ", ".join(incorrect_potcars[:-1]) + "," + f" and {incorrect_potcars[-1]}"
+                    )  # type: ignore
 
                 self.reasons.append(
                     f"PSEUDOPOTENTIALS --> Incorrect POTCAR files were used for {incorrect_potcars}. "
@@ -157,7 +161,9 @@ class CheckPotcar(BaseValidator):
         data_match = False
         if key_match:
             data_diff = [
-                abs(potcar_stats_1["stats"].get(key, {}).get(stat) - potcar_stats_2["stats"].get(key, {}).get(stat))  # type: ignore
+                abs(
+                    potcar_stats_1["stats"].get(key, {}).get(stat) - potcar_stats_2["stats"].get(key, {}).get(stat)
+                )  # type: ignore
                 for stat in ["MEAN", "ABSMEAN", "VAR", "MIN", "MAX"]
                 for key in ["header", "data"]
             ]

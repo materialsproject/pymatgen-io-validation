@@ -3,6 +3,7 @@
 """
 Settings for pymatgen-io-validation. Used to be part of EmmetSettings.
 """
+
 from importlib.resources import files as import_resource_files
 import json
 from pathlib import Path

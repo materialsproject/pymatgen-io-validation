@@ -25,7 +25,11 @@ def check_for_excess_empty_space(structure):
     lattice_vec_3_diffs = np.diff(lattice_vec_3_frac_coords)
     max_lattice_vec_3_empty_dist = max(lattice_vec_3_diffs) * lattice_vec_lengths[2]
 
-    max_empty_distance = max(max_lattice_vec_1_empty_dist, max_lattice_vec_2_empty_dist, max_lattice_vec_3_empty_dist)
+    max_empty_distance = max(
+        max_lattice_vec_1_empty_dist,
+        max_lattice_vec_2_empty_dist,
+        max_lattice_vec_3_empty_dist,
+    )
 
     # Check 2: get max voronoi polyhedra volume in structure
     def get_max_voronoi_polyhedra_volume(structure):

@@ -8,6 +8,13 @@ ci:
   skip: [flake8, autoflake, mypy]
 
 repos:
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.3
+    hooks:
+      - id: ruff
+        args: [--fix, --unsafe-fixes]
+
   - repo: https://github.com/psf/black
     rev: 24.2.0
     hooks:

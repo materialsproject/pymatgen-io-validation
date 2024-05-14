@@ -1,4 +1,4 @@
-""" Common class constructor for validation checks. """
+"""Common class constructor for validation checks."""
 
 from dataclasses import dataclass
 
@@ -47,7 +47,6 @@ class BaseValidator:
 
         checklist = {attr for attr in dir(self) if attr.startswith("_check_")}
         for attr in checklist:
-
             if self.fast and len(self.reasons) > 0:
                 # fast check: stop checking whenever a single check fails
                 break

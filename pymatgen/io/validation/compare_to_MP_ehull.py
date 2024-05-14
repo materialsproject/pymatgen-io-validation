@@ -24,7 +24,10 @@ def compare_to_MP_ehull(mp_api_key=None, task_doc=None):
         entries = mpr.get_entries_in_chemsys(
             elements=elements,
             compatible_only=True,
-            additional_criteria={"thermo_types": ["GGA_GGA+U", "R2SCAN"], "is_stable": True},
+            additional_criteria={
+                "thermo_types": ["GGA_GGA+U", "R2SCAN"],
+                "is_stable": True,
+            },
         )
 
         entries.append(cur_structure_entry)
