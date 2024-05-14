@@ -125,7 +125,7 @@ class IOValidationSettings(BaseSettings):
         if config_file_path.startswith("http"):
             new_values = requests.get(config_file_path).json()
         elif Path(config_file_path).exists():
-            with open(config_file_path) as f:
+            with open(config_file_path, encoding="utf8") as f:
                 new_values = json.load(f)
 
         new_values.update(values)

@@ -29,7 +29,7 @@ setup(
     url="https://github.com/materialsproject/pymatgen-io-validation",
     license="BSD",
     description="A comprehensive I/O validator for electronic structure calculations",
-    long_description=open("README.md").read(),
+    long_description=open("README.md", encoding="utf8").read(),
     long_description_content_type="text/markdown",
     keywords=["pymatgen"],
     classifiers=[

@@ -44,7 +44,7 @@ Rationale
 
 | **Parameter** | **Reason** |
 | ---- | ---- |
-| ADDGRID | ADDGRID must be set to False. MP uses ADDGRID = False, as the VASP manual states “please do not use this tag [ADDGRID] as default in all your calculations!”. ADDGRID can affect the outputted forces, hence all calculations are thus required to have ADDGRID = False for compatibility. |
+| ADDGRID | ADDGRID must be set to False. MP uses ADDGRID = False, as the VASP manual states "please do not use this tag [ADDGRID] as default in all your calculations!". ADDGRID can affect the outputted forces, hence all calculations are thus required to have ADDGRID = False for compatibility. |
 | AEXX / AMGGAX / AMGGAC / AGGAX / ALDAC / ALDAX | These parameters should be the VASP defaults unless otherwise specified in a given MP input set, as changing them is effectively a change to the level of theory. |
 | ALGO / IALGO | ALGO must be one of: "Normal", "Conjugate", "All", "Fast", "Exact". (This corresponds to an IALGO of 38, 58, 58, 68, 90, respectively). |
 | DEPER / EBREAK / WEIMIN | DEPER, EBREAK, and WEIMIN should not be changed according to the VASP wiki, hence MP requires them to remain as their default values. |
@@ -89,15 +89,15 @@ Rationale
 | LHYPERFINE | LHYPERFINE must be set to False (the VASP default). |
 | LKPROJ | LKPROJ must be set to False (the VASP default). |
 | LKPOINTS_OPT | LKPOINTS_OPT must be set to False. |
-| LMAXPAW | LMAXPAW must remain unspecified, as the VASP wiki states that “Energies should be evaluated with the default setting for LMAXPAW”. |
-| LMAXMIX | LMAXMIX must be set to 6. This is based on tests from Aaron Kaplan (@esoteric-ephemera) — see the “bench_vasp_pars.docx” document in https://github.com/materialsproject/pymatgen/issues/3322. |
+| LMAXPAW | LMAXPAW must remain unspecified, as the VASP wiki states that "Energies should be evaluated with the default setting for LMAXPAW". |
+| LMAXMIX | LMAXMIX must be set to 6. This is based on tests from Aaron Kaplan (@esoteric-ephemera) — see the "bench_vasp_pars.docx" document in https://github.com/materialsproject/pymatgen/issues/3322. |
 | LMAXTAU | LMAXTAU must be set to 6 (the VASP default when using LASPH = True). |
 | LMP2LT / LSMP2LT | Both must be set to False (VASP defaults) |
 | LNONCOLLINEAR / LSORBIT | Both must be set to False (VASP defaults) |
 | LOCPROJ | LOCPROJ must be set to None (the VASP default). |
 | LOPTICS | LOPTICS must be set to False (the VASP default), unless explicitly specified by the relevant MP input set. |
 | LORBIT | LORBIT must **<u>*not*</u>** be None if the user also sets ISPIN=2, otherwise all values of LORBIT are acceptable. This is due to magnetization values not being output when ISPIN=2 and LORBIT = None are set together. |
-| LREAL | If the LREAL in the relevant MP input set is “Auto”, then the user must be one of: "Auto", False. Otherwise, if the LREAL in the relevant MP input set is False, then the user must use False. |
+| LREAL | If the LREAL in the relevant MP input set is "Auto", then the user must be one of: "Auto", False. Otherwise, if the LREAL in the relevant MP input set is False, then the user must use False. |
 | LRPA | LRPA must be set to False (the VASP default). MP does not currently support random phase approximation (RPA) calculations. |
 | LSPECTRAL | LSPECTRAL must be set to False (the VASP default for most calculations). |
 | LSUBROT | LSUBROT must be set to False (the VASP default). |
