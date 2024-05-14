@@ -36,7 +36,7 @@ from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
 from pymatgen.io.validation.settings import IOValidationSettings
 
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Any
@@ -53,7 +53,7 @@ class ValidationDoc(EmmetBaseModel):
     Validation document for a VASP calculation
     """
 
-    task_id: MPID = Field(None, description="The task_id for this validation document")
+    task_id: Optional[MPID] = Field(None, description="The task_id for this validation document")
 
     valid: bool = Field(False, description="Whether this task is valid or not")
 
