@@ -6,4 +6,4 @@ pydantic-settings==2.2.1
 typing-extensions==4.11.0
 monty==2024.5.24
 numpy==1.26.1
-requests==2.31.0
+requests==2.32.3
