@@ -72,9 +72,10 @@ class CheckKpointsKspacing(BaseValidator):
         # If MP input set specifies KSPACING in the INCAR
         if ("KSPACING" in self.valid_input_set.incar.keys()) and (self.valid_input_set.kpoints is None):
             valid_kspacing = self.valid_input_set.incar.get("KSPACING", self.defaults["KSPACING"]["value"])
-            latt_cur_anorm = self.structure.lattice.abc
             # number of kpoints along each of the three lattice vectors
-            nk = [max(1, np.ceil(2 * np.pi / (valid_kspacing * latt_cur_anorm[ik]))) for ik in range(3)]
+            nk = [
+                max(1, np.ceil(self.structure.lattice.reciprocal_lattice.abc[ik] / valid_kspacing)) for ik in range(3)
+            ]
             valid_num_kpts = np.prod(nk)
         # If MP input set specifies a KPOINTS file
         else:
