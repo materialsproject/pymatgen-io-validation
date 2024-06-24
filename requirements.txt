@@ -1,7 +1,7 @@
 pymatgen==2024.6.10
 emmet-core==0.83.6
 pydantic==2.4.2
-pydantic-core==2.10.1
+pydantic-core==2.19.0
 pydantic-settings==2.2.1
 typing-extensions==4.11.0
 monty==2024.5.24
