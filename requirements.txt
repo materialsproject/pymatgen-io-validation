@@ -1,4 +1,4 @@
-pymatgen==2024.8.9
+pymatgen==2024.9.17.1
 emmet-core==0.83.6
 pydantic==2.4.2
 pydantic-core==2.10.1
