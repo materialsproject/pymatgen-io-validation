@@ -59,14 +59,14 @@ class IOValidationSettings(BaseSettings):
         {
             "GGA Structure Optimization": "pymatgen.io.vasp.sets.MPRelaxSet",
             "GGA+U Structure Optimization": "pymatgen.io.vasp.sets.MPRelaxSet",
-            "R2SCAN Structure Optimization": "pymatgen.io.vasp.sets.MPScanRelaxSet",
+            "r2SCAN Structure Optimization": "pymatgen.io.vasp.sets.MPScanRelaxSet",
             "SCAN Structure Optimization": "pymatgen.io.vasp.sets.MPScanRelaxSet",
             "PBESol Structure Optimization": "pymatgen.io.vasp.sets.MPScanRelaxSet",
             "GGA Static": "pymatgen.io.vasp.sets.MPStaticSet",
             "GGA+U Static": "pymatgen.io.vasp.sets.MPStaticSet",
             "PBE Static": "pymatgen.io.vasp.sets.MPStaticSet",
             "PBE+U Static": "pymatgen.io.vasp.sets.MPStaticSet",
-            "R2SCAN Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
+            "r2SCAN Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
             "SCAN Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
             "PBESol Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
             "HSE06 Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
@@ -94,11 +94,6 @@ class IOValidationSettings(BaseSettings):
     VASP_NUM_IONIC_STEPS_FOR_DRIFT: int = Field(
         3,
         description="Number of ionic steps to average over when validating drift forces",
-    )
-
-    VASP_DEFAULTS_FILENAME: Union[str, Path] = Field(
-        default=import_resource_files("pymatgen.io.validation") / "vasp_defaults.yaml",
-        description="Path to the  of the YAML file containing default values of VASP parameters.",
     )
 
     model_config = SettingsConfigDict(env_prefix="pymatgen_io_validation_", extra="ignore")

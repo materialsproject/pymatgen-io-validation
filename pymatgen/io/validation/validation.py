@@ -35,6 +35,7 @@ from pymatgen.io.validation.check_common_errors import (
 from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
 from pymatgen.io.validation.settings import IOValidationSettings
+from pymatgen.io.validation.vasp_defaults import VASP_DEFAULTS_DICT
 
 from typing import Optional, TYPE_CHECKING
 
@@ -42,7 +43,6 @@ if TYPE_CHECKING:
     from typing import Any
 
 SETTINGS = IOValidationSettings()
-_vasp_defaults = loadfn(SETTINGS.VASP_DEFAULTS_FILENAME)
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
@@ -89,7 +89,7 @@ class ValidationDoc(EmmetBaseModel):
     @classmethod
     def from_task_doc(cls, task_doc: TaskDoc | TaskDocument, **kwargs) -> ValidationDoc:
         """
-        Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
+        Assess if a calculation is valid based on a pymatgen input set.
 
         Args:
             task_doc: the task document to process
@@ -102,12 +102,12 @@ class ValidationDoc(EmmetBaseModel):
             fft_grid_tolerance: Relative tolerance for FFT grid parameters to still be a valid
             num_ionic_steps_to_avg_drift_over: Number of ionic steps to average over when validating drift forces
             max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
-                initial equillibriation period. Note this is in eV per atom.
+                initial equilibriation period. Note this is in eV/atom.
             fast : whether to stop validation when any check fails
         """
 
         if isinstance(task_doc, TaskDocument):
-            task_doc = TaskDoc(**task_doc.model_dump())
+            task_doc = TaskDoc(**{k : v for k, v in task_doc.model_dump().items() if k != "run_stats"})
 
         return cls.from_dict(jsanitize(task_doc), **kwargs)
 
@@ -170,7 +170,7 @@ class ValidationDoc(EmmetBaseModel):
             vasp_version=vasp_version,
             parameters=parameters,
             incar=incar,
-            defaults=_vasp_defaults,
+            defaults=VASP_DEFAULTS_DICT,
             fast=fast,
         ).check()
 
@@ -222,7 +222,7 @@ class ValidationDoc(EmmetBaseModel):
                 structure=structure,
                 run_type=cls_kwargs["run_type"],
                 fast=fast,
-                defaults=_vasp_defaults,
+                defaults=VASP_DEFAULTS_DICT,
                 valid_max_allowed_scf_gradient=max_allowed_scf_gradient,
                 num_ionic_steps_to_avg_drift_over=num_ionic_steps_to_avg_drift_over,
             ).check()
@@ -233,7 +233,7 @@ class ValidationDoc(EmmetBaseModel):
                 valid_input_set=valid_input_set,
                 kpoints=calcs_reversed[0]["input"]["kpoints"],
                 structure=structure,
-                defaults=_vasp_defaults,
+                defaults=VASP_DEFAULTS_DICT,
                 kpts_tolerance=kpts_tolerance,
                 allow_explicit_kpoint_mesh=allow_explicit_kpoint_mesh,
                 allow_kpoint_shifts=allow_kpoint_shifts,
@@ -259,7 +259,7 @@ class ValidationDoc(EmmetBaseModel):
                 structure=structure,
                 vasp_version=vasp_version,
                 task_type=cls_kwargs["task_type"],
-                defaults=_vasp_defaults,
+                defaults=VASP_DEFAULTS_DICT,
                 fft_grid_tolerance=fft_grid_tolerance,
                 fast=fast,
             ).check()

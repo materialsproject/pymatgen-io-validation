@@ -31,6 +31,7 @@ def run_check(
     validation_doc = ValidationDoc.from_task_doc(task_doc, **validation_doc_kwargs)
     has_specified_error = any([error_message_to_search_for in reason for reason in validation_doc.reasons])
 
+    print(error_message_to_search_for,vasprun_parameters_to_change)
     assert (not has_specified_error) if should_the_check_pass else has_specified_error
 
 

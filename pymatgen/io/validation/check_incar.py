@@ -3,13 +3,13 @@
 from __future__ import annotations
 import copy
 from dataclasses import dataclass
-from math import isclose
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 
-from pymatgen.io.validation.common import BaseValidator
+from pymatgen.io.validation.common import BaseValidator, BasicValidator
+from pymatgen.io.validation.vasp_defaults import InputCategory
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Any, Sequence
@@ -77,9 +77,9 @@ class CheckIncar(BaseValidator):
         Check calculation parameters related to INCAR input tags.
 
         This first updates any parameter with a specified update method.
-        In practice, each INCAR tag in `vasp_defaults.yaml` has a "tag"
-        attribute. If there is an update method
-        `UpdateParameterValues.update_{tag.replace(" ","_")}_params`,
+        In practice, each INCAR tag in `VASP` has a "tag" attribute.
+        If there is an update method
+        `UpdateParameterValues.update_{tag}_params`,
         all parameters with that tag will be updated.
 
         Then after all missing values in the supplied parameters (padding
@@ -116,7 +116,7 @@ class CheckIncar(BaseValidator):
             simple_validator.check_parameter(
                 reasons=self.reasons,
                 warnings=self.warnings,
-                input_tag=working_params.defaults[key].get("alias", key),
+                input_tag=working_params.defaults[key].get("alias") or key,
                 current_values=working_params.parameters[key],
                 reference_values=working_params.valid_values[key],
                 operations=working_params.defaults[key]["operation"],
@@ -125,6 +125,8 @@ class CheckIncar(BaseValidator):
                 severity=working_params.defaults[key]["severity"],
             )
 
+            if key == "LCHIMAG":
+                print(self.reasons)
 
 class UpdateParameterValues:
     """
@@ -141,9 +143,9 @@ class UpdateParameterValues:
     This class allows one to mimic the VASP NBANDS functionality for computing
     NBANDS dynamically, and update both the current and reference values for NBANDs.
 
-    To do this in a simple, automatic fashion, each parameter in `vasp_defaults.yaml` has
+    To do this in a simple, automatic fashion, each parameter in `VASP_DEFAULTS` has
     a "tag" field. To update a set of parameters with a given tag, one then adds a function
-    to `GetParams` called `update_{tag.replace(" ","_")}_params`. For example, the "dft plus u"
+    to `GetParams` called `update_{tag}_params`. For example, the "dft plus u"
     tag has an update function called `update_dft_plus_u_params`. If no such update method
     exists, that tag is skipped.
 
@@ -201,7 +203,7 @@ class UpdateParameterValues:
         """
 
         self.parameters = copy.deepcopy(parameters)
-        self.defaults = copy.deepcopy(defaults)
+        self.defaults = {k: v.__dict__() for k, v in defaults.items()}
         self.input_set = input_set
         self.vasp_version = vasp_version
         self.structure = structure
@@ -220,17 +222,14 @@ class UpdateParameterValues:
     def update_parameters_and_defaults(self) -> None:
         """Update user parameters and defaults for tags with a specified update method."""
 
-        self.categories: dict[str, list[str]] = {}
+        self.categories: dict[str, list[str]] = {tag: [] for tag in InputCategory.__members__}
         for key in self.defaults:
-            if self.defaults[key]["tag"] not in self.categories:
-                self.categories[self.defaults[key]["tag"]] = []
             self.categories[self.defaults[key]["tag"]].append(key)
 
-        tag_order = [key.replace(" ", "_") for key in self.categories if key != "post_init"] + ["post_init"]
         # add defaults to parameters from the incar as needed
         self.add_defaults_to_parameters(valid_values_source=self.input_set.incar)
         # collect list of tags in parameter defaults
-        for tag in tag_order:
+        for tag in InputCategory.__members__:
             # check to see if update method for that tag exists, and if so, run it
             update_method_str = f"update_{tag}_params"
             if hasattr(self, update_method_str):
@@ -264,7 +263,7 @@ class UpdateParameterValues:
         if not self.parameters["LDAU"]:
             return
 
-        for key in self.categories["dft plus u"]:
+        for key in self.categories["dft_plus_u"]:
             valid_value = self.input_set.incar.get(key, self.defaults[key]["value"])
 
             # TODO: ADK: is LDAUTYPE usually specified as a list??
@@ -785,198 +784,3 @@ class UpdateParameterValues:
                 4.0 * self.defaults["NBANDS"]["value"]
             )
             self.defaults["EBREAK"]["operation"] = "auto fail"
-
-
-class BasicValidator:
-    """
-    Compare test and reference values according to one or more operations.
-
-    Parameters
-    -----------
-    global_tolerance : float = 1.e-4
-        Default tolerance for assessing approximate equality via math.isclose
-
-    Attrs
-    -----------
-    operations : set[str]
-        List of acceptable operations, such as "==" for strict equality, or "in" to
-        check if a Sequence contains an element
-    """
-
-    # avoiding dunder methods because these raise too many NotImplemented's
-    operations: set[str | None] = {
-        "==",
-        ">",
-        ">=",
-        "<",
-        "<=",
-        "in",
-        "approx",
-        "auto fail",
-        None,
-    }
-
-    def __init__(self, global_tolerance=1.0e-4) -> None:
-        """Set math.isclose tolerance"""
-        self.tolerance = global_tolerance
-
-    def _comparator(self, lhs: Any, operation: str, rhs: Any, **kwargs) -> bool:
-        """
-        Compare different values using one of a set of supported operations in self.operations.
-
-        Parameters
-        -----------
-        lhs : Any
-            Left-hand side of the operation.
-        operation : str
-            Operation acting on rhs from lhs. For example, if operation is ">",
-            this returns (lhs > rhs).
-        rhs : Any
-            Right-hand of the operation.
-        kwargs
-            If needed, kwargs to pass to operation.
-        """
-        if operation is None:
-            c = True
-        elif operation == "auto fail":
-            c = False
-        elif operation == "==":
-            c = lhs == rhs
-        elif operation == ">":
-            c = lhs > rhs
-        elif operation == ">=":
-            c = lhs >= rhs
-        elif operation == "<":
-            c = lhs < rhs
-        elif operation == "<=":
-            c = lhs <= rhs
-        elif operation == "in":
-            c = lhs in rhs
-        elif operation == "approx":
-            c = isclose(lhs, rhs, **kwargs)
-        return c
-
-    def _check_parameter(
-        self,
-        error_list: list[str],
-        input_tag: str,
-        current_value: Any,
-        reference_value: Any,
-        operation: str,
-        tolerance: float | None = None,
-        append_comments: str | None = None,
-    ) -> None:
-        """
-        Determine validity of parameter subject to a single specified operation.
-
-        Parameters
-        -----------
-        error_list : list[str]
-            A list of error/warning strings to update if a check fails.
-        input_tag : str
-            The name of the input tag which is being checked.
-        current_value : Any
-            The test value.
-        reference_value : Any
-            The value to compare the test value to.
-        operation : str
-            A valid operation in self.operations. For example, if operation = "<=",
-            this checks `current_value <= reference_value` (note order of values).
-        tolerance : float or None (default)
-            If None and operation == "approx", default tolerance to self.tolerance.
-            Otherwise, use the user-supplied tolerance.
-        append_comments : str or None (default)
-            Additional comments that may be helpful for the user to understand why
-            a check failed.
-        """
-
-        append_comments = append_comments or ""
-
-        if isinstance(current_value, str):
-            current_value = current_value.upper()
-
-        kwargs: dict[str, Any] = {}
-        if operation == "approx" and isinstance(current_value, float):
-            kwargs.update({"rel_tol": tolerance or self.tolerance, "abs_tol": 0.0})
-        valid_value = self._comparator(current_value, operation, reference_value, **kwargs)
-
-        if not valid_value:
-            error_list.append(
-                f"INPUT SETTINGS --> {input_tag}: is {current_value}, but should be "
-                f"{'' if operation == 'auto fail' else operation + ' '}{reference_value}."
-                f"{' ' if len(append_comments) > 0 else ''}{append_comments}"
-            )
-
-    def check_parameter(
-        self,
-        reasons: list[str],
-        warnings: list[str],
-        input_tag: str,
-        current_values: Any,
-        reference_values: Any,
-        operations: str | list[str],
-        tolerance: float = None,
-        append_comments: str | None = None,
-        severity: Literal["reason", "warning"] = "reason",
-    ) -> None:
-        """
-        Determine validity of parameter according to one or more operations.
-
-        Parameters
-        -----------
-        reasons : list[str]
-            A list of error strings to update if a check fails. These are higher
-            severity and would deprecate a calculation.
-        warnings : list[str]
-            A list of warning strings to update if a check fails. These are lower
-            severity and would flag a calculation for possible review.
-        input_tag : str
-            The name of the input tag which is being checked.
-        current_values : Any
-            The test value(s). If multiple operations are specified, must be a Sequence
-            of test values.
-        reference_values : Any
-            The value(s) to compare the test value(s) to. If multiple operations are
-            specified, must be a Sequence of reference values.
-        operations : str
-            One or more valid operations in self.operations. For example, if operations = "<=",
-            this checks `current_values <= reference_values` (note order of values).
-            Or, if operations == ["<=", ">"], this checks
-            ```
-            (
-                (current_values[0] <= reference_values[0])
-                and (current_values[1] > reference_values[1])
-            )
-            ```
-        tolerance : float or None (default)
-            Tolerance to use in math.isclose if any of operations is "approx". Defaults
-            to self.tolerance.
-        append_comments : str or None (default)
-            Additional comments that may be helpful for the user to understand why
-            a check failed.
-        severity : Literal["reason", "warning"]
-            If a calculation fails, the severity of failure. Directs output to
-            either reasons or warnings.
-        """
-
-        severity_to_list = {"reason": reasons, "warning": warnings}
-
-        if not isinstance(operations, list):
-            operations = [operations]
-            current_values = [current_values]
-            reference_values = [reference_values]
-
-        unknown_operations = {operation for operation in operations if operation not in self.operations}
-        if len(unknown_operations) > 0:
-            raise ValueError("Unknown operations:\n  " + ", ".join([f"{uo}" for uo in unknown_operations]))
-
-        for iop in range(len(operations)):
-            self._check_parameter(
-                error_list=severity_to_list[severity],
-                input_tag=input_tag,
-                current_value=current_values[iop],
-                reference_value=reference_values[iop],
-                operation=operations[iop],
-                tolerance=tolerance,
-                append_comments=append_comments,
-            )
