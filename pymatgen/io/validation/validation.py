@@ -30,6 +30,7 @@ from pymatgen.io.validation.check_incar import CheckIncar
 from pymatgen.io.validation.check_common_errors import (
     CheckCommonErrors,
     CheckVaspVersion,
+    CheckStructureProperties,
 )
 from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
@@ -171,6 +172,16 @@ class ValidationDoc(EmmetBaseModel):
             incar=incar,
             defaults=VASP_DEFAULTS_DICT,
             fast=fast,
+        ).check()
+
+        CheckStructureProperties(
+            **{k: cls_kwargs[k] for k in ("reasons", "warnings", "task_type")},
+            fast=fast,
+            structures=[
+                task_doc["input"]["structure"],
+                task_doc["output"]["structure"],
+                task_doc["calcs_reversed"][0]["output"]["structure"],
+            ],
         ).check()
 
         if len(cls_kwargs["reasons"]) > 0 and fast:

@@ -6,15 +6,18 @@ import numpy as np
 
 from typing import TYPE_CHECKING
 
+from emmet.core.vasp.calc_types.enums import RunType, TaskType
+from pymatgen.core import Structure
+
 from pymatgen.io.validation.common import BaseValidator
 
 if TYPE_CHECKING:
     from emmet.core.tasks import TaskDoc
     from emmet.core.vasp.calc_types.enums import RunType
     from emmet.core.vasp.task_valid import TaskDocument
-    from pymatgen.core import Structure
-    from pymatgen.io.vasp import Incar
+    from pymatgen.io.vasp.inputs import Incar
     from typing import Sequence
+    from numpy.typing import ArrayLike
 
 
 @dataclass
@@ -276,3 +279,66 @@ class CheckVaspVersion(BaseValidator):
                 f"VASP VERSION --> This calculation is using VASP version {vasp_version_str}, "
                 "but we only allow versions 5.4.4 and >=6.0.0 (as of July 2023)."
             )
+
+
+@dataclass
+class CheckStructureProperties(BaseValidator):
+    """Check structure for options that are not suitable for thermodynamic calculations."""
+
+    reasons: list[str]
+    warnings: list[str]
+    structures: list[dict | Structure | None] = None
+    task_type: TaskType = None
+    name: str = "VASP POSCAR properties validator"
+    site_properties_to_check: tuple[str, ...] = ("selective_dynamics", "velocities")
+
+    def __post_init__(self) -> None:
+        """Extract required structure site properties."""
+
+        for idx, struct in enumerate(self.structures):
+            if isinstance(struct, dict):
+                self.structures[idx] = Structure.from_dict(struct)
+
+        self._site_props = {
+            k: [struct.site_properties.get(k) for struct in self.structures if struct]  # type: ignore[union-attr]
+            for k in self.site_properties_to_check
+        }
+
+    @staticmethod
+    def _has_frozen_degrees_of_freedom(selective_dynamics_array: ArrayLike[bool] | None) -> bool:
+        """Check selective dynamics array for False values."""
+        if selective_dynamics_array is None:
+            return False
+        return not np.all(selective_dynamics_array)
+
+    def _check_selective_dynamics(self) -> None:
+        """Check structure for inappropriate site properties."""
+
+        if (selec_dyn := self._site_props.get("selective_dynamics")) is not None and self.task_type in {
+            TaskType.Structure_Optimization,
+            TaskType.Deformation,
+        }:
+            if any(self._has_frozen_degrees_of_freedom(sd_array) for sd_array in selec_dyn):
+                self.reasons.append(
+                    "Selective dynamics: certain degrees of freedom in the structure "
+                    "were not permitted to relax. To correctly place entries on the convex "
+                    "hull, all degrees of freedom should be allowed to relax."
+                )
+
+    @staticmethod
+    def _has_nonzero_velocities(velocities: ArrayLike | None, tol: float = 1.0e-8) -> bool:
+        if velocities is None:
+            return False
+        return np.any(np.abs(velocities) > tol)
+
+    def _check_velocities(self) -> None:
+        """Check structure for non-zero velocities."""
+
+        if (velos := self._site_props.get("velocities")) is not None and self.task_type != TaskType.Molecular_Dynamics:
+            if any(self._has_nonzero_velocities(velo) for velo in velos):
+                self.warnings.append(
+                    "At least one of the structures had non-zero velocities. "
+                    f"While these are ignored by VASP for {self.task_type} "
+                    "calculations, please ensure that you intended to run a "
+                    "non-molecular dynamics calculation."
+                )

@@ -644,3 +644,19 @@ def test_fast_mode():
     valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar=False, fast=True)
     assert len(valid_doc.reasons) == 1
     assert "NBANDS" in valid_doc.reasons[0]
+
+
+def test_site_properties(test_dir):
+
+    task_doc = TaskDoc(**loadfn(test_dir / "vasp" / "mp-1245223_site_props_check.json.gz"))
+    vd = ValidationDoc.from_task_doc(task_doc)
+
+    assert not vd.valid
+    assert any("selective dynamics" in reason.lower() for reason in vd.reasons)
+
+    # map non-zero velocities to input structure and re-check
+    task_doc.input.structure.add_site_property(
+        "velocities", task_doc.orig_inputs.poscar.structure.site_properties["velocities"]
+    )
+    vd = ValidationDoc.from_task_doc(task_doc)
+    assert any("non-zero velocities" in warning.lower() for warning in vd.warnings)
