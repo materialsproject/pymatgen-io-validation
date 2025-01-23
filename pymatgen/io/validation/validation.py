@@ -6,7 +6,6 @@ from datetime import datetime
 from pydantic import Field
 from pydantic.types import ImportString  # replacement for PyObject
 from pathlib import Path
-from monty.serialization import loadfn
 
 from pymatgen.io.vasp.sets import VaspInputSet
 
@@ -107,7 +106,7 @@ class ValidationDoc(EmmetBaseModel):
         """
 
         if isinstance(task_doc, TaskDocument):
-            task_doc = TaskDoc(**{k : v for k, v in task_doc.model_dump().items() if k != "run_stats"})
+            task_doc = TaskDoc(**{k: v for k, v in task_doc.model_dump().items() if k != "run_stats"})
 
         return cls.from_dict(jsanitize(task_doc), **kwargs)
 

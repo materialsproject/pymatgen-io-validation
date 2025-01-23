@@ -7,7 +7,7 @@ import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 
 from pymatgen.io.validation.common import BaseValidator, BasicValidator
-from pymatgen.io.validation.vasp_defaults import InputCategory
+from pymatgen.io.validation.vasp_defaults import InputCategory, VaspParam
 
 from typing import TYPE_CHECKING
 
@@ -116,7 +116,7 @@ class CheckIncar(BaseValidator):
             simple_validator.check_parameter(
                 reasons=self.reasons,
                 warnings=self.warnings,
-                input_tag=working_params.defaults[key].get("alias") or key,
+                input_tag=working_params.defaults[key]["alias"],
                 current_values=working_params.parameters[key],
                 reference_values=working_params.valid_values[key],
                 operations=working_params.defaults[key]["operation"],
@@ -124,9 +124,6 @@ class CheckIncar(BaseValidator):
                 append_comments=working_params.defaults[key]["comment"],
                 severity=working_params.defaults[key]["severity"],
             )
-
-            if key == "LCHIMAG":
-                print(self.reasons)
 
 class UpdateParameterValues:
     """
@@ -148,23 +145,7 @@ class UpdateParameterValues:
     to `GetParams` called `update_{tag}_params`. For example, the "dft plus u"
     tag has an update function called `update_dft_plus_u_params`. If no such update method
     exists, that tag is skipped.
-
-    Attrs
-    ---------
-    _default_schema : dict[str,Any]
-        The schema of an entry in the dict of default values (`self.defaults`).
-        This pads any missing entries in the set of parameters defaults with
-        sensible default values.
     """
-
-    _default_schema: dict[str, Any] = {
-        "value": None,
-        "tag": None,
-        "operation": None,
-        "comment": None,
-        "tolerance": 1.0e-4,
-        "severity": "reason",
-    }
 
     def __init__(
         self,
@@ -203,7 +184,7 @@ class UpdateParameterValues:
         """
 
         self.parameters = copy.deepcopy(parameters)
-        self.defaults = {k: v.__dict__() for k, v in defaults.items()}
+        self.defaults = copy.deepcopy(defaults)
         self.input_set = input_set
         self.vasp_version = vasp_version
         self.structure = structure
@@ -238,9 +219,9 @@ class UpdateParameterValues:
         # add defaults to parameters from the defaults as needed
         self.add_defaults_to_parameters()
 
-        for key in self.defaults:
-            for attr in self._default_schema:
-                self.defaults[key][attr] = self.defaults[key].get(attr, self._default_schema[attr])
+        for key, v in self.defaults.items():
+            if isinstance(v,dict):
+                self.defaults[key] = VaspParam(**{"name":key,**v})
 
     def add_defaults_to_parameters(self, valid_values_source: dict | None = None) -> None:
         """
@@ -351,11 +332,12 @@ class UpdateParameterValues:
                 "HIGH": -4e-4,
             }
             self.parameters["ROPT"] = [abs(value) for value in self.parameters.get("ROPT", [ropt_default[cur_prec]])]
-            self.defaults["ROPT"] = {
-                "value": [abs(ropt_default[cur_prec]) for _ in self.parameters["ROPT"]],
-                "tag": "startup",
-                "operation": ["<=" for _ in self.parameters["ROPT"]],
-            }
+            self.defaults["ROPT"] = VaspParam(
+                name = "ROPT",
+                value = [abs(ropt_default[cur_prec]) for _ in self.parameters["ROPT"]],
+                tag = "startup",
+                operation = ["<=" for _ in self.parameters["ROPT"]],
+            )
 
     def update_misc_special_params(self) -> None:
         """Update miscellaneous parameters that do not fall into another category."""
@@ -383,11 +365,7 @@ class UpdateParameterValues:
 
         # LCORR.
         if self.parameters["IALGO"] != 58:
-            self.defaults["LCORR"].update(
-                {
-                    "operation": "==",
-                }
-            )
+            self.defaults["LCORR"]["operation"] = "=="
 
         if (
             self.parameters["ISPIN"] == 2
@@ -470,15 +448,16 @@ class UpdateParameterValues:
             for key in grid_keys:
                 self.valid_values[key] = int(self.valid_values[key] * self._fft_grid_tolerance)
 
-                self.defaults[key] = {
-                    "value": self.valid_values[key],
-                    "tag": "fft",
-                    "operation": ">=",
-                    "comment": (
+                self.defaults[key] = VaspParam(
+                    name = key,
+                    value = self.valid_values[key],
+                    tag = "fft",
+                    operation = ">=",
+                    comment=(
                         "This likely means the number FFT grid points was modified by the user. "
                         "If not, please create a GitHub issue."
                     ),
-                }
+                )
 
     def update_density_mixing_params(self) -> None:
         """
@@ -586,16 +565,17 @@ class UpdateParameterValues:
         self.parameters["ELECTRONIC ENTROPY"] = round(self.parameters["ELECTRONIC ENTROPY"] * convert_eV_to_meV, 3)
         self.valid_values["ELECTRONIC ENTROPY"] = 0.001 * convert_eV_to_meV
 
-        self.defaults["ELECTRONIC ENTROPY"] = {
-            "value": 0.0,
-            "tag": "smearing",
-            "comment": (
+        self.defaults["ELECTRONIC ENTROPY"] = VaspParam(
+            name = "ELECTRONIC ENTROPY",
+            value = 0.0,
+            tag = "smearing",
+            comment=(
                 "The entropy term (T*S) in the energy is suggested to be less than "
                 f"{round(self.valid_values['ELECTRONIC ENTROPY'], 1)} meV/atom "
                 f"in the VASP wiki. Thus, SIGMA should be decreased."
             ),
-            "operation": "<=",
-        }
+            operation = "<=",
+        )
 
     def _get_default_nbands(self):
         """
@@ -673,16 +653,17 @@ class UpdateParameterValues:
 
         # NBANDS.
         min_nbands = int(np.ceil(self._NELECT / 2) + 1)
-        self.defaults["NBANDS"] = {
-            "value": self._get_default_nbands(),
-            "operation": [">=", "<="],
-            "tag": "electronic",
-            "comment": (
+        self.defaults["NBANDS"] = VaspParam(
+            name = "NBANDS",
+            value = self._get_default_nbands(),
+            tag = "electronic",
+            operation = [">=", "<="],
+            comment = (
                 "Too many or too few bands can lead to unphysical electronic structure "
                 "(see https://github.com/materialsproject/custodian/issues/224 "
                 "for more context.)"
-            ),
-        }
+            )
+        )
         self.valid_values["NBANDS"] = [min_nbands, 4 * self.defaults["NBANDS"]["value"]]
         self.parameters["NBANDS"] = [self.parameters["NBANDS"] for _ in range(2)]
 
@@ -734,10 +715,7 @@ class UpdateParameterValues:
         # every MP-compliant input set, but often have comparable or even better results) will also be accepted
         # I am **NOT** confident that this should be the final check. Perhaps I need convincing (or perhaps it does indeed need to be changed...)
         # TODO:    -somehow identify if a material is a vdW structure, in which case force-convergence should maybe be more strict?
-        self.defaults["EDIFFG"] = {
-            "value": 10 * self.valid_values["EDIFF"],
-            "category": "ionic",
-        }
+        self.defaults["EDIFFG"] = VaspParam(name = "EDIFFG", value = 10 * self.valid_values["EDIFF"], tag = "ionic")
 
         self.valid_values["EDIFFG"] = self.input_set.incar.get("EDIFFG", self.defaults["EDIFFG"]["value"])
         self.defaults["EDIFFG"][

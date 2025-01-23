@@ -1,8 +1,10 @@
 """Common class constructor for validation checks."""
+
 from __future__ import annotations
 from dataclasses import dataclass
 from math import isclose
 from typing import TYPE_CHECKING, Literal
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -18,11 +20,14 @@ VALID_OPERATIONS: set[str | None] = {
     None,
 }
 
+
 class InvalidOperation(Exception):
     """Define custom exception when checking valid operations."""
-    def __init__(self, operation : str ) -> None:
+
+    def __init__(self, operation: str) -> None:
         msg = f"Unknown operation type {operation}; valid values are: {VALID_OPERATIONS}"
         super().__init__(msg)
+
 
 class BasicValidator:
     """
@@ -36,7 +41,7 @@ class BasicValidator:
 
     # avoiding dunder methods because these raise too many NotImplemented's
 
-    def __init__(self, global_tolerance : float =1.0e-4) -> None:
+    def __init__(self, global_tolerance: float = 1.0e-4) -> None:
         """Set math.isclose tolerance"""
         self.tolerance = global_tolerance
 
@@ -78,7 +83,6 @@ class BasicValidator:
         else:
             raise InvalidOperation(operation)
         return c
-
 
     def _check_parameter(
         self,
@@ -164,10 +168,10 @@ class BasicValidator:
             specified, must be a Sequence of reference values.
         operations : str
             One or more valid operations in VALID_OPERATIONS.
-            For example, if operations = "<=", this checks 
+            For example, if operations = "<=", this checks
                 `current_values <= reference_values`
             (note the order of values).
-            
+
             Or, if operations == ["<=", ">"], this checks
             ```
             (
@@ -203,6 +207,7 @@ class BasicValidator:
                 tolerance=tolerance,
                 append_comments=append_comments,
             )
+
 
 @dataclass
 class BaseValidator:
