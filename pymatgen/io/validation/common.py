@@ -25,6 +25,11 @@ class InvalidOperation(Exception):
     """Define custom exception when checking valid operations."""
 
     def __init__(self, operation: str) -> None:
+        """Define custom exception when checking valid operations.
+
+        Args:
+        operation (str) : a symbolic string for an operation that is not valid.
+        """
         msg = f"Unknown operation type {operation}; valid values are: {VALID_OPERATIONS}"
         super().__init__(msg)
 

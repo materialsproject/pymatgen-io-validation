@@ -38,31 +38,7 @@ class InputCategory(Enum):
 
 
 class VaspParam:
-    """Define the default value of a VASP parameter.
-
-    Args:
-        name (str) : the name of the INCAR keyword
-        value (Any) : the default value of this parameter if
-            statically assigned by VASP. If this parameter is dynamically assigned
-            by VASP, set the default to None.
-        tag (InputCategory, str) : the general category of input the tag belongs to.
-            Used only to properly update INCAR fields in the same way VASP does.
-        operation : str, Sequence of str, or None
-            Mathematical operation used to determine if an input value is valid.
-            See VALID_OPERATIONS for a list of possible operators.
-            If a single str, this specifies one operation.
-            Can be a list of valid operations.
-        alias : str or None
-            If a str, an alternate name for a parameter to use when reporting
-            invalid values. A good example is ENCUT, which is set by the
-            user, but is overwritten to ENMAX in the vasprun.xml parameters.
-            In this case, `name = "ENMAX"` but `alias = "ENCUT"` to be informative.
-            If None, it is set to `name`.
-        tolerance : float, default = 1.e-4
-            The tolerance used when evaluating approximate float equality.
-        commment : str or None
-            Additional information to pass to the user if a check fails.
-    """
+    """Define a schema for validating VASP parameters."""
 
     __slots__: tuple[str, ...] = (
         "name",
@@ -88,7 +64,32 @@ class VaspParam:
         warning: str | None = None,
         severity: Literal["reason", "warning"] = "reason",
     ) -> None:
+        """
+        Define a schema for validating VASP parameters.
 
+        Args:
+        name (str) : the name of the INCAR keyword
+        value (Any) : the default value of this parameter if
+            statically assigned by VASP. If this parameter is dynamically assigned
+            by VASP, set the default to None.
+        tag (InputCategory, str) : the general category of input the tag belongs to.
+            Used only to properly update INCAR fields in the same way VASP does.
+        operation : str, Sequence of str, or None
+            Mathematical operation used to determine if an input value is valid.
+            See VALID_OPERATIONS for a list of possible operators.
+            If a single str, this specifies one operation.
+            Can be a list of valid operations.
+        alias : str or None
+            If a str, an alternate name for a parameter to use when reporting
+            invalid values. A good example is ENCUT, which is set by the
+            user, but is overwritten to ENMAX in the vasprun.xml parameters.
+            In this case, `name = "ENMAX"` but `alias = "ENCUT"` to be informative.
+            If None, it is set to `name`.
+        tolerance : float, default = 1.e-4
+            The tolerance used when evaluating approximate float equality.
+        commment : str or None
+            Additional information to pass to the user if a check fails.
+        """
         self.name = name
         self.value = value
         if (isinstance(operation, str) and operation not in VALID_OPERATIONS) or (
