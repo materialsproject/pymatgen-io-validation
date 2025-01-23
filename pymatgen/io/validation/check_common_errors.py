@@ -6,7 +6,7 @@ import numpy as np
 
 from typing import TYPE_CHECKING
 
-from emmet.core.vasp.calc_types.enums import RunType, TaskType
+from emmet.core.vasp.calc_types.enums import TaskType
 from pymatgen.core import Structure
 
 from pymatgen.io.validation.common import BaseValidator
