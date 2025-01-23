@@ -83,20 +83,21 @@ class VaspParam:
         tag: InputCategory | str,
         operation: str | Sequence[str] | None = None,
         alias: str | None = None,
-        tolerance: float = 1.e-4,
+        tolerance: float = 1.0e-4,
         comment: str | None = None,
-        warning : str | None = None,
-        severity : Literal["reason", "warning"] = "reason"
+        warning: str | None = None,
+        severity: Literal["reason", "warning"] = "reason",
     ) -> None:
 
         self.name = name
         self.value = value
-        if (
-            (isinstance(operation,str) and operation not in VALID_OPERATIONS)
-            or (isinstance(operation,list | tuple) and any(op not in VALID_OPERATIONS for op in operation))
+        if (isinstance(operation, str) and operation not in VALID_OPERATIONS) or (
+            isinstance(operation, list | tuple) and any(op not in VALID_OPERATIONS for op in operation)
         ):
+            if isinstance(operation, list | tuple):
+                operation = f"[{', '.join(operation)}]"
             raise InvalidOperation(operation)
-        
+
         self.operation = operation
         self.alias = alias or name
         if isinstance(tag, str):
@@ -109,7 +110,7 @@ class VaspParam:
         self.comment = comment
         self.warning = warning
 
-        if severity not in {"reason","warning"}:
+        if severity not in {"reason", "warning"}:
             raise ValueError(f"`severity` must either be 'reason' or 'warning', not {severity}")
         self.severity = severity
 
@@ -126,9 +127,10 @@ class VaspParam:
         for k, v in dct.items():
             self[k] = v
 
-    def as_dict(self) -> dict[str,Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Convert to a dict."""
-        return {k: getattr(self,k) for k in self.__slots__}
+        return {k: getattr(self, k) for k in self.__slots__}
+
 
 VASP_DEFAULTS_LIST = [
     VaspParam("ADDGRID", False, "fft", operation="=="),
