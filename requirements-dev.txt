@@ -4,5 +4,5 @@ coverage==7.6.7
 mypy==1.13.0
 pydocstyle==6.1.1
 flake8==7.1.1
-pylint==3.3.1
+pylint==3.3.6
 black==24.8.0
