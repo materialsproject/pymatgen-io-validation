@@ -1,20 +1,14 @@
 """Validate VASP KPOINTS files or the KSPACING/KGAMMA INCAR settings."""
 
 from __future__ import annotations
-from dataclasses import dataclass
 import numpy as np
 from pymatgen.io.vasp import Kpoints
 
+from pymatgen.core import Structure
+from pymatgen.io.vasp.sets import VaspInputSet
+
 from pymatgen.io.validation.common import BaseValidator
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pymatgen.core import Structure
-    from pymatgen.io.vasp.sets import VaspInputSet
-
-
-@dataclass
 class CheckKpointsKspacing(BaseValidator):
     """
     Check that k-point density is sufficiently high and is compatible with lattice symmetry.
@@ -54,7 +48,7 @@ class CheckKpointsKspacing(BaseValidator):
     warnings: list[str]
     name: str = "Check k-point density"
     valid_input_set: VaspInputSet = None
-    kpoints: Kpoints | dict = None
+    kpoints: Kpoints = None
     structure: Structure = None
     defaults: dict | None = None
     kpts_tolerance: float | None = None
@@ -85,13 +79,13 @@ class CheckKpointsKspacing(BaseValidator):
 
     def _check_user_shifted_mesh(self) -> None:
         # Check for user shifts
-        if (not self.allow_kpoint_shifts) and any(shift_val != 0 for shift_val in self.kpoints["usershift"]):
+        if (not self.allow_kpoint_shifts) and any(shift_val != 0 for shift_val in self.kpoints.kpts_shift):
             self.reasons.append("INPUT SETTINGS --> KPOINTS: shifting the kpoint mesh is not currently allowed.")
 
     def _check_explicit_mesh_permitted(self) -> None:
         # Check for explicit kpoint meshes
 
-        if (not self.allow_explicit_kpoint_mesh) and len(self.kpoints["kpoints"]) > 1:
+        if (not self.allow_explicit_kpoint_mesh) and len(self.kpoints.kpts) > 1:
             self.reasons.append(
                 "INPUT SETTINGS --> KPOINTS: explicitly defining "
                 "the k-point mesh is not currently allowed. "
@@ -106,13 +100,10 @@ class CheckKpointsKspacing(BaseValidator):
         # Check number of kpoints used
         valid_num_kpts = self._get_valid_num_kpts()
 
-        if isinstance(self.kpoints, Kpoints):
-            self.kpoints = self.kpoints.as_dict()
-
         cur_num_kpts = max(
-            self.kpoints.get("nkpoints", 0),
-            np.prod(self.kpoints.get("kpoints")),
-            len(self.kpoints.get("kpoints")),
+            self.kpoints.num_kpts,
+            np.prod(self.kpoints.kpts),
+            len(self.kpoints.kpts),
         )
         if cur_num_kpts < valid_num_kpts:
             self.reasons.append(
@@ -123,17 +114,17 @@ class CheckKpointsKspacing(BaseValidator):
     def _check_kpoint_mesh_symmetry(self) -> None:
         # check for valid kpoint mesh (which depends on symmetry of the structure)
 
-        cur_kpoint_style = self.kpoints.get("generation_style").lower()
+        cur_kpoint_style = self.kpoints.style.name.lower()
         is_hexagonal = self.structure.lattice.is_hexagonal()
         is_face_centered = self.structure.get_space_group_info()[0][0] == "F"
         monkhorst_mesh_is_invalid = is_hexagonal or is_face_centered
         if (
             cur_kpoint_style == "monkhorst"
             and monkhorst_mesh_is_invalid
-            and any(x % 2 == 0 for x in self.kpoints.get("kpoints")[0])
+            and any(x % 2 == 0 for x in self.kpoints.kpts[0])
         ):
             # only allow Monkhorst with all odd number of subdivisions per axis.
-            kx, ky, kz = self.kpoints.get("kpoints")[0]
+            kx, ky, kz = self.kpoints.kpts[0]
             self.reasons.append(
                 f"INPUT SETTINGS --> KPOINTS or KGAMMA: ({kx}x{ky}x{kz}) "
                 "Monkhorst-Pack kpoint mesh was used."

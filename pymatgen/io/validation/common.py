@@ -1,9 +1,10 @@
 """Common class constructor for validation checks."""
 
 from __future__ import annotations
-from dataclasses import dataclass
 from math import isclose
 from typing import TYPE_CHECKING, Literal
+
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from typing import Any
@@ -214,8 +215,7 @@ class BasicValidator:
             )
 
 
-@dataclass
-class BaseValidator:
+class BaseValidator(BaseModel):
     """
     Template for validation classes.
 
@@ -261,5 +261,5 @@ class BaseValidator:
             if self.fast and len(self.reasons) > 0:
                 # fast check: stop checking whenever a single check fails
                 break
-
+            
             getattr(self, attr)()

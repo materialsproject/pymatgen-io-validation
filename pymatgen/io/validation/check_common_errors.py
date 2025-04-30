@@ -1,26 +1,24 @@
 """Check common issues with VASP calculations."""
 
 from __future__ import annotations
-from dataclasses import dataclass, field
+from pydantic import Field, field_validator
 import numpy as np
-
-from typing import TYPE_CHECKING
+from functools import cached_property
+from typing import Any
 
 from emmet.core.vasp.calc_types.enums import TaskType
 from pymatgen.core import Structure
 
 from pymatgen.io.validation.common import BaseValidator
 
-if TYPE_CHECKING:
-    from emmet.core.tasks import TaskDoc
-    from emmet.core.vasp.calc_types.enums import RunType
-    from emmet.core.vasp.task_valid import TaskDocument
-    from pymatgen.io.vasp.inputs import Incar
-    from typing import Sequence
-    from numpy.typing import ArrayLike
+from emmet.core.tasks import TaskDoc
+from emmet.core.vasp.calc_types.enums import RunType
+from emmet.core.vasp.task_valid import TaskDocument
+from pymatgen.io.vasp.inputs import Incar
+from collections.abc import Sequence
+from numpy.typing import ArrayLike
 
 
-@dataclass
 class CheckCommonErrors(BaseValidator):
     """
     Check for common calculation errors.
@@ -59,7 +57,7 @@ class CheckCommonErrors(BaseValidator):
 
     reasons: list[str]
     warnings: list[str]
-    task_doc: TaskDoc | TaskDocument = None
+    task_doc: dict = None
     parameters: dict = None
     structure: Structure = None
     run_type: RunType = None
@@ -67,14 +65,25 @@ class CheckCommonErrors(BaseValidator):
     fast: bool = False
     defaults: dict | None = None
     # TODO: make this also work for elements Gd and Eu, which have magmoms >5 in at least one of their pure structures
-    valid_max_magmoms: dict[str, float] = field(default_factory=lambda: {"Gd": 10.0, "Eu": 10.0})
-    exclude_elements: set[str] = field(default_factory=lambda: {"Am", "Po"})
+    valid_max_magmoms: dict[str, float] = Field(default_factory=lambda: {"Gd": 10.0, "Eu": 10.0})
+    exclude_elements: set[str] = Field(default_factory=lambda: {"Am", "Po"})
     valid_max_allowed_scf_gradient: float | None = None
     num_ionic_steps_to_avg_drift_over: int | None = None
 
-    def __post_init__(self):
-        self.incar = self.task_doc["calcs_reversed"][0]["input"]["incar"]
-        self.ionic_steps = self.task_doc["calcs_reversed"][0]["output"]["ionic_steps"]
+    @field_validator("task_doc",mode="before")
+    @classmethod
+    def deserialize_task_doc(cls,val : Any) -> dict:
+        if hasattr(val,"model_dump"):
+            return val.model_dump()
+        return val
+
+    @cached_property
+    def incar(self) -> dict:
+        return self.task_doc["calcs_reversed"][0]["input"]["incar"]
+
+    @cached_property
+    def ionic_steps(self) -> list:
+        return self.task_doc["calcs_reversed"][0]["output"]["ionic_steps"]
 
     def _check_run_type(self) -> None:
         if f"{self.run_type}".upper() not in {"GGA", "GGA+U", "PBE", "PBE+U", "R2SCAN"}:
@@ -214,8 +223,6 @@ class CheckCommonErrors(BaseValidator):
                 "which are not currently being accepted."
             )
 
-
-@dataclass
 class CheckVaspVersion(BaseValidator):
     """
     Check for common errors related to the version of VASP used.
@@ -280,27 +287,33 @@ class CheckVaspVersion(BaseValidator):
                 "but we only allow versions 5.4.4 and >=6.0.0 (as of July 2023)."
             )
 
-
-@dataclass
 class CheckStructureProperties(BaseValidator):
     """Check structure for options that are not suitable for thermodynamic calculations."""
 
     reasons: list[str]
     warnings: list[str]
-    structures: list[dict | Structure | None] = None
+    structures: list[Structure]
     task_type: TaskType = None
     name: str = "VASP POSCAR properties validator"
     site_properties_to_check: tuple[str, ...] = ("selective_dynamics", "velocities")
 
-    def __post_init__(self) -> None:
+    @field_validator("structures",mode="before")
+    @classmethod
+    def serialize_structures(cls, val : list[Structure | dict | None]) -> list[Structure]:
         """Extract required structure site properties."""
-
-        for idx, struct in enumerate(self.structures):
-            if isinstance(struct, dict):
-                self.structures[idx] = Structure.from_dict(struct)
-
-        self._site_props = {
-            k: [struct.site_properties.get(k) for struct in self.structures if struct]  # type: ignore[union-attr]
+        
+        out_val = []
+        for struct in val:
+            if struct:
+                if isinstance(struct, dict):
+                    struct = Structure.from_dict(struct)
+                out_val.append(struct)
+        return out_val
+    
+    @cached_property
+    def site_properties(self) -> dict[str, Any]:
+        return {
+            k: [struct.site_properties.get(k) for struct in self.structures]
             for k in self.site_properties_to_check
         }
 
@@ -314,7 +327,7 @@ class CheckStructureProperties(BaseValidator):
     def _check_selective_dynamics(self) -> None:
         """Check structure for inappropriate site properties."""
 
-        if (selec_dyn := self._site_props.get("selective_dynamics")) is not None and self.task_type in {
+        if (selec_dyn := self.site_properties.get("selective_dynamics")) is not None and self.task_type in {
             TaskType.Structure_Optimization,
             TaskType.Deformation,
         }:
@@ -334,7 +347,7 @@ class CheckStructureProperties(BaseValidator):
     def _check_velocities(self) -> None:
         """Check structure for non-zero velocities."""
 
-        if (velos := self._site_props.get("velocities")) is not None and self.task_type != TaskType.Molecular_Dynamics:
+        if (velos := self.site_properties.get("velocities")) is not None and self.task_type != TaskType.Molecular_Dynamics:
             if any(self._has_nonzero_velocities(velo) for velo in velos):
                 self.warnings.append(
                     "At least one of the structures had non-zero velocities. "

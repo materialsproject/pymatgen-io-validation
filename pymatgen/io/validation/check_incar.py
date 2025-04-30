@@ -1,25 +1,21 @@
 """Validate VASP INCAR files."""
 
 from __future__ import annotations
+from collections.abc import Sequence
 import copy
-from dataclasses import dataclass
 import numpy as np
 from emmet.core.vasp.calc_types.enums import TaskType
 
-from pymatgen.io.validation.common import BaseValidator, BasicValidator
+from pymatgen.core import Structure
+from pymatgen.io.vasp.sets import VaspInputSet
+
+from pymatgen.io.validation.common import BaseValidator
 from pymatgen.io.validation.vasp_defaults import InputCategory, VaspParam
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from typing import Any, Sequence
-    from pymatgen.core import Structure
-    from pymatgen.io.vasp.sets import VaspInputSet
+from typing import Any
 
 # TODO: fix ISIF getting overwritten by MP input set.
 
-
-@dataclass
 class CheckIncar(BaseValidator):
     """
     Check calculation parameters related to INCAR input tags.
@@ -107,25 +103,16 @@ class CheckIncar(BaseValidator):
         working_params.update_parameters_and_defaults()
 
         # Validate each parameter in the set of working parameters
-        simple_validator = BasicValidator()
-        for key in working_params.defaults:
+        for key, vasp_param in working_params.defaults.items():
             if self.fast and len(self.reasons) > 0:
                 # fast check: stop checking whenever a single check fails
                 break
 
-            simple_validator.check_parameter(
-                reasons=self.reasons,
-                warnings=self.warnings,
-                input_tag=working_params.defaults[key]["alias"],
-                current_values=working_params.parameters[key],
-                reference_values=working_params.valid_values[key],
-                operations=working_params.defaults[key]["operation"],
-                tolerance=working_params.defaults[key]["tolerance"],
-                append_comments=working_params.defaults[key]["comment"],
-                severity=working_params.defaults[key]["severity"],
+            vasp_param.check(
+                working_params.parameters[key],
+                working_params.valid_values[key]
             )
-
-
+            
 class UpdateParameterValues:
     """
     Update a set of parameters according to supplied rules and defaults.

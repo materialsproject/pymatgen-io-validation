@@ -1,23 +1,18 @@
 """Check POTCAR against known POTCARs in pymatgen, without setting up psp_resources."""
 
 from __future__ import annotations
-from dataclasses import dataclass, field
+from pydantic import Field
 from importlib.resources import files as import_resource_files
 from monty.serialization import loadfn
 import numpy as np
 
+from pymatgen.core import Structure
+from pymatgen.io.vasp.sets import VaspInputSet
+
 from pymatgen.io.validation.common import BaseValidator
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pymatgen.core import Structure
-    from pymatgen.io.vasp.sets import VaspInputSet
 
 _potcar_summary_stats = loadfn(import_resource_files("pymatgen.io.vasp") / "potcar-summary-stats.json.bz2")
 
-
-@dataclass
 class CheckPotcar(BaseValidator):
     """
     Check POTCAR against library of known valid POTCARs.
@@ -52,9 +47,9 @@ class CheckPotcar(BaseValidator):
     warnings: list[str]
     valid_input_set: VaspInputSet = None
     structure: Structure = None
-    potcars: dict = None
+    potcars: list[dict] = None
     name: str = "Check POTCARs"
-    potcar_summary_stats: dict = field(default_factory=lambda: _potcar_summary_stats)
+    potcar_summary_stats: dict = Field(default_factory=lambda: _potcar_summary_stats)
     data_match_tol: float = 1.0e-6
     fast: bool = False
 
