@@ -23,17 +23,19 @@ class CheckKpointsKspacing(BaseValidator):
         description="Tolerance for evaluating k-point density, to accommodate different the k-point generation schemes across VASP versions.",
     )
     allow_explicit_kpoint_mesh: bool = Field(
-        SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH, description="Whether to permit explicit generation of k-points (as for a bandstructure calculation)."
+        SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
+        description="Whether to permit explicit generation of k-points (as for a bandstructure calculation).",
     )
     allow_kpoint_shifts: bool = Field(
-        SETTINGS.VASP_ALLOW_KPT_SHIFT, description="Whether to permit shifting the origin of the k-point mesh from Gamma."
+        SETTINGS.VASP_ALLOW_KPT_SHIFT,
+        description="Whether to permit shifting the origin of the k-point mesh from Gamma.",
     )
 
     def auto_fail(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> bool:
         """Quick stop if actual k-points are missing."""
-        if vasp_files.kpoints is None:
+        if vasp_files.actual_kpoints is None:
             reasons.append("Missing actual k-points: please specify an IBZKPT or vasprun.xml in VaspFiles.")
-        return vasp_files.kpoints is None
+        return vasp_files.actual_kpoints is None
 
     def _get_valid_num_kpts(
         self,
@@ -65,13 +67,13 @@ class CheckKpointsKspacing(BaseValidator):
 
     def _check_user_shifted_mesh(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # Check for user shifts
-        if (not self.allow_kpoint_shifts) and any(shift_val != 0 for shift_val in vasp_files.kpoints.kpts_shift):
+        if (not self.allow_kpoint_shifts) and any(shift_val != 0 for shift_val in vasp_files.actual_kpoints.kpts_shift):
             reasons.append("INPUT SETTINGS --> KPOINTS: shifting the kpoint mesh is not currently allowed.")
 
     def _check_explicit_mesh_permitted(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # Check for explicit kpoint meshes
 
-        if (not self.allow_explicit_kpoint_mesh) and len(vasp_files.kpoints.kpts) > 1:
+        if (not self.allow_explicit_kpoint_mesh) and len(vasp_files.actual_kpoints.kpts) > 1:
             reasons.append(
                 "INPUT SETTINGS --> KPOINTS: explicitly defining "
                 "the k-point mesh is not currently allowed. "
@@ -87,9 +89,9 @@ class CheckKpointsKspacing(BaseValidator):
         valid_num_kpts = self._get_valid_num_kpts(vasp_files)
 
         cur_num_kpts = max(
-            vasp_files.kpoints.num_kpts,
-            np.prod(vasp_files.kpoints.kpts),
-            len(vasp_files.kpoints.kpts),
+            vasp_files.actual_kpoints.num_kpts,
+            np.prod(vasp_files.actual_kpoints.kpts),
+            len(vasp_files.actual_kpoints.kpts),
         )
         if cur_num_kpts < valid_num_kpts:
             reasons.append(
@@ -100,17 +102,17 @@ class CheckKpointsKspacing(BaseValidator):
     def _check_kpoint_mesh_symmetry(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # check for valid kpoint mesh (which depends on symmetry of the structure)
 
-        cur_kpoint_style = vasp_files.kpoints.style.name.lower()
+        cur_kpoint_style = vasp_files.actual_kpoints.style.name.lower()
         is_hexagonal = vasp_files.structure.lattice.is_hexagonal()
         is_face_centered = vasp_files.structure.get_space_group_info()[0][0] == "F"
         monkhorst_mesh_is_invalid = is_hexagonal or is_face_centered
         if (
             cur_kpoint_style == "monkhorst"
             and monkhorst_mesh_is_invalid
-            and any(x % 2 == 0 for x in vasp_files.kpoints.kpts[0])
+            and any(x % 2 == 0 for x in vasp_files.actual_kpoints.kpts[0])
         ):
             # only allow Monkhorst with all odd number of subdivisions per axis.
-            kx, ky, kz = vasp_files.kpoints.kpts[0]
+            kx, ky, kz = vasp_files.actual_kpoints.kpts[0]
             reasons.append(
                 f"INPUT SETTINGS --> KPOINTS or KGAMMA: ({kx}x{ky}x{kz}) "
                 "Monkhorst-Pack kpoint mesh was used."

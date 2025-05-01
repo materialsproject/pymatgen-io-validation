@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from functools import cached_property
 from importlib import import_module
+import os
 from pathlib import Path
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
-from typing import TYPE_CHECKING
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator, model_serializer, PrivateAttr
+from typing import TYPE_CHECKING, Any
 
 from pymatgen.core import Structure
 from pymatgen.io.vasp import Incar, Kpoints, Poscar, Potcar, Outcar, Vasprun
@@ -21,58 +22,152 @@ if TYPE_CHECKING:
 class ValidationError(Exception):
     """Define custom exception during validation."""
 
+class PotcarSummaryStats(BaseModel):
+    """Schematize `PotcarSingle._summary_stats`."""
+
+    class _PotcarSummaryStatsKeywords(BaseModel):
+        """Schematize `PotcarSingle._summary_stats["keywords"]` field."""
+        header : set[str] = Field(description="The keywords in the POTCAR header.")
+        data : set[str] = Field(description="The keywords in the POTCAR body.")
+
+    class _PotcarSummaryStatsStats(BaseModel):
+        """Schematize `PotcarSingle._summary_stats["stats"]` field."""
+        class _PotcarSummaryStatsNames(BaseModel):
+            """Define statistics used in `PotcarSingle._summary_stats`."""
+            MEAN : float = Field(description="Data mean.")
+            ABSMEAN : float = Field(description="Data magnitude mean.")
+            VAR : float = Field(description="Mean of squares of data.")
+            MIN : float = Field(description="Data minimum.")
+            MAX : float = Field(description="Data maximum.")
+        header : _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR header.")
+        data : _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR body.")
+
+    keywords : _PotcarSummaryStatsKeywords
+    stats : _PotcarSummaryStatsStats
+    titel : str
+    lexch : str
+
+
+    @classmethod
+    def from_file(cls, potcar : os.PathLike | Potcar) -> Self:
+        """Create a list of PotcarSummaryStats from a POTCAR."""
+        if not isinstance(potcar,Potcar):
+            potcar = Potcar.from_file(potcar)
+        return [
+            cls(**p._summary_stats, titel = p.TITEL, lexch = p.LEXCH) 
+            for p in potcar
+        ]
+    
+class VaspInputSafe(BaseModel):
+    """Stricter VaspInputSet with no POTCAR info."""
+
+    incar: Incar = Field(description="The INCAR used in the calculation.")
+    poscar: Poscar = Field(description="The structure associated with the calculation.")
+    kpoints: Kpoints | None = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
+    potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
+
+    @model_serializer
+    def deserialize_objects(self) -> dict[str,dict[str,Any]]:
+        """Ensure all pymatgen objects are deserialized."""
+        model_dumped : dict[str,dict[str,Any]] = {
+            "potcar": [p.model_dump() for p in self.user_input.potcar]
+        }
+        for k in ("incar","poscar","kpoints",):
+            if (pmg_obj := getattr(self,k)):
+                model_dumped[k] = pmg_obj.as_dict()
+        return model_dumped
+    
+    @classmethod
+    def from_vasp_input_set(cls, vis : VaspInputSet) -> Self:
+        return cls(
+            **{k : getattr(vis,k) for k in ("incar","kpoints","poscar",)},
+            potcar = PotcarSummaryStats.from_file(vis.potcar),
+        )
 
 class VaspFiles(BaseModel):
     """Define required and optional files for validation."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    incar: Incar = Field(description="The INCAR used in the calculation.")
-    poscar: Poscar = Field(description="The structure associated with the calculation.")
-    kpoints: Kpoints = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
-    potcar: Potcar = Field(None, description="The optional POTCAR used in the calculation.")
-    outcar: Outcar = Field(None, description="The optional OUTCAR.")
-    vasprun: Vasprun = Field(None, description="The optional vasprun.xml")
+    user_input: VaspInputSafe = Field(description="The VASP input set used in the calculation.")
+    _outcar_path : os.PathLike | None = PrivateAttr(None)
+    _vasprun_path : os.PathLike | None = PrivateAttr(None)
 
-    @model_validator(mode="after")
-    def check_kpoints(self) -> Self:
-        """Ensure kpoints attribute is set."""
-        if not self.kpoints and self.vasprun:
-            self.kpoints = self.vasprun.kpoints
-        return self
+    @cached_property
+    def outcar(self) -> Outcar | None:
+        """The optional OUTCAR."""
+        if self._outcar_path:
+            return Outcar(self._outcar_path)
+        return None
+
+    @cached_property
+    def vasprun(self) -> Vasprun | None:
+        """The optional vasprun.xml."""
+        if self._vasprun_path:
+            return Vasprun(self._vasprun_path)
+        return None
+    
+    @property
+    def actual_kpoints(self) -> Kpoints | None:
+        if self.user_input.kpoints:
+            return self.user_input.kpoints
+        elif self.vasprun:
+            return self.vasprun.kpoints
+        return None
 
     @property
     def structure(self) -> Structure:
         """Return the Structure object from the POSCAR."""
-        return self.poscar.structure
+        return self.user_input.poscar.structure
 
     @property
     def vasp_version(self) -> tuple[int, int, int] | None:
         """Return the VASP version as a tuple of int, if available."""
         if self.vasprun:
-            return tuple(int(x) for x in self.vasprun.vasp_version.split(".")[:3])
-        return
+            vvn = [int(x) for x in self.vasprun.vasp_version.split(".")]
+            return (vvn[0], vvn[1], vvn[2])
+        return None
 
     @classmethod
-    def from_paths(cls, **paths):
+    def from_paths(
+        cls,
+        incar: os.PathLike[str],
+        poscar: os.PathLike[str],
+        kpoints: os.PathLike[str] | None = None,
+        potcar: os.PathLike[str] | None = None,
+        outcar: os.PathLike[str] | None = None,
+        vasprun: os.PathLike[str] | None = None,
+    ):
         """Construct a set of VASP I/O from file paths."""
-        config: dict[str, Incar | Kpoints | Potcar | Outcar | Vasprun] = {}
-        for file_name, path in paths.items():
-            if (model_field := cls.model_fields.get(file_name)) and Path(path).exists():
-                pmg_cls = model_field.annotation
-                if hasattr(pmg_cls, "from_file"):
-                    config[file_name] = pmg_cls.from_file(path)
-                else:
-                    config[file_name] = pmg_cls(path)
-        return cls(**config)
+        config: dict[str, dict[str] | os.PathLike] = {
+            "user_input": {}
+        }
+        _vars = locals()
 
-    @computed_field
+        to_obj = {
+            "incar": Incar,
+            "kpoints": Kpoints,
+            "poscar": Poscar,
+            "potcar": PotcarSummaryStats,
+        }
+        for file_name, file_cls in to_obj.items():
+            if (path := _vars.get(file_name)) and Path(path).exists():
+                config["user_input"][file_name] = file_cls.from_file(path)
+
+        vf = cls(**config)
+        for file_name in ("outcar","vasprun"):
+            if (path := _vars.get(file_name)) and Path(path).exists():
+                setattr(vf, f"_{file_name}_path", path)
+
+        return vf
+
+    @computed_field  # type: ignore[misc]
     @cached_property
     def run_type(self) -> str:
         """Get the run type of a calculation."""
 
-        ibrion = self.incar.get("IBRION", VASP_DEFAULTS_DICT["IBRION"].value)
-        if self.incar.get("NSW", VASP_DEFAULTS_DICT["NSW"].value) > 0 and ibrion == -1:
+        ibrion = self.user_input.incar.get("IBRION", VASP_DEFAULTS_DICT["IBRION"].value)
+        if self.user_input.incar.get("NSW", VASP_DEFAULTS_DICT["NSW"].value) > 0 and ibrion == -1:
             ibrion = 0
 
         run_type = {
@@ -83,9 +178,9 @@ class VaspFiles(BaseModel):
             **{k: "ts" for k in (40, 44)},
         }.get(ibrion)
 
-        if self.incar.get("ICHARG", VASP_DEFAULTS_DICT["ICHARG"].value) >= 10:
+        if self.user_input.incar.get("ICHARG", VASP_DEFAULTS_DICT["ICHARG"].value) >= 10:
             run_type = "nonscf"
-        if self.incar.get("LCHIMAG", VASP_DEFAULTS_DICT["LCHIMAG"].value):
+        if self.user_input.incar.get("LCHIMAG", VASP_DEFAULTS_DICT["LCHIMAG"].value):
             run_type == "nmr"
 
         if run_type is None:
@@ -97,7 +192,7 @@ class VaspFiles(BaseModel):
 
         return run_type
 
-    @computed_field
+    @computed_field  # type: ignore[misc]
     @cached_property
     def functional(self) -> str:
         """Determine the functional used in the calculation.
@@ -108,10 +203,10 @@ class VaspFiles(BaseModel):
 
         func = None
         func_from_potcar = None
-        if self.potcar:
-            func_from_potcar = {"pe": "pbe", "ca": "lda"}.get(self.potcar[0].LEXCH.lower())
+        if self.user_input.potcar:
+            func_from_potcar = {"pe": "pbe", "ca": "lda"}.get(self.user_input.potcar[0].lexch.lower())
 
-        if gga := self.incar.get("GGA"):
+        if gga := self.user_input.incar.get("GGA"):
             if gga.lower() == "pe":
                 func = "pbe"
             elif gga.lower() == "ps":
@@ -119,7 +214,7 @@ class VaspFiles(BaseModel):
             else:
                 func = gga.lower()
 
-        if metagga := self.incar.get("METAGGA"):
+        if metagga := self.user_input.incar.get("METAGGA"):
             if gga:
                 raise ValidationError(
                     "Both the GGA and METAGGA tags were set, which can lead to large errors. "
@@ -133,8 +228,8 @@ class VaspFiles(BaseModel):
             else:
                 func = metagga.lower()
 
-        if self.incar.get("LHFCALC", False):
-            if (func == "pbe" or func_from_potcar == "pbe") and (self.incar.get("HFSCREEN", 0.0) > 0.0):
+        if self.user_input.incar.get("LHFCALC", False):
+            if (func == "pbe" or func_from_potcar == "pbe") and (self.user_input.incar.get("HFSCREEN", 0.0) > 0.0):
                 func = "hse06"
             else:
                 func = None
@@ -154,11 +249,11 @@ class VaspFiles(BaseModel):
         """Determine the bandgap from vasprun.xml."""
         if self.vasprun:
             return self.vasprun.get_band_structure(efermi="smart").get_band_gap()["energy"]
-        return
+        return None
 
-    @computed_field
+    @computed_field  # type: ignore[misc]
     @cached_property
-    def valid_input_set(self) -> VaspInputSet:
+    def valid_input_set(self) -> VaspInputSafe:
         """
         Determine the MP-compliant input set for a calculation.
 
@@ -166,8 +261,8 @@ class VaspFiles(BaseModel):
         The precise details of the input set do not matter.
         """
 
-        incar_updates = {}
-        set_name = None
+        incar_updates: dict[str, Any] = {}
+        set_name: str | None = None
         if self.functional == "pbe":
             if self.run_type == "nonscf":
                 set_name = "MPNonSCFSet"
@@ -195,11 +290,13 @@ class VaspFiles(BaseModel):
             )
 
         # Note that only the *previous* bandgap informs the k-point density
-        return getattr(import_module("pymatgen.io.vasp.sets"), set_name)(
-            structure=self.poscar.structure,
+        vis = getattr(import_module("pymatgen.io.vasp.sets"), set_name)(
+            structure=self.user_input.poscar.structure,
             bandgap=None,
             user_incar_settings=incar_updates,
         )
+
+        return VaspInputSafe.from_vasp_input_set(vis)
 
 
 class BaseValidator(BaseModel):

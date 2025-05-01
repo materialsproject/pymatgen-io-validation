@@ -34,10 +34,12 @@ class CheckCommonErrors(BaseValidator):
         SETTINGS.VASP_MAX_SCF_GRADIENT, description="Largest permitted change in total energies between two SCF cycles."
     )
     num_ionic_steps_to_avg_drift_over: int | None = Field(
-        SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT, description="Number of ionic steps to average over to yield the drift in total energy."
+        SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
+        description="Number of ionic steps to average over to yield the drift in total energy.",
     )
     valid_max_energy_per_atom: float | None = Field(
-        SETTINGS.VASP_MAX_POSITIVE_ENERGY, description="The maximum permitted, self-consistent positive energy in eV/atom."
+        SETTINGS.VASP_MAX_POSITIVE_ENERGY,
+        description="The maximum permitted, self-consistent positive energy in eV/atom.",
     )
 
     def _check_vasp_version(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
@@ -55,11 +57,11 @@ class CheckCommonErrors(BaseValidator):
         if not vasp_files.vasp_version:
             # Skip if vasprun.xml not specified
             return
-        
+
         if (
             vasp_files.vasp_version[0] == 5
-            and (vasp_files.incar.get("METAGGA", self.vasp_defaults["METAGGA"].value) not in [None, "--", "None"])
-            and vasp_files.incar.get("ISPIN", self.vasp_defaults["ISPIN"].value) == 2
+            and (vasp_files.user_input.incar.get("METAGGA", self.vasp_defaults["METAGGA"].value) not in [None, "--", "None"])
+            and vasp_files.user_input.incar.get("ISPIN", self.vasp_defaults["ISPIN"].value) == 2
         ):
             reasons.append(
                 "POTENTIAL BUG --> We believe that there may be a bug with spin-polarized calculations for METAGGAs "
@@ -76,9 +78,9 @@ class CheckCommonErrors(BaseValidator):
     def _check_electronic_convergence(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # check if structure electronically converged
 
-        if vasp_files.incar.get("ALGO", self.vasp_defaults["ALGO"].value).lower() != "chi" and vasp_files.vasprun:
+        if vasp_files.user_input.incar.get("ALGO", self.vasp_defaults["ALGO"].value).lower() != "chi" and vasp_files.vasprun:
             # Response function calculations are non-self-consistent: only one ionic step, no electronic SCF
-            if vasp_files.incar.get("LEPSILON", self.vasp_defaults["LEPSILON"].value):
+            if vasp_files.user_input.incar.get("LEPSILON", self.vasp_defaults["LEPSILON"].value):
                 final_esteps = vasp_files.vasprun.ionic_steps[-1]["electronic_steps"]
                 to_check = {"e_wo_entrp", "e_fr_energy", "e_0_energy"}
 
@@ -87,12 +89,12 @@ class CheckCommonErrors(BaseValidator):
                         break
                     i += 1
 
-                is_converged = i + 1 < vasp_files.incar.get("NELM", self.vasp_defaults["NELM"].value)
+                is_converged = i + 1 < vasp_files.user_input.incar.get("NELM", self.vasp_defaults["NELM"].value)
                 n_non_conv = 1
 
             else:
                 conv_steps = [
-                    len(ionic_step["electronic_steps"]) < vasp_files.incar.get("NELM", self.vasp_defaults["NELM"].value)
+                    len(ionic_step["electronic_steps"]) < vasp_files.user_input.incar.get("NELM", self.vasp_defaults["NELM"].value)
                     for ionic_step in vasp_files.vasprun.ionic_steps
                 ]
                 is_converged = all(conv_steps)
@@ -108,8 +110,8 @@ class CheckCommonErrors(BaseValidator):
 
         if not self.num_ionic_steps_to_avg_drift_over or not vasp_files.outcar:
             return
-        
-        if (all_drift_forces := vasp_files.outcar.drift):
+
+        if all_drift_forces := vasp_files.outcar.drift:
             if len(all_drift_forces) < self.num_ionic_steps_to_avg_drift_over:
                 drift_forces_to_avg_over = all_drift_forces
             else:
@@ -177,7 +179,7 @@ class CheckCommonErrors(BaseValidator):
         if not vasp_files.vasprun or not self.valid_max_allowed_scf_gradient:
             return
 
-        skip = abs(vasp_files.incar.get("NELMDL", self.vasp_defaults["NELMDL"].value)) - 1
+        skip = abs(vasp_files.user_input.incar.get("NELMDL", self.vasp_defaults["NELMDL"].value)) - 1
 
         energies = [d["e_fr_energy"] for d in vasp_files.vasprun.ionic_steps[-1]["electronic_steps"]]
         if len(energies) > skip:
@@ -190,7 +192,7 @@ class CheckCommonErrors(BaseValidator):
                     f"{self.valid_max_allowed_scf_gradient} eV/atom. "
                     f"This sometimes indicates an unstable calculation."
                 )
-        else :
+        else:
             warnings.append(
                 "Not enough electronic steps to compute valid gradient and compare with max SCF gradient tolerance."
             )

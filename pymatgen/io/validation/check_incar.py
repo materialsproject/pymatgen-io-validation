@@ -1,7 +1,6 @@
 """Validate VASP INCAR files."""
 
 from __future__ import annotations
-from collections.abc import Sequence
 import numpy as np
 from pydantic import Field
 
@@ -63,7 +62,8 @@ class CheckIncar(BaseValidator):
 
         user_incar_params, valid_incar_params = self.update_parameters_and_defaults(vasp_files)
         msgs = {
-            "reason": reasons, "warning": warnings,
+            "reason": reasons,
+            "warning": warnings,
         }
         # Validate each parameter in the set of working parameters
         for vasp_param in self.vasp_defaults.values():
@@ -97,7 +97,7 @@ class CheckIncar(BaseValidator):
 
         # Note: we cannot make these INCAR objects because INCAR checks certain keys
         # Like LREAL and forces them to bool when the validator expects them to be str
-        user_incar = {k: v for k, v in vasp_files.incar.as_dict().items() if not k.startswith("@")}
+        user_incar = {k: v for k, v in vasp_files.user_input.incar.as_dict().items() if not k.startswith("@")}
         ref_incar = {k: v for k, v in vasp_files.valid_input_set.incar.as_dict().items() if not k.startswith("@")}
 
         self.add_defaults_to_parameters(user_incar, ref_incar)
@@ -113,7 +113,7 @@ class CheckIncar(BaseValidator):
 
         return user_incar, ref_incar
 
-    def add_defaults_to_parameters(self, *incars: Sequence[Incar]) -> None:
+    def add_defaults_to_parameters(self, *incars) -> None:
         """
         Update parameters with initial defaults.
         """
@@ -252,7 +252,12 @@ class CheckIncar(BaseValidator):
                 }
             )
 
-        if vasp_files.vasp_version and (vasp_files.vasp_version[0] < 6) and user_incar["LORBIT"] >= 11 and user_incar["ISYM"]:
+        if (
+            vasp_files.vasp_version
+            and (vasp_files.vasp_version[0] < 6)
+            and user_incar["LORBIT"] >= 11
+            and user_incar["ISYM"]
+        ):
             self.vasp_defaults["LORBIT"]["warning"] = (
                 "For LORBIT >= 11 and ISYM = 2 the partial charge densities are not correctly symmetrized and can result "
                 "in different charges for symmetrically equivalent partial charge densities. This issue is fixed as of version "
@@ -530,7 +535,7 @@ class CheckIncar(BaseValidator):
 
         # IBRION.
         ref_incar["IBRION"] = [-1, 1, 2]
-        if (inp_set_ibrion := vasp_files.incar.get("IBRION")) and inp_set_ibrion not in ref_incar["IBRION"]:
+        if (inp_set_ibrion := vasp_files.user_input.incar.get("IBRION")) and inp_set_ibrion not in ref_incar["IBRION"]:
             ref_incar["IBRION"].append(inp_set_ibrion)
 
         ionic_steps = []
@@ -568,7 +573,7 @@ class CheckIncar(BaseValidator):
 
         if not ionic_steps:
             return
-        
+
         # EDIFFG.
         # Should be the same or smaller than in valid_input_set. Force-based cutoffs (not in every
         # every MP-compliant input set, but often have comparable or even better results) will also be accepted
@@ -579,13 +584,15 @@ class CheckIncar(BaseValidator):
             value=10 * ref_incar["EDIFF"],
             tag="ionic",
             operation=None,
-            comment=f"The structure is not force-converged according to |EDIFFG|={abs(ref_incar['EDIFFG'])} (or smaller in magnitude)."
+            comment=f"The structure is not force-converged according to |EDIFFG|={abs(ref_incar['EDIFFG'])} (or smaller in magnitude).",
         )
 
         ref_incar["EDIFFG"] = ref_incar.get("EDIFFG", self.vasp_defaults["EDIFFG"].value)
 
         if ionic_steps[-1].get("forces") is None:
-            self.vasp_defaults["EDIFFG"].comment = f"vasprun.xml does not contain forces, cannot check force convergence."
+            self.vasp_defaults["EDIFFG"].comment = (
+                "vasprun.xml does not contain forces, cannot check force convergence."
+            )
             self.vasp_defaults["EDIFFG"].severity = "warning"
             self.vasp_defaults["EDIFFG"].operation = "auto fail"
 

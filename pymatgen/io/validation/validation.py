@@ -11,9 +11,9 @@ from pymatgen.io.validation.check_potcar import CheckPotcar
 from pymatgen.io.validation.check_incar import CheckIncar
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    import os
 
-DEFAULT_CHECKS = [CheckStructureProperties, CheckCommonErrors, CheckKpointsKspacing, CheckPotcar, CheckIncar]
+DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, CheckKpointsKspacing, CheckIncar]
 
 
 class VaspValidator(BaseModel):
@@ -25,7 +25,7 @@ class VaspValidator(BaseModel):
     @property
     def is_valid(self) -> bool:
         return len(self.reasons) == 0
-    
+
     @property
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0
@@ -33,7 +33,7 @@ class VaspValidator(BaseModel):
     @classmethod
     def from_paths(
         cls,
-        vasp_file_paths: dict[str, str | Path],
+        vasp_file_paths: dict[str, os.PathLike[str]],
         fast: bool = False,
     ):
 

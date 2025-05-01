@@ -9,6 +9,8 @@ from importlib.resources import files as import_resource_files
 from monty.serialization import loadfn
 from typing import TYPE_CHECKING
 
+from pymatgen.io.vasp import PotcarSingle
+
 from pymatgen.io.validation.common import BaseValidator
 
 if TYPE_CHECKING:
@@ -26,29 +28,31 @@ class CheckPotcar(BaseValidator):
         description="Path to potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.",
     )
     data_match_tol: float = Field(1.0e-6, description="Tolerance for matching POTCARs to summary statistics data.")
-    ignore_header_keys : set[str] | None = Field({"copyr","sha256"}, description="POTCAR summary statistics keywords.header fields to ignore during validation")
+    ignore_header_keys: set[str] | None = Field(
+        {"copyr", "sha256"}, description="POTCAR summary statistics keywords.header fields to ignore during validation"
+    )
 
     @cached_property
     def potcar_summary_stats(self) -> dict | None:
         """Load POTCAR summary statistics file."""
         if self.potcar_summary_stats_path:
             return loadfn(self.potcar_summary_stats_path, cls=None)
-        return
+        return None
 
     def auto_fail(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> bool:
         """Skip if no POTCAR was provided, or if summary stats file was unset."""
-        
+
         if self.potcar_summary_stats_path is None:
             # If no reference summary stats specified, or we're only doing a quick check,
             # and there are already failure reasons, return
             return True
-        elif vasp_files.potcar is None:
+        elif vasp_files.user_input.potcar is None:
             reasons.append(
                 "PSEUDOPOTENTIALS --> Missing POTCAR files. "
                 "Alternatively, our potcar checker may have an issue--please create a GitHub issue if you "
                 "know your POTCAR exists and can be read by Pymatgen."
             )
-        return vasp_files.potcar is None
+        return vasp_files.user_input.potcar is None
 
     def _check_potcar_spec(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]):
         """
@@ -57,7 +61,7 @@ class CheckPotcar(BaseValidator):
         if vasp_files.valid_input_set.potcar:
             # If the user has pymatgen set up, use the pregenerated POTCAR summary stats.
             valid_potcar_summary_stats = {
-                p.TITEL.replace(" ",""): [p._summary_stats] for p in vasp_files.valid_input_set.potcar
+                p.titel.replace(" ", ""): [p.model_dump()] for p in vasp_files.valid_input_set.potcar
             }
         else:
             # Fallback, use the stats from pymatgen - only load and cache summary stats here.
@@ -75,22 +79,20 @@ class CheckPotcar(BaseValidator):
 
         try:
             incorrect_potcars = []
-            for potcar in vasp_files.potcar:
-                reference_summary_stats = valid_potcar_summary_stats.get(potcar.TITEL.replace(" ", ""), [])
-                potcar_symbol = potcar.TITEL.split(" ")[1]
+            for potcar in vasp_files.user_input.potcar:
+                reference_summary_stats = valid_potcar_summary_stats.get(potcar.titel.replace(" ", ""), [])
+                potcar_symbol = potcar.titel.split(" ")[1]
 
                 if len(reference_summary_stats) == 0:
                     incorrect_potcars.append(potcar_symbol)
                     continue
 
                 for _ref_psp in reference_summary_stats:
-                    user_summary_stats = deepcopy(potcar._summary_stats)
+                    user_summary_stats = potcar.model_dump()
                     ref_psp = deepcopy(_ref_psp)
                     for _set in (user_summary_stats, ref_psp):
-                        _set["keywords"]["header"] = set(
-                            _set["keywords"]["header"]
-                        ).difference(self.ignore_header_keys)
-                    if found_match := potcar.compare_potcar_stats(
+                        _set["keywords"]["header"] = set(_set["keywords"]["header"]).difference(self.ignore_header_keys)
+                    if found_match := PotcarSingle.compare_potcar_stats(
                         ref_psp, user_summary_stats, tolerance=self.data_match_tol
                     ):
                         break
@@ -104,17 +106,15 @@ class CheckPotcar(BaseValidator):
             if len(incorrect_potcars) > 0:
                 # format error string
                 incorrect_potcars = [potcar.split("_")[0] for potcar in incorrect_potcars]
-                if len(incorrect_potcars) == 2:
-                    incorrect_potcars = (
-                        ", ".join(incorrect_potcars[:-1]) + f" and {incorrect_potcars[-1]}"
-                    )  # type: ignore
-                elif len(incorrect_potcars) >= 3:
-                    incorrect_potcars = (
-                        ", ".join(incorrect_potcars[:-1]) + "," + f" and {incorrect_potcars[-1]}"
+                if len(incorrect_potcars) == 1:
+                    incorrect_potcar_str = incorrect_potcars[0]
+                else:
+                    incorrect_potcar_str = (
+                        ", ".join(incorrect_potcars[:-1]) + f", and {incorrect_potcars[-1]}"
                     )  # type: ignore
 
                 reasons.append(
-                    f"PSEUDOPOTENTIALS --> Incorrect POTCAR files were used for {incorrect_potcars}. "
+                    f"PSEUDOPOTENTIALS --> Incorrect POTCAR files were used for {incorrect_potcar_str}. "
                     "Alternatively, our potcar checker may have an issue--please create a GitHub issue if you "
                     "believe the POTCARs used are correct."
                 )

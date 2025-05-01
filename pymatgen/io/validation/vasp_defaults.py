@@ -1,7 +1,6 @@
 """Define VASP defaults and input categories to check."""
 
 from __future__ import annotations
-from collections.abc import Sequence
 from typing import Any, Literal
 import math
 from pathlib import Path
@@ -71,7 +70,7 @@ class VaspParam(BaseModel):
     tag: str = Field(
         description="the general category of input the tag belongs to. Used only to properly update INCAR fields in the same way VASP does."
     )
-    operation: str | Sequence[str] | None = Field(
+    operation: str | list[str] | tuple[str] | None = Field(
         None, description="One or more of VALID_OPERATIONS to apply in validating this parameter."
     )
     alias: str | None = Field(
@@ -171,14 +170,14 @@ class VaspParam(BaseModel):
             specified, must be a Sequence of reference values.
         """
 
-        checks = {self.severity: []}
+        checks: dict[str, list[str]] = {self.severity: []}
 
         if not isinstance(self.operation, list | tuple):
-            operations = [self.operation]
+            operations: list[str | None] = [self.operation]
             current_values = [current_values]
             reference_values = [reference_values]
         else:
-            operations = self.operation
+            operations = list(self.operation)
 
         for iop, operation in enumerate(operations):
 
@@ -195,7 +194,6 @@ class VaspParam(BaseModel):
                 comment_str = (
                     f"INPUT SETTINGS --> {self.alias}: is {cval}, but should be "
                     f"{'' if operation == 'auto fail' else operation + ' '}{reference_values[iop]}."
-                    
                 )
                 if self.comment:
                     comment_str += f"{' ' if len(self.comment) > 0 else ''}{self.comment}"
