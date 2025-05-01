@@ -24,7 +24,11 @@ class VaspValidator(BaseModel):
 
     @property
     def is_valid(self) -> bool:
-        return len(self.reasons) > 0
+        return len(self.reasons) == 0
+    
+    @property
+    def has_warnings(self) -> bool:
+        return len(self.warnings) > 0
 
     @classmethod
     def from_paths(

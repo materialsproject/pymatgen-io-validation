@@ -196,7 +196,7 @@ class VaspFiles(BaseModel):
 
         # Note that only the *previous* bandgap informs the k-point density
         return getattr(import_module("pymatgen.io.vasp.sets"), set_name)(
-            structure=self.poscar,
+            structure=self.poscar.structure,
             bandgap=None,
             user_incar_settings=incar_updates,
         )

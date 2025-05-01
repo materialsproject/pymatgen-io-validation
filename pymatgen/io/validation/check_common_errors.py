@@ -6,6 +6,9 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from pymatgen.io.validation.common import BaseValidator
+from pymatgen.io.validation.settings import IOValidationSettings
+
+SETTINGS = IOValidationSettings()
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike
@@ -28,13 +31,13 @@ class CheckCommonErrors(BaseValidator):
         description="Set of elements that cannot be added to the Materials Project's hull.",
     )
     valid_max_allowed_scf_gradient: float | None = Field(
-        None, description="Largest permitted change in total energies between two SCF cycles."
+        SETTINGS.VASP_MAX_SCF_GRADIENT, description="Largest permitted change in total energies between two SCF cycles."
     )
     num_ionic_steps_to_avg_drift_over: int | None = Field(
-        None, description="Number of ionic steps to average over to yield the drift in total energy."
+        SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT, description="Number of ionic steps to average over to yield the drift in total energy."
     )
     valid_max_energy_per_atom: float | None = Field(
-        50.0, description="The maximum permitted, self-consistent positive energy in eV/atom."
+        SETTINGS.VASP_MAX_POSITIVE_ENERGY, description="The maximum permitted, self-consistent positive energy in eV/atom."
     )
 
     def _check_vasp_version(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
@@ -48,6 +51,11 @@ class CheckCommonErrors(BaseValidator):
             A list of warning strings to update if a check fails. These are lower
             severity and would flag a calculation for possible review.
         """
+
+        if not vasp_files.vasp_version:
+            # Skip if vasprun.xml not specified
+            return
+        
         if (
             vasp_files.vasp_version[0] == 5
             and (vasp_files.incar.get("METAGGA", self.vasp_defaults["METAGGA"].value) not in [None, "--", "None"])
@@ -97,11 +105,11 @@ class CheckCommonErrors(BaseValidator):
 
     def _check_drift_forces(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # Check if drift force is too large
-        if (
-            vasp_files.outcar
-            and self.num_ionic_steps_to_avg_drift_over
-            and (all_drift_forces := vasp_files.outcar.drift)
-        ):
+
+        if not self.num_ionic_steps_to_avg_drift_over or not vasp_files.outcar:
+            return
+        
+        if (all_drift_forces := vasp_files.outcar.drift):
             if len(all_drift_forces) < self.num_ionic_steps_to_avg_drift_over:
                 drift_forces_to_avg_over = all_drift_forces
             else:
@@ -166,7 +174,7 @@ class CheckCommonErrors(BaseValidator):
         # NOTE: do NOT use `e_0_energy`, as there is a bug in the vasprun.xml when printing that variable
         # (see https://www.vasp.at/forum/viewtopic.php?t=16942 for more details).
 
-        if not vasp_files.vasprun:
+        if not vasp_files.vasprun or not self.valid_max_allowed_scf_gradient:
             return
 
         skip = abs(vasp_files.incar.get("NELMDL", self.vasp_defaults["NELMDL"].value)) - 1
@@ -182,7 +190,7 @@ class CheckCommonErrors(BaseValidator):
                     f"{self.valid_max_allowed_scf_gradient} eV/atom. "
                     f"This sometimes indicates an unstable calculation."
                 )
-        else:
+        else :
             warnings.append(
                 "Not enough electronic steps to compute valid gradient and compare with max SCF gradient tolerance."
             )

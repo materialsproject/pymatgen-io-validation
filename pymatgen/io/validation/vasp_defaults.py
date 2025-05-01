@@ -192,11 +192,14 @@ class VaspParam(BaseModel):
             valid_value = self._comparator(cval, operation, reference_values[iop], **kwargs)
 
             if not valid_value:
-                checks[self.severity].append(
+                comment_str = (
                     f"INPUT SETTINGS --> {self.alias}: is {cval}, but should be "
                     f"{'' if operation == 'auto fail' else operation + ' '}{reference_values[iop]}."
-                    f"{' ' if len(self.comment) > 0 else ''}{self.comment}"
+                    
                 )
+                if self.comment:
+                    comment_str += f"{' ' if len(self.comment) > 0 else ''}{self.comment}"
+                checks[self.severity].append(comment_str)
         return checks
 
 
@@ -887,7 +890,7 @@ VASP_DEFAULTS_LIST = [
     ),
     VaspParam(
         name="LOCPROJ",
-        value="NONE",
+        value=None,
         operation="==",
         alias="LOCPROJ",
         tag="misc",

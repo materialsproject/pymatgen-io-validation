@@ -95,6 +95,11 @@ class IOValidationSettings(BaseSettings):
         description="Number of ionic steps to average over when validating drift forces",
     )
 
+    VASP_MAX_POSITIVE_ENERGY : float = Field(
+        50.0,
+        description="Maximum allowable positive energy at the end of a calculation."
+    )
+
     model_config = SettingsConfigDict(env_prefix="pymatgen_io_validation_", extra="ignore")
 
     FAST_VALIDATION: bool = Field(

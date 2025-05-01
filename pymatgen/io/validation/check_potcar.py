@@ -1,7 +1,9 @@
 """Check POTCAR against known POTCARs in pymatgen, without setting up psp_resources."""
 
 from __future__ import annotations
+from copy import deepcopy
 from functools import cached_property
+from pathlib import Path
 from pydantic import Field
 from importlib.resources import files as import_resource_files
 from monty.serialization import loadfn
@@ -10,7 +12,6 @@ from typing import TYPE_CHECKING
 from pymatgen.io.validation.common import BaseValidator
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from pymatgen.io.validation.common import VaspFiles
 
 
@@ -20,11 +21,12 @@ class CheckPotcar(BaseValidator):
     """
 
     name: str = "Check POTCAR"
-    potcar_summary_stats_path: str | Path = Field(
+    potcar_summary_stats_path: str | Path | None = Field(
         import_resource_files("pymatgen.io.vasp") / "potcar-summary-stats.json.bz2",
         description="Path to potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.",
     )
     data_match_tol: float = Field(1.0e-6, description="Tolerance for matching POTCARs to summary statistics data.")
+    ignore_header_keys : set[str] | None = Field({"copyr","sha256"}, description="POTCAR summary statistics keywords.header fields to ignore during validation")
 
     @cached_property
     def potcar_summary_stats(self) -> dict | None:
@@ -35,51 +37,66 @@ class CheckPotcar(BaseValidator):
 
     def auto_fail(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> bool:
         """Skip if no POTCAR was provided, or if summary stats file was unset."""
-        if vasp_files.potcar is None:
+        
+        if self.potcar_summary_stats_path is None:
+            # If no reference summary stats specified, or we're only doing a quick check,
+            # and there are already failure reasons, return
+            return True
+        elif vasp_files.potcar is None:
             reasons.append(
                 "PSEUDOPOTENTIALS --> Missing POTCAR files. "
                 "Alternatively, our potcar checker may have an issue--please create a GitHub issue if you "
                 "know your POTCAR exists and can be read by Pymatgen."
             )
-        elif self.potcar_summary_stats is None:
-            # If no reference summary stats specified, or we're only doing a quick check,
-            # and there are already failure reasons, return
-            return True
         return vasp_files.potcar is None
 
     def _check_potcar_spec(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]):
         """
         Checks to make sure the POTCAR is equivalent to the correct POTCAR from the pymatgen input set."""
 
-        psp_subset = self.potcar_summary_stats.get(vasp_files.valid_input_set._config_dict["POTCAR_FUNCTIONAL"], {})
+        if vasp_files.valid_input_set.potcar:
+            # If the user has pymatgen set up, use the pregenerated POTCAR summary stats.
+            valid_potcar_summary_stats = {
+                p.TITEL.replace(" ",""): [p._summary_stats] for p in vasp_files.valid_input_set.potcar
+            }
+        else:
+            # Fallback, use the stats from pymatgen - only load and cache summary stats here.
+            psp_subset = self.potcar_summary_stats.get(vasp_files.valid_input_set._config_dict["POTCAR_FUNCTIONAL"], {})
 
-        valid_potcar_summary_stats = {}  # type: ignore
-        for element in vasp_files.structure.composition.remove_charges().as_dict():
-            potcar_symbol = vasp_files.valid_input_set._config_dict["POTCAR"][element]
-            for titel_no_spc in psp_subset:
-                for psp in psp_subset[titel_no_spc]:
-                    if psp["symbol"] == potcar_symbol:
-                        if titel_no_spc not in valid_potcar_summary_stats:
-                            valid_potcar_summary_stats[titel_no_spc] = []
-                        valid_potcar_summary_stats[titel_no_spc].append(psp)
+            valid_potcar_summary_stats = {}  # type: ignore
+            for element in vasp_files.structure.composition.remove_charges().as_dict():
+                potcar_symbol = vasp_files.valid_input_set._config_dict["POTCAR"][element]
+                for titel_no_spc in psp_subset:
+                    for psp in psp_subset[titel_no_spc]:
+                        if psp["symbol"] == potcar_symbol:
+                            if titel_no_spc not in valid_potcar_summary_stats:
+                                valid_potcar_summary_stats[titel_no_spc] = []
+                            valid_potcar_summary_stats[titel_no_spc].append(psp)
 
         try:
             incorrect_potcars = []
             for potcar in vasp_files.potcar:
                 reference_summary_stats = valid_potcar_summary_stats.get(potcar.TITEL.replace(" ", ""), [])
+                potcar_symbol = potcar.TITEL.split(" ")[1]
 
                 if len(reference_summary_stats) == 0:
-                    incorrect_potcars.append(potcar.TITEL.split(" ")[1])
+                    incorrect_potcars.append(potcar_symbol)
                     continue
 
-                for ref_psp in reference_summary_stats:
+                for _ref_psp in reference_summary_stats:
+                    user_summary_stats = deepcopy(potcar._summary_stats)
+                    ref_psp = deepcopy(_ref_psp)
+                    for _set in (user_summary_stats, ref_psp):
+                        _set["keywords"]["header"] = set(
+                            _set["keywords"]["header"]
+                        ).difference(self.ignore_header_keys)
                     if found_match := potcar.compare_potcar_stats(
-                        ref_psp, potcar._summary_stats, tolerance=self.data_match_tol
+                        ref_psp, user_summary_stats, tolerance=self.data_match_tol
                     ):
                         break
 
                 if not found_match:
-                    incorrect_potcars.append(potcar["titel"].split(" ")[1])
+                    incorrect_potcars.append(potcar_symbol)
                     if self.fast:
                         # quick return, only matters that one POTCAR didn't match
                         break

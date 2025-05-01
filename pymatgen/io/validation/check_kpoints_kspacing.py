@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from pymatgen.io.validation.common import BaseValidator
+from pymatgen.io.validation.settings import IOValidationSettings
+
+SETTINGS = IOValidationSettings()
 
 if TYPE_CHECKING:
     from pymatgen.io.validation.common import VaspFiles
@@ -16,14 +19,14 @@ class CheckKpointsKspacing(BaseValidator):
 
     name: str = "Check k-point density"
     kpts_tolerance: float | None = Field(
-        None,
+        SETTINGS.VASP_KPTS_TOLERANCE,
         description="Tolerance for evaluating k-point density, to accommodate different the k-point generation schemes across VASP versions.",
     )
     allow_explicit_kpoint_mesh: bool = Field(
-        False, description="Whether to permit explicit generation of k-points (as for a bandstructure calculation)."
+        SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH, description="Whether to permit explicit generation of k-points (as for a bandstructure calculation)."
     )
     allow_kpoint_shifts: bool = Field(
-        False, description="Whether to permit shifting the origin of the k-point mesh from Gamma."
+        SETTINGS.VASP_ALLOW_KPT_SHIFT, description="Whether to permit shifting the origin of the k-point mesh from Gamma."
     )
 
     def auto_fail(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> bool:
