@@ -4,7 +4,7 @@ simulations and calculations. That is, it checks calculation details against a r
 to ensure that data is compatible with some standard.
 """
 
-from pymatgen.io.validation.validation import ValidationDoc  # noqa: F401
+from pymatgen.io.validation.validation import VaspValidator  # noqa: F401
 
 from pymatgen.io.validation.settings import IOValidationSettings as _settings
 
