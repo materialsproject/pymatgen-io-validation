@@ -6,7 +6,7 @@ from functools import cached_property
 from importlib import import_module
 import os
 from pathlib import Path
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator, model_serializer, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_serializer, PrivateAttr
 from typing import TYPE_CHECKING, Any
 
 from pymatgen.core import Structure
@@ -22,42 +22,44 @@ if TYPE_CHECKING:
 class ValidationError(Exception):
     """Define custom exception during validation."""
 
+
 class PotcarSummaryStats(BaseModel):
     """Schematize `PotcarSingle._summary_stats`."""
 
     class _PotcarSummaryStatsKeywords(BaseModel):
         """Schematize `PotcarSingle._summary_stats["keywords"]` field."""
-        header : set[str] = Field(description="The keywords in the POTCAR header.")
-        data : set[str] = Field(description="The keywords in the POTCAR body.")
+
+        header: set[str] = Field(description="The keywords in the POTCAR header.")
+        data: set[str] = Field(description="The keywords in the POTCAR body.")
 
     class _PotcarSummaryStatsStats(BaseModel):
         """Schematize `PotcarSingle._summary_stats["stats"]` field."""
+
         class _PotcarSummaryStatsNames(BaseModel):
             """Define statistics used in `PotcarSingle._summary_stats`."""
-            MEAN : float = Field(description="Data mean.")
-            ABSMEAN : float = Field(description="Data magnitude mean.")
-            VAR : float = Field(description="Mean of squares of data.")
-            MIN : float = Field(description="Data minimum.")
-            MAX : float = Field(description="Data maximum.")
-        header : _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR header.")
-        data : _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR body.")
 
-    keywords : _PotcarSummaryStatsKeywords
-    stats : _PotcarSummaryStatsStats
-    titel : str
-    lexch : str
+            MEAN: float = Field(description="Data mean.")
+            ABSMEAN: float = Field(description="Data magnitude mean.")
+            VAR: float = Field(description="Mean of squares of data.")
+            MIN: float = Field(description="Data minimum.")
+            MAX: float = Field(description="Data maximum.")
 
+        header: _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR header.")
+        data: _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR body.")
+
+    keywords: _PotcarSummaryStatsKeywords
+    stats: _PotcarSummaryStatsStats
+    titel: str
+    lexch: str
 
     @classmethod
-    def from_file(cls, potcar : os.PathLike | Potcar) -> Self:
+    def from_file(cls, potcar: os.PathLike | Potcar) -> Self:
         """Create a list of PotcarSummaryStats from a POTCAR."""
-        if not isinstance(potcar,Potcar):
+        if not isinstance(potcar, Potcar):
             potcar = Potcar.from_file(potcar)
-        return [
-            cls(**p._summary_stats, titel = p.TITEL, lexch = p.LEXCH) 
-            for p in potcar
-        ]
-    
+        return [cls(**p._summary_stats, titel=p.TITEL, lexch=p.LEXCH) for p in potcar]
+
+
 class VaspInputSafe(BaseModel):
     """Stricter VaspInputSet with no POTCAR info."""
 
@@ -67,22 +69,32 @@ class VaspInputSafe(BaseModel):
     potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
 
     @model_serializer
-    def deserialize_objects(self) -> dict[str,dict[str,Any]]:
+    def deserialize_objects(self) -> dict[str, dict[str, Any]]:
         """Ensure all pymatgen objects are deserialized."""
-        model_dumped : dict[str,dict[str,Any]] = {
-            "potcar": [p.model_dump() for p in self.user_input.potcar]
-        }
-        for k in ("incar","poscar","kpoints",):
-            if (pmg_obj := getattr(self,k)):
+        model_dumped: dict[str, dict[str, Any]] = {"potcar": [p.model_dump() for p in self.user_input.potcar]}
+        for k in (
+            "incar",
+            "poscar",
+            "kpoints",
+        ):
+            if pmg_obj := getattr(self, k):
                 model_dumped[k] = pmg_obj.as_dict()
         return model_dumped
-    
+
     @classmethod
-    def from_vasp_input_set(cls, vis : VaspInputSet) -> Self:
+    def from_vasp_input_set(cls, vis: VaspInputSet) -> Self:
         return cls(
-            **{k : getattr(vis,k) for k in ("incar","kpoints","poscar",)},
-            potcar = PotcarSummaryStats.from_file(vis.potcar),
+            **{
+                k: getattr(vis, k)
+                for k in (
+                    "incar",
+                    "kpoints",
+                    "poscar",
+                )
+            },
+            potcar=PotcarSummaryStats.from_file(vis.potcar),
         )
+
 
 class VaspFiles(BaseModel):
     """Define required and optional files for validation."""
@@ -90,8 +102,8 @@ class VaspFiles(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     user_input: VaspInputSafe = Field(description="The VASP input set used in the calculation.")
-    _outcar_path : os.PathLike | None = PrivateAttr(None)
-    _vasprun_path : os.PathLike | None = PrivateAttr(None)
+    _outcar_path: os.PathLike | None = PrivateAttr(None)
+    _vasprun_path: os.PathLike | None = PrivateAttr(None)
 
     @cached_property
     def outcar(self) -> Outcar | None:
@@ -106,7 +118,7 @@ class VaspFiles(BaseModel):
         if self._vasprun_path:
             return Vasprun(self._vasprun_path)
         return None
-    
+
     @property
     def actual_kpoints(self) -> Kpoints | None:
         if self.user_input.kpoints:
@@ -139,9 +151,7 @@ class VaspFiles(BaseModel):
         vasprun: os.PathLike[str] | None = None,
     ):
         """Construct a set of VASP I/O from file paths."""
-        config: dict[str, dict[str] | os.PathLike] = {
-            "user_input": {}
-        }
+        config: dict[str, dict[str] | os.PathLike] = {"user_input": {}}
         _vars = locals()
 
         to_obj = {
@@ -155,7 +165,7 @@ class VaspFiles(BaseModel):
                 config["user_input"][file_name] = file_cls.from_file(path)
 
         vf = cls(**config)
-        for file_name in ("outcar","vasprun"):
+        for file_name in ("outcar", "vasprun"):
             if (path := _vars.get(file_name)) and Path(path).exists():
                 setattr(vf, f"_{file_name}_path", path)
 

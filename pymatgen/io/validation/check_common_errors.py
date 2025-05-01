@@ -60,7 +60,10 @@ class CheckCommonErrors(BaseValidator):
 
         if (
             vasp_files.vasp_version[0] == 5
-            and (vasp_files.user_input.incar.get("METAGGA", self.vasp_defaults["METAGGA"].value) not in [None, "--", "None"])
+            and (
+                vasp_files.user_input.incar.get("METAGGA", self.vasp_defaults["METAGGA"].value)
+                not in [None, "--", "None"]
+            )
             and vasp_files.user_input.incar.get("ISPIN", self.vasp_defaults["ISPIN"].value) == 2
         ):
             reasons.append(
@@ -78,7 +81,10 @@ class CheckCommonErrors(BaseValidator):
     def _check_electronic_convergence(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # check if structure electronically converged
 
-        if vasp_files.user_input.incar.get("ALGO", self.vasp_defaults["ALGO"].value).lower() != "chi" and vasp_files.vasprun:
+        if (
+            vasp_files.user_input.incar.get("ALGO", self.vasp_defaults["ALGO"].value).lower() != "chi"
+            and vasp_files.vasprun
+        ):
             # Response function calculations are non-self-consistent: only one ionic step, no electronic SCF
             if vasp_files.user_input.incar.get("LEPSILON", self.vasp_defaults["LEPSILON"].value):
                 final_esteps = vasp_files.vasprun.ionic_steps[-1]["electronic_steps"]
@@ -94,7 +100,8 @@ class CheckCommonErrors(BaseValidator):
 
             else:
                 conv_steps = [
-                    len(ionic_step["electronic_steps"]) < vasp_files.user_input.incar.get("NELM", self.vasp_defaults["NELM"].value)
+                    len(ionic_step["electronic_steps"])
+                    < vasp_files.user_input.incar.get("NELM", self.vasp_defaults["NELM"].value)
                     for ionic_step in vasp_files.vasprun.ionic_steps
                 ]
                 is_converged = all(conv_steps)
