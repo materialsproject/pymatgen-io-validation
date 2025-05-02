@@ -43,41 +43,39 @@ class ValidationDoc(EmmetBaseModel):
     def from_task_doc(cls, task_doc: TaskDoc, **kwargs) -> Self:
 
         final_calc = task_doc.calcs_reversed[0]
-        
+
         potcar_stats = [
             PotcarSummaryStats(
-                titel = ps.titel,
-                keywords = ps.summary_stats["keywords"],
-                stats = ps.summary_stats["stats"],
-                lexch = final_calc.input.potcar_type[0].split("_")[0].lower()
+                titel=ps.titel,
+                keywords=ps.summary_stats["keywords"],
+                stats=ps.summary_stats["stats"],
+                lexch=final_calc.input.potcar_type[0].split("_")[0].lower(),
             )
             for ps in final_calc.input.potcar_spec
         ]
 
         vasp_files = VaspFiles(
-            user_input = VaspInputSafe(
-                incar = Incar(final_calc.input.incar),
-                structure = final_calc.input.structure,
-                potcar = potcar_stats,
+            user_input=VaspInputSafe(
+                incar=Incar(final_calc.input.incar),
+                structure=final_calc.input.structure,
+                potcar=potcar_stats,
             )
         )
-        vasp_files._outcar = LightOutcar(
-            **{k: final_calc.output.outcar.get(k) for k in ("drift","magnetization")}
-        )
+        vasp_files._outcar = LightOutcar(**{k: final_calc.output.outcar.get(k) for k in ("drift", "magnetization")})
         vasp_files._vasprun = LightVasprun(
             vasp_version=final_calc.vasp_version,
             ionic_steps=[ionic_step.model_dump() for ionic_step in final_calc.output.ionic_steps],
             final_energy=task_doc.output.energy,
             final_structure=task_doc.output.structure,
-            kpoints = final_calc.input.kpoints,
-            parameters = final_calc.input.parameters,
-            bandgap = final_calc.output.bandgap
+            kpoints=final_calc.input.kpoints,
+            parameters=final_calc.input.parameters,
+            bandgap=final_calc.output.bandgap,
         )
 
         validator = VaspValidator.from_vasp_input(vasp_files=vasp_files)
         return cls(
-            valid = validator.is_valid,
-            reasons = validator.reasons,
-            warnings = validator.warnings,
+            valid=validator.is_valid,
+            reasons=validator.reasons,
+            warnings=validator.warnings,
             **kwargs,
         )

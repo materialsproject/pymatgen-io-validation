@@ -6,7 +6,7 @@ from functools import cached_property
 from importlib import import_module
 import os
 from pathlib import Path
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_serializer, PrivateAttr
+from pydantic import BaseModel, Field, computed_field, model_serializer, PrivateAttr
 from typing import TYPE_CHECKING, Any
 
 from pymatgen.core import Structure
@@ -59,36 +59,41 @@ class PotcarSummaryStats(BaseModel):
             potcar = Potcar.from_file(potcar)
         return [cls(**p._summary_stats, titel=p.TITEL, lexch=p.LEXCH) for p in potcar]
 
+
 class LightOutcar(BaseModel):
     """Schematic of pymatgen's Outcar."""
-    
-    drift : list[list[float]] | None = Field(None, description="The drift forces.")
-    magnetization : list[dict[str,float]] | None = Field(None, description="The on-site magnetic moments, possibly with orbital resolution.")
+
+    drift: list[list[float]] | None = Field(None, description="The drift forces.")
+    magnetization: list[dict[str, float]] | None = Field(
+        None, description="The on-site magnetic moments, possibly with orbital resolution."
+    )
+
 
 class LightVasprun(BaseModel):
     """Lightweight version of pymatgen Vasprun."""
 
-    vasp_version : str = Field(description="The dot-separated version of VASP used.")
-    ionic_steps : list[dict[str,Any]] = Field(description="The ionic steps in the calculation.")
-    final_energy : float = Field(description="The final total energy in eV.")
-    final_structure : Structure = Field(description="The final structure.")
-    kpoints : Kpoints = Field(description="The actual k-points used in the calculation.")
-    parameters : dict[str,Any] = Field(description="The default-padded input parameters interpreted by VASP.")
-    bandgap : float = Field(description="The bandgap - note that this field is derived from the Vasprun object.")
+    vasp_version: str = Field(description="The dot-separated version of VASP used.")
+    ionic_steps: list[dict[str, Any]] = Field(description="The ionic steps in the calculation.")
+    final_energy: float = Field(description="The final total energy in eV.")
+    final_structure: Structure = Field(description="The final structure.")
+    kpoints: Kpoints = Field(description="The actual k-points used in the calculation.")
+    parameters: dict[str, Any] = Field(description="The default-padded input parameters interpreted by VASP.")
+    bandgap: float = Field(description="The bandgap - note that this field is derived from the Vasprun object.")
 
     @classmethod
-    def from_vasprun(cls, vasprun : Vasprun) -> Self:
+    def from_vasprun(cls, vasprun: Vasprun) -> Self:
         return cls(
-            **{k : getattr(vasprun,k) for k in cls.model_fields if k != "bandgap"},
-            bandgap = vasprun.get_band_structure(efermi="smart").get_band_gap()["energy"],
+            **{k: getattr(vasprun, k) for k in cls.model_fields if k != "bandgap"},
+            bandgap=vasprun.get_band_structure(efermi="smart").get_band_gap()["energy"],
         )
+
 
 class VaspInputSafe(BaseModel):
     """Stricter VaspInputSet with no POTCAR info."""
 
     incar: Incar = Field(description="The INCAR used in the calculation.")
-    structure : Structure = Field(description="The structure associated with the calculation.")
-    kpoints : Kpoints | None = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
+    structure: Structure = Field(description="The structure associated with the calculation.")
+    kpoints: Kpoints | None = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
     potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
 
     @model_serializer
@@ -130,13 +135,10 @@ class VaspFiles(BaseModel):
     def outcar(self) -> LightOutcar | None:
         """The optional OUTCAR."""
         if self._outcar:
-            if not isinstance(self._outcar,Outcar | LightOutcar):
+            if not isinstance(self._outcar, Outcar | LightOutcar):
                 self._outcar = Outcar(self._outcar)
             if isinstance(self._outcar, Outcar):
-                return LightOutcar(
-                    drift = self._outcar.drift,
-                    magnetization = self._outcar.magnetization
-                )
+                return LightOutcar(drift=self._outcar.drift, magnetization=self._outcar.magnetization)
             return self._outcar
         return None
 

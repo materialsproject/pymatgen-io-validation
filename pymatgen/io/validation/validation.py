@@ -18,6 +18,7 @@ DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, Chec
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
 
+
 class VaspValidator(BaseModel):
 
     reasons: list[str] = Field([], description="List of deprecation tags detailing why this task isn't valid")
@@ -31,31 +32,26 @@ class VaspValidator(BaseModel):
     @property
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0
-    
+
     @classmethod
     def from_vasp_input(
         cls,
         vasp_file_paths: dict[str, os.PathLike[str]] | None = None,
-        vasp_files : VaspFiles | None = None,
+        vasp_files: VaspFiles | None = None,
         fast: bool = False,
     ):
-        
+
         if not vasp_files and vasp_file_paths:
             vasp_files = VaspFiles.from_paths(**vasp_file_paths)
 
-        config = {
-            **{
-                k: []
-                for k in (
-                    "reasons",
-                    "warnings",
-                )
-            },
+        config: dict[str, list[str] | VaspFiles] = {
+            "reasons": [],
+            "warnings": [],
             "vasp_files": vasp_files,
         }
 
         for check in DEFAULT_CHECKS:
-            check(fast=fast).check(config["vasp_files"], config["reasons"], config["warnings"])
+            check(fast=fast).check(config["vasp_files"], config["reasons"], config["warnings"])  # type: ignore[arg-type]
             if fast and len(config["reasons"]) > 0:
                 break
         return cls(**config)
