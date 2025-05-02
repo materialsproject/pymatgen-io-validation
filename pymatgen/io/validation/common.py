@@ -47,8 +47,8 @@ class PotcarSummaryStats(BaseModel):
         header: _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR header.")
         data: _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR body.")
 
-    keywords: _PotcarSummaryStatsKeywords
-    stats: _PotcarSummaryStatsStats
+    keywords: _PotcarSummaryStatsKeywords | None = None
+    stats: _PotcarSummaryStatsStats | None = None
     titel: str
     lexch: str
 
@@ -256,7 +256,7 @@ class VaspFiles(BaseModel):
             else:
                 func = gga.lower()
 
-        if metagga := self.user_input.incar.get("METAGGA"):
+        if (metagga := self.user_input.incar.get("METAGGA")) and metagga.lower() != "none":
             if gga:
                 raise ValidationError(
                     "Both the GGA and METAGGA tags were set, which can lead to large errors. "

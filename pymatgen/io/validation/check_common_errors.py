@@ -251,7 +251,6 @@ class CheckStructureProperties(BaseValidator):
 
     def _check_velocities(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         """Check structure for non-zero velocities."""
-
         if (
             velos := vasp_files.user_input.structure.site_properties.get("velocities")
         ) is not None and vasp_files.run_type != "md":

@@ -46,13 +46,16 @@ class CheckPotcar(BaseValidator):
             # If no reference summary stats specified, or we're only doing a quick check,
             # and there are already failure reasons, return
             return True
-        elif vasp_files.user_input.potcar is None:
+        elif vasp_files.user_input.potcar is None or any(
+            ps.keywords is None or ps.stats is None for ps in vasp_files.user_input.potcar
+        ):
             reasons.append(
                 "PSEUDOPOTENTIALS --> Missing POTCAR files. "
                 "Alternatively, our potcar checker may have an issue--please create a GitHub issue if you "
                 "know your POTCAR exists and can be read by Pymatgen."
             )
-        return vasp_files.user_input.potcar is None
+            return True
+        return False
 
     def _check_potcar_spec(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]):
         """

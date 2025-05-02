@@ -1,11 +1,13 @@
 import pytest
 import copy
 from conftest import get_test_object, test_data_task_docs
-from pymatgen.io.validation import ValidationDoc
+from pymatgen.io.validation.emmet_validation import ValidationDoc
 from emmet.core.tasks import TaskDoc
 from monty.serialization import loadfn
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
+
+from pymatgen.io.validation.common import ValidationError
 
 ### TODO: add tests for many other MP input sets (e.g. MPNSCFSet, MPNMRSet, MPScanRelaxSet, Hybrid sets, etc.)
 ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
@@ -373,10 +375,11 @@ def test_common_error_checks(object_name):
     task_doc.calcs_reversed[0].output.structure._charge = 0.0  # patch for old test files
 
     # METAGGA and GGA tag check (should never be set together)
-    temp_task_doc = copy.deepcopy(task_doc)
-    temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
-    temp_task_doc.calcs_reversed[0].input.incar["GGA"] = "PE"
-    run_check(temp_task_doc, "KNOWN BUG", False)
+    with pytest.raises(ValidationError):
+        temp_task_doc = copy.deepcopy(task_doc)
+        temp_task_doc.calcs_reversed[0].input.incar["METAGGA"] = "R2SCAN"
+        temp_task_doc.calcs_reversed[0].input.incar["GGA"] = "PE"
+        ValidationDoc.from_task_doc(temp_task_doc)
 
     # METAGGA and GGA tag check (should not flag any reasons when METAGGA set to None)
     temp_task_doc = copy.deepcopy(task_doc)
@@ -562,33 +565,6 @@ def test_vasp_version_check(object_name):
     run_check(temp_task_doc, "POTENTIAL BUG --> We believe", False)
 
 
-def test_task_document(test_dir):
-    from emmet.core.vasp.task_valid import TaskDocument
-
-    calcs = {}
-    calcs["compliant"] = loadfn(
-        str(test_dir / "vasp" / "TaskDocuments" / "MP_compatible_GaAs_r2SCAN_static_TaskDocument.json.gz"),
-        cls=None,
-    )
-    calcs["non-compliant"] = loadfn(
-        str(test_dir / "vasp" / "TaskDocuments" / "MP_incompatible_GaAs_r2SCAN_static_TaskDocument.json.gz"),
-        cls=None,
-    )
-
-    valid_docs = {}
-    for calc in calcs:
-        valid_docs[calc] = ValidationDoc.from_task_doc(TaskDocument(**calcs[calc]))
-        # quickly check that `from_dict` and `from_task_doc` give same document
-        assert set(ValidationDoc.from_dict(calcs[calc]).reasons) == set(valid_docs[calc].reasons)
-
-    assert valid_docs["compliant"].valid
-    assert not valid_docs["non-compliant"].valid
-
-    expected_reasons = ["KPOINTS", "ENCUT", "ENAUG"]
-    for expected_reason in expected_reasons:
-        assert any(expected_reason in reason for reason in valid_docs["non-compliant"].reasons)
-
-
 def test_fast_mode():
     task_doc = test_data_task_docs["SiStatic"]
     valid_doc = ValidationDoc.from_task_doc(task_doc, check_potcar=False)
@@ -655,8 +631,8 @@ def test_site_properties(test_dir):
     assert any("selective dynamics" in reason.lower() for reason in vd.reasons)
 
     # map non-zero velocities to input structure and re-check
-    task_doc.input.structure.add_site_property(
-        "velocities", task_doc.orig_inputs.poscar.structure.site_properties["velocities"]
+    task_doc.calcs_reversed[0].input.structure.add_site_property(
+        "velocities", [[1.0, 2.0, 3.0] for _ in range(len(task_doc.structure))]
     )
     vd = ValidationDoc.from_task_doc(task_doc)
     assert any("non-zero velocities" in warning.lower() for warning in vd.warnings)

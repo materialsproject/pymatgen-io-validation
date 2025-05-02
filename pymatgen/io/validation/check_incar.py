@@ -584,10 +584,13 @@ class CheckIncar(BaseValidator):
             value=10 * ref_incar["EDIFF"],
             tag="ionic",
             operation=None,
-            comment=f"The structure is not force-converged according to |EDIFFG|={abs(ref_incar['EDIFFG'])} (or smaller in magnitude).",
         )
 
         ref_incar["EDIFFG"] = ref_incar.get("EDIFFG", self.vasp_defaults["EDIFFG"].value)
+        self.vasp_defaults["EDIFFG"].comment = (
+            "The structure is not force-converged according "
+            f"to |EDIFFG|={abs(ref_incar['EDIFFG'])} (or smaller in magnitude)."
+        )
 
         if ionic_steps[-1].get("forces") is None:
             self.vasp_defaults["EDIFFG"].comment = (

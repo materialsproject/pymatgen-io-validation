@@ -44,15 +44,18 @@ class ValidationDoc(EmmetBaseModel):
 
         final_calc = task_doc.calcs_reversed[0]
 
-        potcar_stats = [
-            PotcarSummaryStats(
-                titel=ps.titel,
-                keywords=ps.summary_stats["keywords"],
-                stats=ps.summary_stats["stats"],
-                lexch=final_calc.input.potcar_type[0].split("_")[0].lower(),
-            )
-            for ps in final_calc.input.potcar_spec
-        ]
+        potcar_stats = None
+        if final_calc.input.potcar_spec:
+
+            potcar_stats = [
+                PotcarSummaryStats(
+                    titel=ps.titel,
+                    keywords=ps.summary_stats["keywords"] if ps.summary_stats else None,
+                    stats=ps.summary_stats["stats"] if ps.summary_stats else None,
+                    lexch="pe" if final_calc.input.potcar_type[0] == "PAW_PBE" else "ca",
+                )
+                for ps in final_calc.input.potcar_spec
+            ]
 
         vasp_files = VaspFiles(
             user_input=VaspInputSafe(
