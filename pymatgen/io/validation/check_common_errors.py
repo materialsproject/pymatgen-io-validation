@@ -143,7 +143,7 @@ class CheckCommonErrors(BaseValidator):
         if (
             vasp_files.vasprun
             and self.valid_max_energy_per_atom
-            and (cur_final_energy_per_atom := vasp_files.vasprun.final_energy / len(vasp_files.structure))
+            and (cur_final_energy_per_atom := vasp_files.vasprun.final_energy / len(vasp_files.user_input.structure))
             > self.valid_max_energy_per_atom
         ):
             reasons.append(
@@ -161,8 +161,8 @@ class CheckCommonErrors(BaseValidator):
         cur_magmoms = [abs(mag["tot"]) for mag in vasp_files.outcar.magnetization]
         bad_site_magmom_msgs = []
         if len(cur_magmoms) > 0:
-            for site_num in range(0, len(vasp_files.structure)):
-                cur_site_ele = vasp_files.structure.sites[site_num].species_string
+            for site_num in range(0, len(vasp_files.user_input.structure)):
+                cur_site_ele = vasp_files.user_input.structure.sites[site_num].species_string
                 cur_site_magmom = cur_magmoms[site_num]
                 cur_site_max_allowed_magmom = self.valid_max_magmoms.get(cur_site_ele, 5.0)
 
@@ -191,7 +191,7 @@ class CheckCommonErrors(BaseValidator):
         energies = [d["e_fr_energy"] for d in vasp_files.vasprun.ionic_steps[-1]["electronic_steps"]]
         if len(energies) > skip:
             cur_max_gradient = np.max(np.gradient(energies)[skip:])
-            cur_max_gradient_per_atom = cur_max_gradient / vasp_files.structure.num_sites
+            cur_max_gradient_per_atom = cur_max_gradient / vasp_files.user_input.structure.num_sites
             if self.valid_max_allowed_scf_gradient and cur_max_gradient_per_atom > self.valid_max_allowed_scf_gradient:
                 warnings.append(
                     f"STABILITY --> The max SCF gradient is {round(cur_max_gradient_per_atom,4)} eV/atom, "
@@ -207,7 +207,7 @@ class CheckCommonErrors(BaseValidator):
     def _check_unused_elements(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # Check for Am and Po elements. These currently do not have proper elemental entries
         # and will not get treated properly by the thermo builder.
-        elements = set(vasp_files.structure.composition.chemical_system.split("-"))
+        elements = set(vasp_files.user_input.structure.composition.chemical_system.split("-"))
         if excluded_elements := self.exclude_elements.intersection(elements):
             reasons.append(
                 f"COMPOSITION --> Your structure contains the elements {' '.join(excluded_elements)}, "
@@ -234,7 +234,7 @@ class CheckStructureProperties(BaseValidator):
         """Check structure for inappropriate site properties."""
 
         if (
-            selec_dyn := vasp_files.structure.site_properties.get("selective_dynamics")
+            selec_dyn := vasp_files.user_input.structure.site_properties.get("selective_dynamics")
         ) is not None and vasp_files.run_type == "relax":
             if any(self._has_frozen_degrees_of_freedom(sd_array) for sd_array in selec_dyn):
                 reasons.append(
@@ -253,7 +253,7 @@ class CheckStructureProperties(BaseValidator):
         """Check structure for non-zero velocities."""
 
         if (
-            velos := vasp_files.structure.site_properties.get("velocities")
+            velos := vasp_files.user_input.structure.site_properties.get("velocities")
         ) is not None and vasp_files.run_type != "md":
             if any(self._has_nonzero_velocities(velo) for velo in velos):
                 warnings.append(

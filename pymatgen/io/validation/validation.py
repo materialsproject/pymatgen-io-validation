@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, CheckKpointsKspacing, CheckIncar]
 
+# TODO: check for surface/slab calculations. Especially necessary for external calcs.
+# TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
 
 class VaspValidator(BaseModel):
 
@@ -29,13 +31,17 @@ class VaspValidator(BaseModel):
     @property
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0
-
+    
     @classmethod
-    def from_paths(
+    def from_vasp_input(
         cls,
-        vasp_file_paths: dict[str, os.PathLike[str]],
+        vasp_file_paths: dict[str, os.PathLike[str]] | None = None,
+        vasp_files : VaspFiles | None = None,
         fast: bool = False,
     ):
+        
+        if not vasp_files and vasp_file_paths:
+            vasp_files = VaspFiles.from_paths(**vasp_file_paths)
 
         config = {
             **{
@@ -45,7 +51,7 @@ class VaspValidator(BaseModel):
                     "warnings",
                 )
             },
-            "vasp_files": VaspFiles.from_paths(**vasp_file_paths),
+            "vasp_files": vasp_files,
         }
 
         for check in DEFAULT_CHECKS:

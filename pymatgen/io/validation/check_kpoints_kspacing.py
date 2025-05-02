@@ -53,7 +53,7 @@ class CheckKpointsKspacing(BaseValidator):
             valid_kspacing = vasp_files.valid_input_set.incar.get("KSPACING", self.vasp_defaults["KSPACING"].value)
             # number of kpoints along each of the three lattice vectors
             nk = [
-                max(1, np.ceil(vasp_files.structure.lattice.reciprocal_lattice.abc[ik] / valid_kspacing))
+                max(1, np.ceil(vasp_files.user_input.structure.lattice.reciprocal_lattice.abc[ik] / valid_kspacing))
                 for ik in range(3)
             ]
             valid_num_kpts = np.prod(nk)
@@ -103,8 +103,8 @@ class CheckKpointsKspacing(BaseValidator):
         # check for valid kpoint mesh (which depends on symmetry of the structure)
 
         cur_kpoint_style = vasp_files.actual_kpoints.style.name.lower()
-        is_hexagonal = vasp_files.structure.lattice.is_hexagonal()
-        is_face_centered = vasp_files.structure.get_space_group_info()[0][0] == "F"
+        is_hexagonal = vasp_files.user_input.structure.lattice.is_hexagonal()
+        is_face_centered = vasp_files.user_input.structure.get_space_group_info()[0][0] == "F"
         monkhorst_mesh_is_invalid = is_hexagonal or is_face_centered
         if (
             cur_kpoint_style == "monkhorst"

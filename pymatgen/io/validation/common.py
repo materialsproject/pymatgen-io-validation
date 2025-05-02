@@ -53,28 +53,51 @@ class PotcarSummaryStats(BaseModel):
     lexch: str
 
     @classmethod
-    def from_file(cls, potcar: os.PathLike | Potcar) -> Self:
+    def from_file(cls, potcar: os.PathLike | Potcar) -> list[Self]:
         """Create a list of PotcarSummaryStats from a POTCAR."""
         if not isinstance(potcar, Potcar):
             potcar = Potcar.from_file(potcar)
         return [cls(**p._summary_stats, titel=p.TITEL, lexch=p.LEXCH) for p in potcar]
 
+class LightOutcar(BaseModel):
+    """Schematic of pymatgen's Outcar."""
+    
+    drift : list[list[float]] | None = Field(None, description="The drift forces.")
+    magnetization : list[dict[str,float]] | None = Field(None, description="The on-site magnetic moments, possibly with orbital resolution.")
+
+class LightVasprun(BaseModel):
+    """Lightweight version of pymatgen Vasprun."""
+
+    vasp_version : str = Field(description="The dot-separated version of VASP used.")
+    ionic_steps : list[dict[str,Any]] = Field(description="The ionic steps in the calculation.")
+    final_energy : float = Field(description="The final total energy in eV.")
+    final_structure : Structure = Field(description="The final structure.")
+    kpoints : Kpoints = Field(description="The actual k-points used in the calculation.")
+    parameters : dict[str,Any] = Field(description="The default-padded input parameters interpreted by VASP.")
+    bandgap : float = Field(description="The bandgap - note that this field is derived from the Vasprun object.")
+
+    @classmethod
+    def from_vasprun(cls, vasprun : Vasprun) -> Self:
+        return cls(
+            **{k : getattr(vasprun,k) for k in cls.model_fields if k != "bandgap"},
+            bandgap = vasprun.get_band_structure(efermi="smart").get_band_gap()["energy"],
+        )
 
 class VaspInputSafe(BaseModel):
     """Stricter VaspInputSet with no POTCAR info."""
 
     incar: Incar = Field(description="The INCAR used in the calculation.")
-    poscar: Poscar = Field(description="The structure associated with the calculation.")
-    kpoints: Kpoints | None = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
+    structure : Structure = Field(description="The structure associated with the calculation.")
+    kpoints : Kpoints | None = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
     potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
 
     @model_serializer
-    def deserialize_objects(self) -> dict[str, dict[str, Any]]:
+    def deserialize_objects(self) -> dict[str, Any]:
         """Ensure all pymatgen objects are deserialized."""
-        model_dumped: dict[str, dict[str, Any]] = {"potcar": [p.model_dump() for p in self.user_input.potcar]}
+        model_dumped: dict[str, Any] = {"potcar": [p.model_dump() for p in self.potcar]}
         for k in (
             "incar",
-            "poscar",
+            "structure",
             "kpoints",
         ):
             if pmg_obj := getattr(self, k):
@@ -89,7 +112,7 @@ class VaspInputSafe(BaseModel):
                 for k in (
                     "incar",
                     "kpoints",
-                    "poscar",
+                    "structure",
                 )
             },
             potcar=PotcarSummaryStats.from_file(vis.potcar),
@@ -99,24 +122,33 @@ class VaspInputSafe(BaseModel):
 class VaspFiles(BaseModel):
     """Define required and optional files for validation."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
     user_input: VaspInputSafe = Field(description="The VASP input set used in the calculation.")
-    _outcar_path: os.PathLike | None = PrivateAttr(None)
-    _vasprun_path: os.PathLike | None = PrivateAttr(None)
+    _outcar: os.PathLike | Outcar | LightOutcar | None = PrivateAttr(None)
+    _vasprun: os.PathLike | Vasprun | LightVasprun | None = PrivateAttr(None)
 
     @cached_property
-    def outcar(self) -> Outcar | None:
+    def outcar(self) -> LightOutcar | None:
         """The optional OUTCAR."""
-        if self._outcar_path:
-            return Outcar(self._outcar_path)
+        if self._outcar:
+            if not isinstance(self._outcar,Outcar | LightOutcar):
+                self._outcar = Outcar(self._outcar)
+            if isinstance(self._outcar, Outcar):
+                return LightOutcar(
+                    drift = self._outcar.drift,
+                    magnetization = self._outcar.magnetization
+                )
+            return self._outcar
         return None
 
     @cached_property
-    def vasprun(self) -> Vasprun | None:
+    def vasprun(self) -> LightVasprun | None:
         """The optional vasprun.xml."""
-        if self._vasprun_path:
-            return Vasprun(self._vasprun_path)
+        if self._vasprun:
+            if not isinstance(self._vasprun, Vasprun | LightVasprun):
+                self._vasprun = Vasprun(self._vasprun)
+            if isinstance(self._vasprun, Vasprun):
+                return LightVasprun.from_vasprun(self._vasprun)
+            return self._vasprun
         return None
 
     @property
@@ -126,11 +158,6 @@ class VaspFiles(BaseModel):
         elif self.vasprun:
             return self.vasprun.kpoints
         return None
-
-    @property
-    def structure(self) -> Structure:
-        """Return the Structure object from the POSCAR."""
-        return self.user_input.poscar.structure
 
     @property
     def vasp_version(self) -> tuple[int, int, int] | None:
@@ -151,7 +178,7 @@ class VaspFiles(BaseModel):
         vasprun: os.PathLike[str] | None = None,
     ):
         """Construct a set of VASP I/O from file paths."""
-        config: dict[str, dict[str] | os.PathLike] = {"user_input": {}}
+        config: dict[str, Any] = {"user_input": {}}
         _vars = locals()
 
         to_obj = {
@@ -162,12 +189,15 @@ class VaspFiles(BaseModel):
         }
         for file_name, file_cls in to_obj.items():
             if (path := _vars.get(file_name)) and Path(path).exists():
-                config["user_input"][file_name] = file_cls.from_file(path)
+                if file_name == "poscar":
+                    config["user_input"]["structure"] = file_cls.from_file(path).structure
+                else:
+                    config["user_input"][file_name] = file_cls.from_file(path)
 
         vf = cls(**config)
         for file_name in ("outcar", "vasprun"):
             if (path := _vars.get(file_name)) and Path(path).exists():
-                setattr(vf, f"_{file_name}_path", path)
+                setattr(vf, f"_{file_name}", path)
 
         return vf
 
@@ -258,7 +288,7 @@ class VaspFiles(BaseModel):
     def bandgap(self) -> float | None:
         """Determine the bandgap from vasprun.xml."""
         if self.vasprun:
-            return self.vasprun.get_band_structure(efermi="smart").get_band_gap()["energy"]
+            return self.vasprun.bandgap
         return None
 
     @computed_field  # type: ignore[misc]
@@ -301,7 +331,7 @@ class VaspFiles(BaseModel):
 
         # Note that only the *previous* bandgap informs the k-point density
         vis = getattr(import_module("pymatgen.io.vasp.sets"), set_name)(
-            structure=self.user_input.poscar.structure,
+            structure=self.user_input.structure,
             bandgap=None,
             user_incar_settings=incar_updates,
         )

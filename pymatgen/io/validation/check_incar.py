@@ -239,7 +239,7 @@ class CheckIncar(BaseValidator):
         if (
             user_incar["ISPIN"] == 2
             and vasp_files.outcar
-            and len(vasp_files.outcar.magnetization) != vasp_files.structure.num_sites
+            and len(vasp_files.outcar.magnetization) != vasp_files.user_input.structure.num_sites
         ):
             self.vasp_defaults["LORBIT"].update(
                 {
@@ -428,7 +428,7 @@ class CheckIncar(BaseValidator):
                 if eentropy := ionic_step["electronic_steps"][-1].get("eentropy"):
                     user_incar["ELECTRONIC ENTROPY"] = max(
                         user_incar["ELECTRONIC ENTROPY"],
-                        abs(eentropy / vasp_files.structure.num_sites),
+                        abs(eentropy / vasp_files.user_input.structure.num_sites),
                     )
 
             convert_eV_to_meV = 1000
@@ -455,7 +455,7 @@ class CheckIncar(BaseValidator):
         The only noteworthy changes (should) be that there is no reliance on the user setting
         up the psp_resources for pymatgen.
         """
-        nions = len(vasp_files.structure.sites)
+        nions = len(vasp_files.user_input.structure.sites)
 
         if user_incar["ISPIN"] == 1:
             nmag = 0
@@ -556,7 +556,7 @@ class CheckIncar(BaseValidator):
                 cur_ionic_step_energies = [ionic_step["e_fr_energy"] for ionic_step in ionic_steps]
                 cur_ionic_step_energy_gradient = np.diff(cur_ionic_step_energies)
                 user_incar["MAX ENERGY GRADIENT"] = round(
-                    max(np.abs(cur_ionic_step_energy_gradient)) / vasp_files.structure.num_sites,
+                    max(np.abs(cur_ionic_step_energy_gradient)) / vasp_files.user_input.structure.num_sites,
                     3,
                 )
                 ref_incar["MAX ENERGY GRADIENT"] = 1

@@ -68,7 +68,7 @@ class CheckPotcar(BaseValidator):
             psp_subset = self.potcar_summary_stats.get(vasp_files.valid_input_set._config_dict["POTCAR_FUNCTIONAL"], {})
 
             valid_potcar_summary_stats = {}  # type: ignore
-            for element in vasp_files.structure.composition.remove_charges().as_dict():
+            for element in vasp_files.user_input.structure.composition.remove_charges().as_dict():
                 potcar_symbol = vasp_files.valid_input_set._config_dict["POTCAR"][element]
                 for titel_no_spc in psp_subset:
                     for psp in psp_subset[titel_no_spc]:
