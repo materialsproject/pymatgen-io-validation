@@ -70,7 +70,7 @@ class CheckKpointsKspacing(BaseValidator):
     def _check_explicit_mesh_permitted(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # Check for explicit kpoint meshes
 
-        if isinstance(self.allow_explicit_kpoint_mesh,bool):
+        if isinstance(self.allow_explicit_kpoint_mesh, bool):
             allow_explicit = self.allow_explicit_kpoint_mesh
         elif self.allow_explicit_kpoint_mesh == "auto":
             allow_explicit = vasp_files.run_type == "nonscf"

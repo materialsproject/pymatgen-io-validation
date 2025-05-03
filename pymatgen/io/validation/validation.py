@@ -39,7 +39,7 @@ class VaspValidator(BaseModel):
         vasp_file_paths: dict[str, os.PathLike[str]] | None = None,
         vasp_files: VaspFiles | None = None,
         fast: bool = False,
-        check_potcar : bool = True,
+        check_potcar: bool = True,
     ):
 
         if not vasp_files and vasp_file_paths:

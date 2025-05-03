@@ -6,7 +6,6 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from pymatgen.io.validation.common import SETTINGS, BaseValidator
-from pymatgen.io.validation.settings import IOValidationSettings
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike

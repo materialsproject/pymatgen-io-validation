@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 # TODO: fix ISIF getting overwritten by MP input set.
 
+
 class CheckIncar(BaseValidator):
     """
     Check calculation parameters related to INCAR input tags.
@@ -35,8 +36,7 @@ class CheckIncar(BaseValidator):
 
     name: str = "Check INCAR tags"
     fft_grid_tolerance: float | None = Field(
-        SETTINGS.VASP_FFT_GRID_TOLERANCE,
-        description="Tolerance for determining sufficient density of FFT grid."
+        SETTINGS.VASP_FFT_GRID_TOLERANCE, description="Tolerance for determining sufficient density of FFT grid."
     )
     bandgap_tol: float = Field(1.0e-4, description="Tolerance for assuming a material has no gap.")
 
@@ -72,7 +72,7 @@ class CheckIncar(BaseValidator):
             resp = vasp_param.check(user_incar_params[vasp_param.name], valid_incar_params[vasp_param.name])
             msgs[vasp_param.severity].extend(resp.get(vasp_param.severity, []))
 
-    def update_parameters_and_defaults(self, vasp_files: VaspFiles) -> tuple[dict[str,Any], dict[str,Any]]:
+    def update_parameters_and_defaults(self, vasp_files: VaspFiles) -> tuple[dict[str, Any], dict[str, Any]]:
         """Update a set of parameters according to supplied rules and defaults.
 
         While many of the parameters in VASP need only a simple check to determine
@@ -298,10 +298,7 @@ class CheckIncar(BaseValidator):
         """Update ENCUT and parameters related to the FFT grid."""
 
         # ensure that ENCUT is appropriately updated
-        user_incar["ENMAX"] = user_incar.get(
-            "ENCUT",
-            getattr(vasp_files.vasprun,"parameters",{}).get("ENMAX")
-        )
+        user_incar["ENMAX"] = user_incar.get("ENCUT", getattr(vasp_files.vasprun, "parameters", {}).get("ENMAX"))
 
         ref_incar["ENMAX"] = vasp_files.valid_input_set.incar.get("ENCUT", self.vasp_defaults["ENMAX"])
 
@@ -513,17 +510,17 @@ class CheckIncar(BaseValidator):
                 )
             except Exception:
                 self.vasp_defaults["NELECT"] = VaspParam(
-                    name = "NELECT",
-                    value = None,
-                    tag = "electronic",
-                    operation= "auto fail",
+                    name="NELECT",
+                    value=None,
+                    tag="electronic",
+                    operation="auto fail",
                     severity="warning",
-                    alias = "NELECT / POTCAR",
+                    alias="NELECT / POTCAR",
                     comment=(
                         "Issue checking whether NELECT was changed to make "
                         "the structure have a non-zero charge. This is likely due to the "
                         "directory not having a POTCAR file."
-                    )
+                    ),
                 )
 
             # NBANDS.
@@ -549,10 +546,9 @@ class CheckIncar(BaseValidator):
 
         # IBRION.
         ref_incar["IBRION"] = [-1, 1, 2]
-        if (
-            (inp_set_ibrion := vasp_files.valid_input_set.incar.get("IBRION")) 
-            and inp_set_ibrion not in ref_incar["IBRION"]
-        ):
+        if (inp_set_ibrion := vasp_files.valid_input_set.incar.get("IBRION")) and inp_set_ibrion not in ref_incar[
+            "IBRION"
+        ]:
             ref_incar["IBRION"].append(inp_set_ibrion)
 
         ionic_steps = []

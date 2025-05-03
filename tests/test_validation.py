@@ -1,11 +1,9 @@
 import pytest
 import copy
 
-from itertools import product
 
 from pymatgen.io.validation.common import VaspFiles
 from pymatgen.io.validation.validation import VaspValidator
-from emmet.core.tasks import TaskDoc
 from monty.serialization import loadfn
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
@@ -23,7 +21,7 @@ from conftest import vasp_calc_data, incar_check_list
 
 
 def run_check(
-    vasp_files : VaspFiles,
+    vasp_files: VaspFiles,
     error_message_to_search_for: str,
     should_the_check_pass: bool,
     vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
@@ -42,27 +40,33 @@ def run_check(
 
 
 def test_validation_from_files(test_dir):
-    
+
     dir_name = test_dir / "vasp" / "Si_uniform"
     paths = {
-        k.split('.')[0].lower() : f"{dir_name / k}.gz" for k in ("INCAR","KPOINTS","POSCAR","OUTCAR","vasprun.xml")
+        k.split(".")[0].lower(): f"{dir_name / k}.gz" for k in ("INCAR", "KPOINTS", "POSCAR", "OUTCAR", "vasprun.xml")
     }
-    validator_from_paths = VaspValidator.from_vasp_input(vasp_file_paths = paths)
+    validator_from_paths = VaspValidator.from_vasp_input(vasp_file_paths=paths)
     validator_from_vasp_files = VaspValidator.from_vasp_input(vasp_files=vasp_calc_data["Si_uniform"])
 
     # Note: because the POTCAR info cannot be distributed, `validator_from_paths`
     # is missing POTCAR checks.
-    assert set([r for r in validator_from_paths.reasons if "POTCAR" not in r ]) == set(validator_from_vasp_files.reasons)
-    assert set([r for r in validator_from_paths.warnings if "POTCAR" not in r ]) == set(validator_from_vasp_files.warnings)
+    assert set([r for r in validator_from_paths.reasons if "POTCAR" not in r]) == set(validator_from_vasp_files.reasons)
+    assert set([r for r in validator_from_paths.warnings if "POTCAR" not in r]) == set(
+        validator_from_vasp_files.warnings
+    )
     assert all(
-        getattr(validator_from_paths.vasp_files.user_input,k) == getattr(validator_from_paths.vasp_files.user_input,k)
-        for k in ("incar","structure","kpoints")
+        getattr(validator_from_paths.vasp_files.user_input, k) == getattr(validator_from_paths.vasp_files.user_input, k)
+        for k in ("incar", "structure", "kpoints")
     )
 
+
 @pytest.mark.parametrize(
-    "object_name", ["Si_old_double_relax",]
+    "object_name",
+    [
+        "Si_old_double_relax",
+    ],
 )
-def test_potcar_validation(test_dir,object_name):
+def test_potcar_validation(test_dir, object_name):
     vf_og = vasp_calc_data[object_name]
 
     correct_potcar_summary_stats = loadfn(test_dir / "vasp" / "Si_potcar_spec.json.gz")
@@ -80,9 +84,7 @@ def test_potcar_validation(test_dir,object_name):
     run_check(vf, "PSEUDOPOTENTIALS", False)
 
 
-@pytest.mark.parametrize(
-    "object_name", ["Si_static","Si_old_double_relax"]
-)
+@pytest.mark.parametrize("object_name", ["Si_static", "Si_old_double_relax"])
 def test_scf_incar_checks(test_dir, object_name):
     vf_og = vasp_calc_data[object_name]
     vf_og.vasprun.final_structure._charge = 0.0  # patch for old test files
@@ -96,8 +98,8 @@ def test_scf_incar_checks(test_dir, object_name):
             vf_og,
             incar_check["err_msg"],
             incar_check["should_pass"],
-            vasprun_parameters_to_change=incar_check.get("vasprun",{}),
-            incar_settings_to_change=incar_check.get("incar",{}),
+            vasprun_parameters_to_change=incar_check.get("vasprun", {}),
+            incar_settings_to_change=incar_check.get("incar", {}),
         )
     ### Most all of the tests below are too specific to use the kwargs in the
     # run_check() method. Hence, the calcs are manually modified. Apologies.
@@ -137,14 +139,14 @@ def test_scf_incar_checks(test_dir, object_name):
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
     # (the below test should NOT fail, because final forces are 0)
     vf = copy.deepcopy(vf_og)
-    vf.user_input.incar.update(METAGGA = "R2SCA", ICHARG = 1)
+    vf.user_input.incar.update(METAGGA="R2SCA", ICHARG=1)
     vf.vasprun.ionic_steps[-1]["forces"] = [[0, 0, 0], [0, 0, 0]]
     run_check(vf, "MAX FINAL FORCE MAGNITUDE", True)
 
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
     # (the below test SHOULD fail, because final forces are high)
     vf = copy.deepcopy(vf_og)
-    vf.user_input.incar.update(METAGGA = "R2SCA", ICHARG = 1, IBRION = 1, NSW = 1)
+    vf.user_input.incar.update(METAGGA="R2SCA", ICHARG=1, IBRION=1, NSW=1)
     vf.vasprun.ionic_steps[-1]["forces"] = [[10, 10, 10], [10, 10, 10]]
     run_check(vf, "MAX FINAL FORCE MAGNITUDE", False)
 
@@ -156,25 +158,25 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # ISMEAR wrong for metal relaxation check
     vf = copy.deepcopy(vf_og)
-    vf.user_input.incar.update(ISMEAR = -5, NSW = 1, IBRION = 1, ICHARG = 9)
+    vf.user_input.incar.update(ISMEAR=-5, NSW=1, IBRION=1, ICHARG=9)
     vf.vasprun.bandgap = 0
     run_check(vf, "ISMEAR", False)
 
     # SIGMA too high for nonmetal with ISMEAR = 0 check
     vf = copy.deepcopy(vf_og)
-    vf.user_input.incar.update(ISMEAR = 0, SIGMA = 0.2)
+    vf.user_input.incar.update(ISMEAR=0, SIGMA=0.2)
     vf.vasprun.bandgap = 1
     run_check(vf, "SIGMA", False)
 
     # SIGMA too high for nonmetal with ISMEAR = -5 check (should not error)
     vf = copy.deepcopy(vf_og)
-    vf.user_input.incar.update(ISMEAR = -5, SIGMA = 1e3)
+    vf.user_input.incar.update(ISMEAR=-5, SIGMA=1e3)
     vf.vasprun.bandgap = 1
     run_check(vf, "SIGMA", True)
 
     # SIGMA too high for metal check
     vf = copy.deepcopy(vf_og)
-    vf.user_input.incar.update(ISMEAR = 1, SIGMA = 0.5)
+    vf.user_input.incar.update(ISMEAR=1, SIGMA=0.5)
     vf.vasprun.bandgap = 0
     run_check(vf, "SIGMA", False)
 
@@ -186,8 +188,8 @@ def test_scf_incar_checks(test_dir, object_name):
     # LMAXMIX check for SCF calc
     vf = copy.deepcopy(vf_og)
     vf.user_input.incar.update(
-        LMAXMIX = 0,
-        ICHARG = 1,
+        LMAXMIX=0,
+        ICHARG=1,
     )
     validated = VaspValidator.from_vasp_input(vasp_files=vf)
     # should not invalidate SCF calcs based on LMAXMIX
@@ -243,14 +245,18 @@ def test_scf_incar_checks(test_dir, object_name):
         coords=[[0, 0, 0], [0.5, 0.5, 0.5]],
     )
     vf.user_input.incar.update(
-        LMAXTAU = 4,
-        METAGGA = "R2SCA",
-        ICHARG = 1,
+        LMAXTAU=4,
+        METAGGA="R2SCA",
+        ICHARG=1,
     )
     run_check(vf, "LMAXTAU", False)
 
+
 @pytest.mark.parametrize(
-    "object_name", ["Si_uniform",]
+    "object_name",
+    [
+        "Si_uniform",
+    ],
 )
 def test_nscf_checks(object_name):
     vf_og = vasp_calc_data[object_name]
@@ -270,19 +276,24 @@ def test_nscf_checks(object_name):
 
     # Explicit kpoints for NSCF calc check (this should not raise any flags for NSCF calcs)
     vf = copy.deepcopy(vf_og)
-    vf.user_input.kpoints = Kpoints.from_dict({
+    vf.user_input.kpoints = Kpoints.from_dict(
+        {
             "kpoints": [[0, 0, 0], [0, 0, 0.5]],
             "nkpoints": 2,
             "kpts_weights": [0.5, 0.5],
             "labels": ["Gamma", "X"],
             "style": "line_mode",
             "generation_style": "line_mode",
-        })
+        }
+    )
     run_check(vf, "INPUT SETTINGS --> KPOINTS: explicitly", True)
 
 
 @pytest.mark.parametrize(
-    "object_name", ["Si_uniform",]
+    "object_name",
+    [
+        "Si_uniform",
+    ],
 )
 def test_common_error_checks(object_name):
     vf_og = vasp_calc_data[object_name]
@@ -292,8 +303,8 @@ def test_common_error_checks(object_name):
     with pytest.raises(ValidationError):
         vfd = vf_og.model_dump()
         vfd["user_input"]["incar"].update(
-            GGA = "PE",
-            METAGGA = "R2SCAN",
+            GGA="PE",
+            METAGGA="R2SCAN",
         )
         VaspFiles(**vfd).valid_input_set
 
@@ -348,25 +359,22 @@ def test_common_error_checks(object_name):
     run_check(vf, "MAGNETISM", False)
 
     # Element Po / Am present
-    for unsupported_ele in ("Po","Am"):
+    for unsupported_ele in ("Po", "Am"):
         vf = copy.deepcopy(vf_og)
-        vf.user_input.structure.replace_species({
-            ele : unsupported_ele for ele in vf.user_input.structure.elements
-        })
+        vf.user_input.structure.replace_species({ele: unsupported_ele for ele in vf.user_input.structure.elements})
         with pytest.raises(KeyError):
             run_check(vf, "COMPOSITION", False)
 
 
 def _update_kpoints_for_test(vf: VaspFiles, kpoints_updates: dict | Kpoints) -> None:
     orig_kpoints = vf.user_input.kpoints.as_dict() if vf.user_input.kpoints else {}
-    if isinstance(kpoints_updates,Kpoints):
+    if isinstance(kpoints_updates, Kpoints):
         kpoints_updates = kpoints_updates.as_dict()
     orig_kpoints.update(kpoints_updates)
     vf.user_input.kpoints = Kpoints.from_dict(orig_kpoints)
 
-@pytest.mark.parametrize(
-    "object_name", ["Si_old_double_relax"]
-)
+
+@pytest.mark.parametrize("object_name", ["Si_old_double_relax"])
 def test_kpoints_checks(object_name):
     vf_og = vasp_calc_data[object_name]
     vf_og.vasprun.final_structure._charge = 0.0  # patch for old test files
@@ -412,14 +420,15 @@ def test_kpoints_checks(object_name):
 
     # Explicit kpoints for SCF calc check
     vf = copy.deepcopy(vf_og)
-    _update_kpoints_for_test(vf,
+    _update_kpoints_for_test(
+        vf,
         {
             "kpoints": [[0, 0, 0], [0, 0, 0.5]],
             "nkpoints": 2,
             "kpts_weights": [0.5, 0.5],
             "style": "reciprocal",
             "generation_style": "Reciprocal",
-        }
+        },
     )
     run_check(vf, "INPUT SETTINGS --> KPOINTS: explicitly", False)
 
@@ -429,9 +438,7 @@ def test_kpoints_checks(object_name):
     run_check(vf, "INPUT SETTINGS --> KPOINTS: shifting", False)
 
 
-@pytest.mark.parametrize(
-    "object_name", ["Si_old_double_relax"]
-)
+@pytest.mark.parametrize("object_name", ["Si_old_double_relax"])
 def test_vasp_version_check(object_name):
     vf_og = vasp_calc_data[object_name]
     vf_og.vasprun.final_structure._charge = 0.0  # patch for old test files
@@ -455,15 +462,15 @@ def test_vasp_version_check(object_name):
     vf = copy.deepcopy(vf_og)
     vf.vasprun.vasp_version = "5.0.0"
     vf.user_input.incar.update(
-        METAGGA = "R2SCAN",
-        ISPIN = 2,
+        METAGGA="R2SCAN",
+        ISPIN=2,
     )
     run_check(vf, "POTENTIAL BUG --> We believe", False)
 
 
 def test_fast_mode():
     vf = vasp_calc_data["Si_uniform"]
-    validated = VaspValidator.from_vasp_input(vasp_files=vf,check_potcar=False)
+    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=False)
 
     # Without POTCAR check, this doc is valid
     assert validated.is_valid
@@ -487,7 +494,7 @@ def test_fast_mode():
     #     "GGA": "PE",
     # }
     # vf.user_input.incar.update(bad_incar_updates)
-    #print(vf.user_input.kpoints.as_dict)
+    # print(vf.user_input.kpoints.as_dict)
     _update_kpoints_for_test(vf, {"kpoints": [[1, 1, 2]]})
 
     validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
@@ -501,7 +508,7 @@ def test_fast_mode():
     # assert "KNOWN BUG" in validated.reasons[0]
 
     # Now remove GGA tag, get k-point density error
-    #vf.user_input.incar.pop("GGA")
+    # vf.user_input.incar.pop("GGA")
     validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
     assert len(validated.reasons) == 1
     assert "INPUT SETTINGS --> KPOINTS or KSPACING:" in validated.reasons[0]
@@ -521,6 +528,7 @@ def test_fast_mode():
     vf.user_input.potcar = None
     validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
     assert "PSEUDOPOTENTIALS" in validated.reasons[0]
+
 
 def test_site_properties(test_dir):
 

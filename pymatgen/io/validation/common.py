@@ -6,7 +6,7 @@ from functools import cached_property
 from importlib import import_module
 import os
 from pathlib import Path
-from pydantic import BaseModel, Field, computed_field, model_serializer, PrivateAttr
+from pydantic import BaseModel, Field, model_serializer, PrivateAttr
 from typing import TYPE_CHECKING, Any
 
 from pymatgen.core import Structure
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 SETTINGS = IOValidationSettings()
+
 
 class ValidationError(Exception):
     """Define custom exception during validation."""
@@ -35,11 +36,9 @@ class PotcarSummaryStats(BaseModel):
         data: set[str] = Field(description="The keywords in the POTCAR body.")
 
         @model_serializer
-        def set_to_list(self) -> dict[str,list[str]]:
+        def set_to_list(self) -> dict[str, list[str]]:
             """Ensure JSON compliance of set fields."""
-            return {
-                k : list(getattr(self,k)) for k in ("header","data")
-            }
+            return {k: list(getattr(self, k)) for k in ("header", "data")}
 
     class _PotcarSummaryStatsStats(BaseModel):
         """Schematize `PotcarSingle._summary_stats["stats"]` field."""
@@ -88,7 +87,10 @@ class LightVasprun(BaseModel):
     kpoints: Kpoints = Field(description="The actual k-points used in the calculation.")
     parameters: dict[str, Any] = Field(description="The default-padded input parameters interpreted by VASP.")
     bandgap: float = Field(description="The bandgap - note that this field is derived from the Vasprun object.")
-    potcar_symbols : list[str] | None = Field(None, description="Optional: if a POTCAR is unavailable, this is used to determine the functional used in the calculation.")
+    potcar_symbols: list[str] | None = Field(
+        None,
+        description="Optional: if a POTCAR is unavailable, this is used to determine the functional used in the calculation.",
+    )
 
     @classmethod
     def from_vasprun(cls, vasprun: Vasprun) -> Self:
@@ -105,7 +107,7 @@ class VaspInputSafe(BaseModel):
     structure: Structure = Field(description="The structure associated with the calculation.")
     kpoints: Kpoints | None = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
     potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
-    _pmg_vis : VaspInputSet | None = PrivateAttr(None)
+    _pmg_vis: VaspInputSet | None = PrivateAttr(None)
 
     @model_serializer
     def deserialize_objects(self) -> dict[str, Any]:
@@ -136,7 +138,6 @@ class VaspInputSafe(BaseModel):
         new_vis._pmg_vis = vis
         return new_vis
 
-    
     def _calculate_ng(self, **kwargs) -> tuple[list[int], list[int]] | None:
         """Interface to pymatgen vasp input set as needed."""
         if self._pmg_vis:
@@ -147,7 +148,7 @@ class VaspInputSafe(BaseModel):
 class VaspFiles(BaseModel):
     """Define required and optional files for validation."""
 
-    user_input : VaspInputSafe = Field(description="The VASP input set used in the calculation.")
+    user_input: VaspInputSafe = Field(description="The VASP input set used in the calculation.")
     outcar: LightOutcar | None = None
     vasprun: LightVasprun | None = None
 
@@ -194,7 +195,7 @@ class VaspFiles(BaseModel):
             if (path := _vars.get(file_name)) and Path(path).exists():
                 if file_name == "poscar":
                     config["user_input"]["structure"] = file_cls.from_file(path).structure
-                elif hasattr(file_cls,"from_file"):
+                elif hasattr(file_cls, "from_file"):
                     config["user_input"][file_name] = file_cls.from_file(path)
                 else:
                     config[file_name] = file_cls(path)
@@ -204,7 +205,8 @@ class VaspFiles(BaseModel):
 
         if config.get("outcar"):
             config["outcar"] = LightOutcar(
-                drift = config["outcar"].drift, magnetization=config["outcar"].magnetization,
+                drift=config["outcar"].drift,
+                magnetization=config["outcar"].magnetization,
             )
         if config.get("vasprun"):
             config["vasprun"] = LightVasprun.from_vasprun(config["vasprun"])

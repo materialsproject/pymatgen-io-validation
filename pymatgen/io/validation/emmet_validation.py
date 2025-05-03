@@ -42,9 +42,9 @@ class ValidationDoc(EmmetBaseModel):
     warnings: list[str] = Field([], description="List of potential warnings about this calculation")
 
     @staticmethod
-    def task_doc_to_vasp_files(task_doc : TaskDoc | TaskDocument) -> VaspFiles:
+    def task_doc_to_vasp_files(task_doc: TaskDoc | TaskDocument) -> VaspFiles:
         """Convert an emmet.core TaskDoc or legacy TaskDocument to VaspFiles."""
-        
+
         if isinstance(task_doc, TaskDocument):
             final_calc = Calculation(**task_doc.calcs_reversed[0])
         else:
@@ -66,12 +66,12 @@ class ValidationDoc(EmmetBaseModel):
         return VaspFiles(
             user_input=VaspInputSafe(
                 incar=Incar(final_calc.input.incar),
-                kpoints = final_calc.input.kpoints,
+                kpoints=final_calc.input.kpoints,
                 structure=final_calc.input.structure,
                 potcar=potcar_stats,
             ),
-            outcar = LightOutcar(**{k: final_calc.output.outcar.get(k) for k in ("drift", "magnetization")}),
-            vasprun = LightVasprun(
+            outcar=LightOutcar(**{k: final_calc.output.outcar.get(k) for k in ("drift", "magnetization")}),
+            vasprun=LightVasprun(
                 vasp_version=final_calc.vasp_version,
                 ionic_steps=[ionic_step.model_dump() for ionic_step in final_calc.output.ionic_steps],
                 final_energy=task_doc.output.energy,
@@ -91,6 +91,6 @@ class ValidationDoc(EmmetBaseModel):
             valid=validator.is_valid,
             reasons=validator.reasons,
             warnings=validator.warnings,
-            task_id = task_doc.task_id,
+            task_id=task_doc.task_id,
             **kwargs,
         )
