@@ -39,6 +39,7 @@ class VaspValidator(BaseModel):
         vasp_file_paths: dict[str, os.PathLike[str]] | None = None,
         vasp_files: VaspFiles | None = None,
         fast: bool = False,
+        check_potcar : bool = True,
     ):
 
         if not vasp_files and vasp_file_paths:
@@ -50,7 +51,12 @@ class VaspValidator(BaseModel):
             "vasp_files": vasp_files,
         }
 
-        for check in DEFAULT_CHECKS:
+        if check_potcar:
+            checkers = DEFAULT_CHECKS
+        else:
+            checkers = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
+
+        for check in checkers:
             check(fast=fast).check(config["vasp_files"], config["reasons"], config["warnings"])  # type: ignore[arg-type]
             if fast and len(config["reasons"]) > 0:
                 break

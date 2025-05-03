@@ -5,10 +5,8 @@ from pydantic import Field
 import numpy as np
 from typing import TYPE_CHECKING
 
-from pymatgen.io.validation.common import BaseValidator
+from pymatgen.io.validation.common import SETTINGS, BaseValidator
 from pymatgen.io.validation.settings import IOValidationSettings
-
-SETTINGS = IOValidationSettings()
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike
@@ -232,7 +230,6 @@ class CheckStructureProperties(BaseValidator):
 
     def _check_selective_dynamics(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         """Check structure for inappropriate site properties."""
-
         if (
             selec_dyn := vasp_files.user_input.structure.site_properties.get("selective_dynamics")
         ) is not None and vasp_files.run_type == "relax":

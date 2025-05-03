@@ -192,7 +192,7 @@ class VaspParam(BaseModel):
 
             if not valid_value:
                 comment_str = (
-                    f"INPUT SETTINGS --> {self.alias}: is {cval}, but should be "
+                    f"INPUT SETTINGS --> {self.alias or self.name}: is {cval}, but should be "
                     f"{'' if operation == 'auto fail' else operation + ' '}{reference_values[iop]}."
                 )
                 if self.comment:

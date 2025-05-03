@@ -5,10 +5,7 @@ from pydantic import Field
 from typing import TYPE_CHECKING
 import numpy as np
 
-from pymatgen.io.validation.common import BaseValidator
-from pymatgen.io.validation.settings import IOValidationSettings
-
-SETTINGS = IOValidationSettings()
+from pymatgen.io.validation.common import SETTINGS, BaseValidator
 
 if TYPE_CHECKING:
     from pymatgen.io.validation.common import VaspFiles
@@ -22,7 +19,7 @@ class CheckKpointsKspacing(BaseValidator):
         SETTINGS.VASP_KPTS_TOLERANCE,
         description="Tolerance for evaluating k-point density, to accommodate different the k-point generation schemes across VASP versions.",
     )
-    allow_explicit_kpoint_mesh: bool = Field(
+    allow_explicit_kpoint_mesh: bool | str | None = Field(
         SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
         description="Whether to permit explicit generation of k-points (as for a bandstructure calculation).",
     )
@@ -73,7 +70,14 @@ class CheckKpointsKspacing(BaseValidator):
     def _check_explicit_mesh_permitted(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # Check for explicit kpoint meshes
 
-        if (not self.allow_explicit_kpoint_mesh) and len(vasp_files.actual_kpoints.kpts) > 1:
+        if isinstance(self.allow_explicit_kpoint_mesh,bool):
+            allow_explicit = self.allow_explicit_kpoint_mesh
+        elif self.allow_explicit_kpoint_mesh == "auto":
+            allow_explicit = vasp_files.run_type == "nonscf"
+        else:
+            allow_explicit = False
+
+        if (not allow_explicit) and len(vasp_files.actual_kpoints.kpts) > 1:
             reasons.append(
                 "INPUT SETTINGS --> KPOINTS: explicitly defining "
                 "the k-point mesh is not currently allowed. "

@@ -6,6 +6,8 @@ from datetime import datetime
 from pydantic import Field
 
 from emmet.core.tasks import TaskDoc
+from emmet.core.vasp.calculation import Calculation
+from emmet.core.vasp.task_valid import TaskDocument
 from emmet.core.base import EmmetBaseModel
 from emmet.core.mpid import MPID
 from emmet.core.utils import utcnow
@@ -39,10 +41,14 @@ class ValidationDoc(EmmetBaseModel):
 
     warnings: list[str] = Field([], description="List of potential warnings about this calculation")
 
-    @classmethod
-    def from_task_doc(cls, task_doc: TaskDoc, **kwargs) -> Self:
-
-        final_calc = task_doc.calcs_reversed[0]
+    @staticmethod
+    def task_doc_to_vasp_files(task_doc : TaskDoc | TaskDocument) -> VaspFiles:
+        """Convert an emmet.core TaskDoc or legacy TaskDocument to VaspFiles."""
+        
+        if isinstance(task_doc, TaskDocument):
+            final_calc = Calculation(**task_doc.calcs_reversed[0])
+        else:
+            final_calc = task_doc.calcs_reversed[0]
 
         potcar_stats = None
         if final_calc.input.potcar_spec:
@@ -57,28 +63,34 @@ class ValidationDoc(EmmetBaseModel):
                 for ps in final_calc.input.potcar_spec
             ]
 
-        vasp_files = VaspFiles(
+        return VaspFiles(
             user_input=VaspInputSafe(
                 incar=Incar(final_calc.input.incar),
+                kpoints = final_calc.input.kpoints,
                 structure=final_calc.input.structure,
                 potcar=potcar_stats,
-            )
-        )
-        vasp_files._outcar = LightOutcar(**{k: final_calc.output.outcar.get(k) for k in ("drift", "magnetization")})
-        vasp_files._vasprun = LightVasprun(
-            vasp_version=final_calc.vasp_version,
-            ionic_steps=[ionic_step.model_dump() for ionic_step in final_calc.output.ionic_steps],
-            final_energy=task_doc.output.energy,
-            final_structure=task_doc.output.structure,
-            kpoints=final_calc.input.kpoints,
-            parameters=final_calc.input.parameters,
-            bandgap=final_calc.output.bandgap,
+            ),
+            outcar = LightOutcar(**{k: final_calc.output.outcar.get(k) for k in ("drift", "magnetization")}),
+            vasprun = LightVasprun(
+                vasp_version=final_calc.vasp_version,
+                ionic_steps=[ionic_step.model_dump() for ionic_step in final_calc.output.ionic_steps],
+                final_energy=task_doc.output.energy,
+                final_structure=task_doc.output.structure,
+                kpoints=final_calc.input.kpoints,
+                parameters=final_calc.input.parameters,
+                bandgap=final_calc.output.bandgap,
+            ),
         )
 
+    @classmethod
+    def from_task_doc(cls, task_doc: TaskDoc | TaskDocument, **kwargs) -> Self:
+        """Validate a VASP calculation represented by an emmet.core TaskDoc/ument."""
+        vasp_files = cls.task_doc_to_vasp_files(task_doc)
         validator = VaspValidator.from_vasp_input(vasp_files=vasp_files)
         return cls(
             valid=validator.is_valid,
             reasons=validator.reasons,
             warnings=validator.warnings,
+            task_id = task_doc.task_id,
             **kwargs,
         )

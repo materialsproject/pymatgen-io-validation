@@ -1,43 +1,43 @@
 - err_msg: LCHIMAG
   should_pass: false
-  incar:
+  vasprun:
     LCHIMAG: true
-  vasprun: {}
+  incar: {}
 - err_msg: LNMR_SYM_RED
   should_pass: false
-  incar:
+  vasprun:
     LNMR_SYM_RED: true
-  vasprun: {}
+  incar: {}
 - err_msg: LDIPOL
   should_pass: false
-  incar:
+  vasprun:
     LDIPOL: true
-  vasprun: {}
+  incar: {}
 - err_msg: IDIPOL
   should_pass: false
-  incar:
+  vasprun:
     IDIPOL: 2
-  vasprun: {}
+  incar: {}
 - err_msg: EPSILON
   should_pass: false
-  incar:
+  vasprun:
     EPSILON: 1.5
-  vasprun: {}
+  incar: {}
 - err_msg: EPSILON
   should_pass: true
-  incar:
+  vasprun:
     EPSILON: 1
-  vasprun: {}
+  incar: {}
 - err_msg: EFIELD
   should_pass: false
-  incar:
+  vasprun:
     EFIELD: 1
-  vasprun: {}
+  incar: {}
 - err_msg: EFIELD
   should_pass: true
-  incar:
+  vasprun:
     EFIELD: 0
-  vasprun: {}
+  incar: {}
 - err_msg: EDIFF
   should_pass: false
   incar:
@@ -50,31 +50,34 @@
   vasprun: {}
 - err_msg: ENINI
   should_pass: false
-  incar:
+  vasprun:
     ENINI: 1
     IALGO: 48
-  vasprun: {}
+  incar: {}
 - err_msg: IALGO
   should_pass: false
-  incar:
+  vasprun:
     ENINI: 1
     IALGO: 48
-  vasprun: {}
+  incar: {}
 - err_msg: NBANDS
   should_pass: false
   vasprun:
     NBANDS: 1
-# TODO: This test seems wrong
+  incar: {}
 # - err_msg: NBANDS
 #   should_pass: true
 #   vasprun:
 #     NBANDS: 40
+#  incar: {}
 - err_msg: NBANDS
   should_pass: false
   vasprun:
     NBANDS: 1000
+  incar: {}
 - err_msg: LREAL
   should_pass: false
+  vasprun: {}
   incar:
     LREAL: true
 - err_msg: LREAL
@@ -84,59 +87,59 @@
     LREAL: false
 - err_msg: LMAXPAW
   should_pass: false
-  incar:
+  vasprun:
     LMAXPAW: 0
-  vasprun: {}
+  incar: {}
 - err_msg: NLSPLINE
   should_pass: false
-  incar:
+  vasprun:
     NLSPLINE: true
-  vasprun: {}
+  incar: {}
 - err_msg: ADDGRID
   should_pass: false
-  incar:
+  vasprun:
     ADDGRID: true
-  vasprun: {}
+  incar: {}
 - err_msg: LHFCALC
   should_pass: false
-  incar:
+  vasprun:
     LHFCALC: true
-  vasprun: {}
+  incar: {}
 - err_msg: AEXX
   should_pass: false
-  incar:
+  vasprun:
     AEXX: 1
-  vasprun: {}
+  incar: {}
 - err_msg: AGGAC
   should_pass: false
-  incar:
+  vasprun:
     AGGAC: 0.5
-  vasprun: {}
+  incar: {}
 - err_msg: AGGAX
   should_pass: false
-  incar:
+  vasprun:
     AGGAX: 0.5
-  vasprun: {}
+  incar: {}
 - err_msg: ALDAX
   should_pass: false
-  incar:
+  vasprun:
     ALDAX: 0.5
-  vasprun: {}
+  incar: {}
 - err_msg: AMGGAX
   should_pass: false
-  incar:
+  vasprun:
     AMGGAX: 0.5
-  vasprun: {}
+  incar: {}
 - err_msg: ALDAC
   should_pass: false
-  incar:
+  vasprun:
     ALDAC: 0.5
-  vasprun: {}
+  incar: {}
 - err_msg: AMGGAC
   should_pass: false
-  incar:
+  vasprun:
     AMGGAC: 0.5
-  vasprun: {}
+  incar: {}
 - err_msg: IBRION
   should_pass: false
   incar:
@@ -151,132 +154,133 @@
   should_pass: true
   incar:
     IBRION: -1
-    NSW: 0 # This is required as VASP auto-sets IBRION = 0 if NSW > 0 and IBRION not set
+    NSW : 0
   vasprun: {}
 - err_msg: PSTRESS
   should_pass: false
-  incar:
+  vasprun:
     PSTRESS: 1
-  vasprun: {}
+  incar: {}
 - err_msg: SCALEE
   should_pass: false
-  incar:
+  vasprun:
     SCALEE: 0.9
-  vasprun: {}
+  incar: {}
 - err_msg: LNONCOLLINEAR
   should_pass: false
-  incar:
+  vasprun:
     LNONCOLLINEAR: true
-  vasprun: {}
+  incar: {}
 - err_msg: LSORBIT
   should_pass: false
-  incar:
+  vasprun:
     LSORBIT: true
-  vasprun: {}
+  incar: {}
 - err_msg: DEPER
   should_pass: false
-  incar:
+  vasprun:
     DEPER: 0.5
-  vasprun: {}
+  incar: {}
 - err_msg: EBREAK
   should_pass: false
+  vasprun: {}
   incar:
     EBREAK: 0.1
 - err_msg: GGA_COMPAT
   should_pass: false
-  incar:
+  vasprun:
     GGA_COMPAT: false
-  vasprun: {}
+  incar: {}
 - err_msg: ICORELEVEL
   should_pass: false
-  incar:
+  vasprun:
     ICORELEVEL: 1
-  vasprun: {}
+  incar: {}
 - err_msg: IMAGES
   should_pass: false
-  incar:
+  vasprun:
     IMAGES: 1
-  vasprun: {}
+  incar: {}
 - err_msg: IVDW
   should_pass: false
-  incar:
+  vasprun:
     IVDW: 1
-  vasprun: {}
+  incar: {}
 - err_msg: LBERRY
   should_pass: false
-  incar:
+  vasprun:
     LBERRY: true
-  vasprun: {}
+  incar: {}
 - err_msg: LCALCEPS
   should_pass: false
-  incar:
+  vasprun:
     LCALCEPS: true
-  vasprun: {}
+  incar: {}
 - err_msg: LCALCPOL
   should_pass: false
-  incar:
+  vasprun:
     LCALCPOL: true
-  vasprun: {}
+  incar: {}
 - err_msg: LHYPERFINE
   should_pass: false
-  incar:
+  vasprun:
     LHYPERFINE: true
-  vasprun: {}
+  incar: {}
 - err_msg: LKPOINTS_OPT
   should_pass: false
-  incar:
+  vasprun:
     LKPOINTS_OPT: true
-  vasprun: {}
+  incar: {}
 - err_msg: LKPROJ
   should_pass: false
-  incar:
+  vasprun:
     LKPROJ: true
-  vasprun: {}
+  incar: {}
 - err_msg: LMP2LT
   should_pass: false
-  incar:
+  vasprun:
     LMP2LT: true
-  vasprun: {}
+  incar: {}
 - err_msg: LSMP2LT
   should_pass: false
-  incar:
+  vasprun:
     LSMP2LT: true
-  vasprun: {}
+  incar: {}
 - err_msg: LOCPROJ
   should_pass: false
-  incar:
+  vasprun:
     LOCPROJ: '1 : s : Hy'
-  vasprun: {}
+  incar: {}
 - err_msg: LRPA
   should_pass: false
-  incar:
+  vasprun:
     LRPA: true
-  vasprun: {}
+  incar: {}
 - err_msg: LSPECTRAL
   should_pass: false
-  incar:
+  vasprun:
     LSPECTRAL: true
-  vasprun: {}
+  incar: {}
 - err_msg: LSUBROT
   should_pass: false
-  incar:
+  vasprun:
     LSUBROT: true
-  vasprun: {}
+  incar: {}
 - err_msg: ML_LMLFF
   should_pass: false
-  incar:
+  vasprun:
     ML_LMLFF: true
-  vasprun: {}
+  incar: {}
 - err_msg: WEIMIN
   should_pass: false
-  incar:
+  vasprun:
     WEIMIN: 0.01
-  vasprun: {}
+  incar: {}
 - err_msg: WEIMIN
   should_pass: true
-  incar:
+  vasprun:
     WEIMIN: 0.0001
-  vasprun: {}
+  incar: {}
 - err_msg: IWAVPR
   should_pass: false
   vasprun: {}
@@ -289,28 +293,28 @@
   vasprun: {}
 - err_msg: LCORR
   should_pass: false
-  incar:
+  vasprun:
     LCORR: false
     IALGO: 38
-  vasprun: {}
+  incar: {}
 - err_msg: LCORR
   should_pass: true
-  incar:
+  vasprun:
     LCORR: false
     IALGO: 58
-  vasprun: {}
+  incar: {}
 - err_msg: RWIGS
   should_pass: false
-  incar:
+  vasprun:
     RWIGS:
     - 1
-  vasprun: {}
+  incar: {}
 - err_msg: VCA
   should_pass: false
-  incar:
+  vasprun:
     VCA:
     - 0.5
-  vasprun: {}
+  incar: {}
 - err_msg: PREC
   should_pass: false
   incar:
@@ -318,11 +322,11 @@
   vasprun: {}
 - err_msg: ROPT
   should_pass: false
-  incar:
+  vasprun:
     ROPT:
     - -0.001
+  incar:
     LREAL: true
-# TODO: This test seems wrong
 # - err_msg: ICHARG
 #   should_pass: false
 #   incar:
@@ -330,14 +334,14 @@
 #   vasprun: {}
 - err_msg: INIWAV
   should_pass: false
-  incar:
+  vasprun:
     INIWAV: 0
-  vasprun: {}
+  incar: {}
 - err_msg: ISTART
   should_pass: false
-  incar:
+  vasprun:
     ISTART: 3
-  vasprun: {}
+  incar: {}
 - err_msg: ISYM
   should_pass: false
   incar:
@@ -351,51 +355,55 @@
   vasprun: {}
 - err_msg: SYMPREC
   should_pass: false
-  incar:
+  vasprun:
     SYMPREC: 0.01
-  vasprun: {}
+  incar: {}
 - err_msg: LDAUU
   should_pass: false
-  incar:
+  vasprun:
     LDAU: true
+  incar:
     LDAUU:
     - 5
     - 5
 - err_msg: LDAUJ
   should_pass: false
-  incar:
+  vasprun:
     LDAU: true
+  incar:
     LDAUJ:
     - 5
     - 5
 - err_msg: LDAUL
   should_pass: false
-  incar:
+  vasprun:
     LDAU: true
+  incar:
     LDAUL:
     - 5
     - 5
 - err_msg: LDAUTYPE
   should_pass: false
-  incar:
+  vasprun:
     LDAU: true
     LDAUTYPE:
     - 1
+  incar: {}
 - err_msg: NWRITE
   should_pass: false
-  incar:
+  vasprun:
     NWRITE: 1
-  vasprun: {}
+  incar: {}
 - err_msg: LEFG
   should_pass: false
-  incar:
+  vasprun:
     LEFG: true
-  vasprun: {}
+  incar: {}
 - err_msg: LOPTICS
   should_pass: false
-  incar:
+  vasprun:
     LOPTICS: true
-  vasprun: {}
+  incar: {}
 - should_pass: true
   err_msg: ISIF
   incar:
@@ -438,68 +446,5 @@
   vasprun: {}
 - should_pass : false
   err_msg : ENCUT
-  incar :
-    ENCUT : 1.
-# Check that ENCUT is appropriately updated to be finite
-- should_pass : true
-  err_msg : "should be >= inf"
-  incar :
-    ENCUT : 1.
-- should_pass : false
-  err_msg : NGX
-  incar:
-    NGX : 1
-- should_pass : false
-  err_msg : NGXF
-  incar:
-    NGXF : 1
-- should_pass : false
-  err_msg : NGY
-  incar:
-    NGY : 1
-- should_pass : false
-  err_msg : NGYF
-  incar:
-    NGYF : 1
-- should_pass : false
-  err_msg : NGZ
-  incar:
-    NGZ : 1
-- should_pass : false
-  err_msg : NGZF
-  incar:
-    NGZF : 1
-- should_pass : false
-  err_msg : POTIM
-  incar:
-    POTIM : 10.
-    IBRION : 1
-- should_pass : false
-  err_msg : LMAXTAU
-  incar:
-    LMAXTAU: 2
-    METAGGA: R2SCA
-    ICHARG: 1
-- should_pass : true
-  err_msg : LMAXTAU
-  incar:
-    LMAXTAU: 2
-    ICHARG: 1
-    METAGGA: "NONE"
-- should_pass : false
-  err_msg : ENAUG
-  incar:
-    ENAUG: 1
-    ICHARG: 1
-    METAGGA: "R2SCA"
-- should_pass : true
-  err_msg : "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS"
-- should_pass : true
-  err_msg : KNOWN BUG
-  incar:
-    GGA : PE
-    METAGGA : NONE
-- should_pass : false
-  err_msg : CONVERGENCE --> Did not achieve electronic
-  incar:
-    NELM : 1
+  vasprun :
+    ENMAX : 1.

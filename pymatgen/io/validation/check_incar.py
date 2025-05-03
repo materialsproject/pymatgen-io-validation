@@ -4,18 +4,16 @@ from __future__ import annotations
 import numpy as np
 from pydantic import Field
 
-from pymatgen.io.vasp import Incar
-
-from pymatgen.io.validation.common import BaseValidator, VaspFiles
+from pymatgen.io.validation.common import SETTINGS, BaseValidator, VaspFiles
 from pymatgen.io.validation.vasp_defaults import InputCategory, VaspParam
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from typing import Any
     from pymatgen.io.validation.common import VaspFiles
 
 # TODO: fix ISIF getting overwritten by MP input set.
-
 
 class CheckIncar(BaseValidator):
     """
@@ -37,7 +35,8 @@ class CheckIncar(BaseValidator):
 
     name: str = "Check INCAR tags"
     fft_grid_tolerance: float | None = Field(
-        None, description="Tolerance for determining sufficient density of FFT grid."
+        SETTINGS.VASP_FFT_GRID_TOLERANCE,
+        description="Tolerance for determining sufficient density of FFT grid."
     )
     bandgap_tol: float = Field(1.0e-4, description="Tolerance for assuming a material has no gap.")
 
@@ -70,11 +69,10 @@ class CheckIncar(BaseValidator):
             if self.fast and len(reasons) > 0:
                 # fast check: stop checking whenever a single check fails
                 break
-
             resp = vasp_param.check(user_incar_params[vasp_param.name], valid_incar_params[vasp_param.name])
             msgs[vasp_param.severity].extend(resp.get(vasp_param.severity, []))
 
-    def update_parameters_and_defaults(self, vasp_files: VaspFiles) -> tuple[Incar, Incar]:
+    def update_parameters_and_defaults(self, vasp_files: VaspFiles) -> tuple[dict[str,Any], dict[str,Any]]:
         """Update a set of parameters according to supplied rules and defaults.
 
         While many of the parameters in VASP need only a simple check to determine
@@ -299,10 +297,19 @@ class CheckIncar(BaseValidator):
     def _update_fft_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
         """Update ENCUT and parameters related to the FFT grid."""
 
+        # ensure that ENCUT is appropriately updated
+        user_incar["ENMAX"] = user_incar.get(
+            "ENCUT",
+            getattr(vasp_files.vasprun,"parameters",{}).get("ENMAX")
+        )
+
+        ref_incar["ENMAX"] = vasp_files.valid_input_set.incar.get("ENCUT", self.vasp_defaults["ENMAX"])
+
         grid_keys = {"NGX", "NGXF", "NGY", "NGYF", "NGZ", "NGZF"}
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
         if any(i for i in grid_keys if i in user_incar.keys()):
-            ref_incar["ENMAX"] = max(user_incar["ENMAX"], ref_incar["ENMAX"])
+            enmaxs = [user_incar["ENMAX"], ref_incar["ENMAX"]]
+            ref_incar["ENMAX"] = max([v for v in enmaxs if v < float("inf")])
 
             (
                 [
@@ -315,10 +322,10 @@ class CheckIncar(BaseValidator):
                     ref_incar["NGYF"],
                     ref_incar["NGZF"],
                 ],
-            ) = vasp_files.valid_input_set.calculate_ng(custom_encut=ref_incar["ENMAX"])
+            ) = vasp_files.valid_input_set._calculate_ng(custom_encut=ref_incar["ENMAX"])
 
             for key in grid_keys:
-                ref_incar[key] = int(ref_incar[key] * self._fft_grid_tolerance)
+                ref_incar[key] = int(ref_incar[key] * self.fft_grid_tolerance)
 
                 self.vasp_defaults[key] = VaspParam(
                     name=key,
@@ -379,7 +386,7 @@ class CheckIncar(BaseValidator):
 
         This is based on the final bandgap obtained in the calc.
         """
-        if vasp_files.bandgap:
+        if vasp_files.bandgap is not None:
 
             smearing_comment = (
                 f"This is flagged as incorrect because this calculation had a bandgap of {round(vasp_files.bandgap,3)}"
@@ -405,8 +412,9 @@ class CheckIncar(BaseValidator):
             for key in ["ISMEAR", "SIGMA"]:
                 self.vasp_defaults[key].comment = smearing_comment
 
-            else:
+            if user_incar["ISMEAR"] not in [-5, -4, -2]:
                 self.vasp_defaults["SIGMA"].operation = "<="
+
         else:
             # These are generally applicable in all cases. Loosen check to warning.
             ref_incar["ISMEAR"] = [-1, 0]
@@ -418,7 +426,7 @@ class CheckIncar(BaseValidator):
                     "may lead to significant errors in forces. To enable this check, "
                     "supply a vasprun.xml file."
                 )
-            self.vasp_defaults["ISMEAR"].severity = "warning"
+                self.vasp_defaults["ISMEAR"].severity = "warning"
 
         # Also check if SIGMA is too large according to the VASP wiki,
         # which occurs when the entropy term in the energy is greater than 1 meV/atom.
@@ -485,7 +493,7 @@ class CheckIncar(BaseValidator):
 
         # ENAUG. Should only be checked for calculations where the relevant MP input set specifies ENAUG.
         # In that case, ENAUG should be the same or greater than in valid_input_set.
-        if ref_incar.get("ENAUG"):
+        if ref_incar.get("ENAUG") < float("inf"):
             self.vasp_defaults["ENAUG"].operation = ">="
 
         # IALGO.
@@ -504,12 +512,18 @@ class CheckIncar(BaseValidator):
                     f"NELECT should be set to {nelect + user_incar['NELECT']} instead."
                 )
             except Exception:
-                self.vasp_defaults["NELECT"].operation = "auto fail"
-                self.vasp_defaults["NELECT"].alias = "NELECT / POTCAR"
-                self.vasp_defaults["NELECT"].comment = (
-                    "sIssue checking whether NELECT was changed to make "
-                    "the structure have a non-zero charge. This is likely due to the "
-                    "directory not having a POTCAR file."
+                self.vasp_defaults["NELECT"] = VaspParam(
+                    name = "NELECT",
+                    value = None,
+                    tag = "electronic",
+                    operation= "auto fail",
+                    severity="warning",
+                    alias = "NELECT / POTCAR",
+                    comment=(
+                        "Issue checking whether NELECT was changed to make "
+                        "the structure have a non-zero charge. This is likely due to the "
+                        "directory not having a POTCAR file."
+                    )
                 )
 
             # NBANDS.
@@ -535,7 +549,10 @@ class CheckIncar(BaseValidator):
 
         # IBRION.
         ref_incar["IBRION"] = [-1, 1, 2]
-        if (inp_set_ibrion := vasp_files.user_input.incar.get("IBRION")) and inp_set_ibrion not in ref_incar["IBRION"]:
+        if (
+            (inp_set_ibrion := vasp_files.valid_input_set.incar.get("IBRION")) 
+            and inp_set_ibrion not in ref_incar["IBRION"]
+        ):
             ref_incar["IBRION"].append(inp_set_ibrion)
 
         ionic_steps = []
