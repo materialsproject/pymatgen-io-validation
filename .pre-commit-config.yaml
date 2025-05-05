@@ -52,4 +52,13 @@ repos:
         args:
           - --namespace-packages
           - --explicit-package-bases
-        additional_dependencies: ['types-requests','pydantic>=2.0.1']
+        additional_dependencies: ['types-requests','pydantic>=2.10.0']
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
+        args:
+          - --drop-empty-cells
+          - --strip-init-cells
+          - --extra-keys=metadata.kernelspec

@@ -1,7 +1,7 @@
 """Define VASP defaults and input categories to check."""
 
 from __future__ import annotations
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 import math
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
@@ -70,16 +70,16 @@ class VaspParam(BaseModel):
     tag: str = Field(
         description="the general category of input the tag belongs to. Used only to properly update INCAR fields in the same way VASP does."
     )
-    operation: str | list[str] | tuple[str] | None = Field(
+    operation: Optional[str | list[str] | tuple[str]] = Field(
         None, description="One or more of VALID_OPERATIONS to apply in validating this parameter."
     )
-    alias: str | None = Field(
+    alias: Optional[str] = Field(
         None,
         description="If a str, an alternate name for a parameter to use when reporting invalid values, e.g., ENMAX instead of ENCUT.",
     )
     tolerance: float = Field(1e-4, description="The tolerance used when evaluating approximate float equality.")
-    comment: str | None = Field(None, description="Additional information to pass to the user if a check fails.")
-    warning: str | None = Field(None, description="Additional warnings to pass to the user if a check fails.")
+    comment: Optional[str] = Field(None, description="Additional information to pass to the user if a check fails.")
+    warning: Optional[str] = Field(None, description="Additional warnings to pass to the user if a check fails.")
     severity: Literal["reason", "warning"] = Field("reason", description="The severity of failing this check.")
 
     @staticmethod
@@ -449,7 +449,7 @@ VASP_DEFAULTS_LIST = [
     ),
     VaspParam(
         name="IBRION",
-        value=0,
+        value=-1,
         operation="in",
         alias="IBRION",
         tag="ionic",

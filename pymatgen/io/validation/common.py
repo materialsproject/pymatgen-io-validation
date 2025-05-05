@@ -7,7 +7,7 @@ from importlib import import_module
 import os
 from pathlib import Path
 from pydantic import BaseModel, Field, model_serializer, PrivateAttr
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from pymatgen.core import Structure
 from pymatgen.io.vasp import Incar, Kpoints, Poscar, Potcar, Outcar, Vasprun
@@ -55,8 +55,8 @@ class PotcarSummaryStats(BaseModel):
         header: _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR header.")
         data: _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR body.")
 
-    keywords: _PotcarSummaryStatsKeywords | None = None
-    stats: _PotcarSummaryStatsStats | None = None
+    keywords: Optional[_PotcarSummaryStatsKeywords] = None
+    stats: Optional[_PotcarSummaryStatsStats] = None
     titel: str
     lexch: str
 
@@ -73,8 +73,8 @@ class PotcarSummaryStats(BaseModel):
 class LightOutcar(BaseModel):
     """Schematic of pymatgen's Outcar."""
 
-    drift: list[list[float]] | None = Field(None, description="The drift forces.")
-    magnetization: list[dict[str, float]] | None = Field(
+    drift: Optional[list[list[float]]] = Field(None, description="The drift forces.")
+    magnetization: Optional[list[dict[str, float]]] = Field(
         None, description="The on-site magnetic moments, possibly with orbital resolution."
     )
 
@@ -89,7 +89,7 @@ class LightVasprun(BaseModel):
     kpoints: Kpoints = Field(description="The actual k-points used in the calculation.")
     parameters: dict[str, Any] = Field(description="The default-padded input parameters interpreted by VASP.")
     bandgap: float = Field(description="The bandgap - note that this field is derived from the Vasprun object.")
-    potcar_symbols: list[str] | None = Field(
+    potcar_symbols: Optional[list[str]] = Field(
         None,
         description="Optional: if a POTCAR is unavailable, this is used to determine the functional used in the calculation.",
     )
@@ -107,10 +107,10 @@ class VaspInputSafe(BaseModel):
 
     incar: Incar = Field(description="The INCAR used in the calculation.")
     structure: Structure = Field(description="The structure associated with the calculation.")
-    kpoints: Kpoints | None = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
-    potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
-    potcar_functional: str | None = Field(None, description="The pymatgen-labelled POTCAR library release.")
-    _pmg_vis: VaspInputSet | None = PrivateAttr(None)
+    kpoints: Optional[Kpoints] = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
+    potcar: Optional[list[PotcarSummaryStats]] = Field(None, description="The optional POTCAR used in the calculation.")
+    potcar_functional: Optional[str] = Field(None, description="The pymatgen-labelled POTCAR library release.")
+    _pmg_vis: Optional[VaspInputSet] = PrivateAttr(None)
 
     @model_serializer
     def deserialize_objects(self) -> dict[str, Any]:
@@ -155,8 +155,8 @@ class VaspFiles(BaseModel):
     """Define required and optional files for validation."""
 
     user_input: VaspInputSafe = Field(description="The VASP input set used in the calculation.")
-    outcar: LightOutcar | None = None
-    vasprun: LightVasprun | None = None
+    outcar: Optional[LightOutcar] = None
+    vasprun: Optional[LightVasprun] = None
 
     @property
     def actual_kpoints(self) -> Kpoints | None:

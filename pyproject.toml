@@ -80,6 +80,7 @@ select = "C, E, F, W, B, B950"
 explicit_package_bases = true
 namespace_packages = true
 ignore_missing_imports = true
+no_strict_optional = true
 plugins = ["pydantic.mypy"]
 
 [tool.coverage.run]
