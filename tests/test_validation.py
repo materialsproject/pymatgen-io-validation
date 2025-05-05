@@ -1,7 +1,6 @@
 import pytest
 import copy
 
-
 from monty.serialization import loadfn
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
@@ -25,7 +24,7 @@ def run_check(
     should_the_check_pass: bool,
     vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
     incar_settings_to_change: dict = {},  # for directly changing the INCAR file,
-    validation_doc_kwargs: dict = {},  # any kwargs to pass to the ValidationDoc class
+    validation_doc_kwargs: dict = {},  # any kwargs to pass to the VaspValidator class
 ):
     _new_vf = vasp_files.model_dump()
     _new_vf["vasprun"]["parameters"].update(**vasprun_parameters_to_change)
@@ -41,10 +40,7 @@ def run_check(
 def test_validation_from_files(test_dir):
 
     dir_name = test_dir / "vasp" / "Si_uniform"
-    paths = {
-        k.split(".")[0].lower(): f"{dir_name / k}.gz" for k in ("INCAR", "KPOINTS", "POSCAR", "OUTCAR", "vasprun.xml")
-    }
-    validator_from_paths = VaspValidator.from_vasp_input(vasp_file_paths=paths)
+    validator_from_paths = VaspValidator.from_directory(dir_name)
     validator_from_vasp_files = VaspValidator.from_vasp_input(vasp_files=vasp_calc_data["Si_uniform"])
 
     # Note: because the POTCAR info cannot be distributed, `validator_from_paths`

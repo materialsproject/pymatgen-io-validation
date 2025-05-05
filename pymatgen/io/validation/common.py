@@ -203,12 +203,12 @@ class VaspFiles(BaseModel):
     @classmethod
     def from_paths(
         cls,
-        incar: os.PathLike[str],
-        poscar: os.PathLike[str],
-        kpoints: os.PathLike[str] | None = None,
-        potcar: os.PathLike[str] | None = None,
-        outcar: os.PathLike[str] | None = None,
-        vasprun: os.PathLike[str] | None = None,
+        incar: str | Path | os.PathLike[str],
+        poscar: str | Path | os.PathLike[str],
+        kpoints: str | Path | os.PathLike[str] | None = None,
+        potcar: str | Path | os.PathLike[str] | None = None,
+        outcar: str | Path | os.PathLike[str] | None = None,
+        vasprun: str | Path | os.PathLike[str] | None = None,
     ):
         """Construct a set of VASP I/O from file paths."""
         config: dict[str, Any] = {"user_input": {}}

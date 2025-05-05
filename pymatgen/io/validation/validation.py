@@ -1,8 +1,11 @@
 """Define core validation schema."""
 
 from __future__ import annotations
+from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import TYPE_CHECKING
+
+from monty.os.path import zpath
 
 from pymatgen.io.validation.common import VaspFiles
 from pymatgen.io.validation.check_common_errors import CheckStructureProperties, CheckCommonErrors
@@ -11,6 +14,7 @@ from pymatgen.io.validation.check_potcar import CheckPotcar
 from pymatgen.io.validation.check_incar import CheckIncar
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     import os
     from typing_extensions import Self
 
@@ -40,10 +44,11 @@ class VaspValidator(BaseModel):
     @classmethod
     def from_vasp_input(
         cls,
-        vasp_file_paths: dict[str, os.PathLike[str]] | None = None,
+        vasp_file_paths: Mapping[str, str | Path | os.PathLike[str]] | None = None,
         vasp_files: VaspFiles | None = None,
         fast: bool = False,
         check_potcar: bool = True,
+        **kwargs,
     ) -> Self:
         """
         Validate a VASP calculation from VASP files or their object representation.
@@ -67,6 +72,8 @@ class VaspValidator(BaseModel):
             or to list all reasons why a calculation failed (False)
         check_potcar : bool (default = True)
             Whether to check the POTCAR for validity.
+        **kwargs
+            kwargs to pass to `VaspValidator`
         """
 
         if vasp_files:
@@ -88,4 +95,32 @@ class VaspValidator(BaseModel):
             check(fast=fast).check(vf, config["reasons"], config["warnings"])  # type: ignore[arg-type]
             if fast and len(config["reasons"]) > 0:
                 break
-        return cls(**config, vasp_files=vf)
+        return cls(**config, vasp_files=vf, **kwargs)
+
+    @classmethod
+    def from_directory(cls, dir_name: str | Path, **kwargs) -> Self:
+        """Convenience method to validate a calculation from a directory.
+
+        This method is intended solely for use cases where VASP input/output
+        files are not renamed, beyond the compression methods supported by
+        monty.os.zpath.
+
+        Thus, INCAR, INCAR.gz, INCAR.bz2, INCAR.lzma are all acceptable, but
+        INCAR.relax1.gz is not.
+
+        For finer-grained control of which files are validated, explicitly
+        pass file names to `VaspValidator.from_vasp_input`.
+
+        Parameters
+        -----------
+        dir_name : str or Path
+            The path to the calculation directory.
+        **kwargs
+            kwargs to pass to `VaspValidator`
+        """
+        dir_name = Path(dir_name)
+        vasp_file_paths = {}
+        for file_name in ("INCAR", "KPOINTS", "POSCAR", "POTCAR", "OUTCAR", "vasprun.xml"):
+            if (file_path := Path(zpath(str(dir_name / file_name)))).exists():
+                vasp_file_paths[file_name.lower().split(".")[0]] = file_path
+        return cls.from_vasp_input(vasp_file_paths=vasp_file_paths, **kwargs)

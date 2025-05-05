@@ -29,6 +29,7 @@ dependencies = [
   "numpy",
   "requests",
   "pydantic>=2.0.1",
+  "pydantic-settings>=2.0.0",
 ]
 description = "A comprehensive I/O validator for electronic structure calculations"
 dynamic = ["version"]

@@ -17,8 +17,8 @@ setup(
     version="0.0.3",
     install_requires=[
         "pymatgen>=2024.5.1",
-        "emmet-core>=0.83.6",
         "pydantic>=2.4.2",
+        "pydantic-settings>=2.0.0",
         "requests>=2.28.1",
     ],
     extras_require={},
