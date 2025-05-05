@@ -26,37 +26,40 @@ class ValidationError(Exception):
     """Define custom exception during validation."""
 
 
+class PotcarSummaryKeywords(BaseModel):
+    """Schematize `PotcarSingle._summary_stats["keywords"]` field."""
+
+    header: set[str] = Field(description="The keywords in the POTCAR header.")
+    data: set[str] = Field(description="The keywords in the POTCAR body.")
+
+    @model_serializer
+    def set_to_list(self) -> dict[str, list[str]]:
+        """Ensure JSON compliance of set fields."""
+        return {k: list(getattr(self, k)) for k in ("header", "data")}
+
+
+class PotcarSummaryStatisticsFields(BaseModel):
+    """Define statistics used in `PotcarSingle._summary_stats`."""
+
+    MEAN: float = Field(description="Data mean.")
+    ABSMEAN: float = Field(description="Data magnitude mean.")
+    VAR: float = Field(description="Mean of squares of data.")
+    MIN: float = Field(description="Data minimum.")
+    MAX: float = Field(description="Data maximum.")
+
+
+class PotcarSummaryStatistics(BaseModel):
+    """Schematize `PotcarSingle._summary_stats["stats"]` field."""
+
+    header: PotcarSummaryStatisticsFields = Field(description="The keywords in the POTCAR header.")
+    data: PotcarSummaryStatisticsFields = Field(description="The keywords in the POTCAR body.")
+
+
 class PotcarSummaryStats(BaseModel):
     """Schematize `PotcarSingle._summary_stats`."""
 
-    class _PotcarSummaryStatsKeywords(BaseModel):
-        """Schematize `PotcarSingle._summary_stats["keywords"]` field."""
-
-        header: set[str] = Field(description="The keywords in the POTCAR header.")
-        data: set[str] = Field(description="The keywords in the POTCAR body.")
-
-        @model_serializer
-        def set_to_list(self) -> dict[str, list[str]]:
-            """Ensure JSON compliance of set fields."""
-            return {k: list(getattr(self, k)) for k in ("header", "data")}
-
-    class _PotcarSummaryStatsStats(BaseModel):
-        """Schematize `PotcarSingle._summary_stats["stats"]` field."""
-
-        class _PotcarSummaryStatsNames(BaseModel):
-            """Define statistics used in `PotcarSingle._summary_stats`."""
-
-            MEAN: float = Field(description="Data mean.")
-            ABSMEAN: float = Field(description="Data magnitude mean.")
-            VAR: float = Field(description="Mean of squares of data.")
-            MIN: float = Field(description="Data minimum.")
-            MAX: float = Field(description="Data maximum.")
-
-        header: _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR header.")
-        data: _PotcarSummaryStatsNames = Field(description="The keywords in the POTCAR body.")
-
-    keywords: Optional[_PotcarSummaryStatsKeywords] = None
-    stats: Optional[_PotcarSummaryStatsStats] = None
+    keywords: Optional[PotcarSummaryKeywords] = None
+    stats: Optional[PotcarSummaryStatistics] = None
     titel: str
     lexch: str
 
