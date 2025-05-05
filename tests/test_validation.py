@@ -68,7 +68,9 @@ def test_validation_from_files(test_dir):
 def test_potcar_validation(test_dir, object_name):
     vf_og = vasp_calc_data[object_name]
 
-    correct_potcar_summary_stats = [PotcarSummaryStats(**ps) for ps in loadfn(test_dir / "vasp" / "fake_Si_potcar_spec.json.gz")]
+    correct_potcar_summary_stats = [
+        PotcarSummaryStats(**ps) for ps in loadfn(test_dir / "vasp" / "fake_Si_potcar_spec.json.gz")
+    ]
 
     # Check POTCAR (this test should PASS, as we ARE using a MP-compatible pseudopotential)
     vf = copy.deepcopy(vf_og)

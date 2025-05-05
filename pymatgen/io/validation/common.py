@@ -61,10 +61,12 @@ class PotcarSummaryStats(BaseModel):
     lexch: str
 
     @classmethod
-    def from_file(cls, potcar: os.PathLike | Potcar) -> list[Self]:
+    def from_file(cls, potcar_path: os.PathLike | Potcar) -> list[Self]:
         """Create a list of PotcarSummaryStats from a POTCAR."""
-        if not isinstance(potcar, Potcar):
-            potcar = Potcar.from_file(potcar)
+        if isinstance(potcar_path, Potcar):
+            potcar: Potcar = potcar_path
+        else:
+            potcar = Potcar.from_file(str(potcar_path))
         return [cls(**p._summary_stats, titel=p.TITEL, lexch=p.LEXCH) for p in potcar]
 
 
@@ -107,12 +109,15 @@ class VaspInputSafe(BaseModel):
     structure: Structure = Field(description="The structure associated with the calculation.")
     kpoints: Kpoints | None = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
     potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
+    potcar_functional: str | None = Field(None, description="The pymatgen-labelled POTCAR library release.")
     _pmg_vis: VaspInputSet | None = PrivateAttr(None)
 
     @model_serializer
     def deserialize_objects(self) -> dict[str, Any]:
         """Ensure all pymatgen objects are deserialized."""
-        model_dumped: dict[str, Any] = {"potcar": [p.model_dump() for p in self.potcar]}
+        model_dumped: dict[str, Any] = {}
+        if self.potcar:
+            model_dumped["potcar"] = [p.model_dump() for p in self.potcar]
         for k in (
             "incar",
             "structure",
@@ -134,6 +139,7 @@ class VaspInputSafe(BaseModel):
                 )
             },
             potcar=PotcarSummaryStats.from_file(vis.potcar),
+            potcar_functional=vis.potcar_functional,
         )
         new_vis._pmg_vis = vis
         return new_vis
@@ -194,7 +200,7 @@ class VaspFiles(BaseModel):
         for file_name, file_cls in to_obj.items():
             if (path := _vars.get(file_name)) and Path(path).exists():
                 if file_name == "poscar":
-                    config["user_input"]["structure"] = file_cls.from_file(path).structure
+                    config["user_input"]["structure"] = Poscar.from_file(path).structure
                 elif hasattr(file_cls, "from_file"):
                     config["user_input"][file_name] = file_cls.from_file(path)
                 else:
@@ -208,11 +214,11 @@ class VaspFiles(BaseModel):
                 drift=config["outcar"].drift,
                 magnetization=config["outcar"].magnetization,
             )
+
         if config.get("vasprun"):
             config["vasprun"] = LightVasprun.from_vasprun(config["vasprun"])
-        else:
-            if not config["incar"].get("ENCUT") and potcar_enmax:
-                config["incar"]["ENCUT"] = potcar_enmax
+        elif not config["user_input"]["incar"].get("ENCUT") and potcar_enmax:
+            config["user_input"]["incar"]["ENCUT"] = potcar_enmax
 
         return cls(**config)
 

@@ -236,8 +236,7 @@ class CheckIncar(BaseValidator):
 
         if (
             user_incar["ISPIN"] == 2
-            and vasp_files.outcar
-            and len(vasp_files.outcar.magnetization) != vasp_files.user_input.structure.num_sites
+            and len(getattr(vasp_files.outcar, "magnetization", [])) != vasp_files.user_input.structure.num_sites
         ):
             self.vasp_defaults["LORBIT"].update(
                 {
@@ -308,18 +307,19 @@ class CheckIncar(BaseValidator):
             enmaxs = [user_incar["ENMAX"], ref_incar["ENMAX"]]
             ref_incar["ENMAX"] = max([v for v in enmaxs if v < float("inf")])
 
-            (
-                [
-                    ref_incar["NGX"],
-                    ref_incar["NGY"],
-                    ref_incar["NGZ"],
-                ],
-                [
-                    ref_incar["NGXF"],
-                    ref_incar["NGYF"],
-                    ref_incar["NGZF"],
-                ],
-            ) = vasp_files.valid_input_set._calculate_ng(custom_encut=ref_incar["ENMAX"])
+            if fft_grid := vasp_files.valid_input_set._calculate_ng(custom_encut=ref_incar["ENMAX"]):
+                (
+                    [
+                        ref_incar["NGX"],
+                        ref_incar["NGY"],
+                        ref_incar["NGZ"],
+                    ],
+                    [
+                        ref_incar["NGXF"],
+                        ref_incar["NGYF"],
+                        ref_incar["NGZF"],
+                    ],
+                ) = fft_grid
 
             for key in grid_keys:
                 ref_incar[key] = int(ref_incar[key] * self.fft_grid_tolerance)
@@ -490,7 +490,7 @@ class CheckIncar(BaseValidator):
 
         # ENAUG. Should only be checked for calculations where the relevant MP input set specifies ENAUG.
         # In that case, ENAUG should be the same or greater than in valid_input_set.
-        if ref_incar.get("ENAUG") < float("inf"):
+        if ref_incar.get("ENAUG") and not np.isinf(ref_incar["ENAUG"]):
             self.vasp_defaults["ENAUG"].operation = ">="
 
         # IALGO.
@@ -502,7 +502,7 @@ class CheckIncar(BaseValidator):
         if vasp_files.vasprun and (nelect := vasp_files.vasprun.parameters.get("NELECT")):
             ref_incar["NELECT"] = 0.0
             try:
-                user_incar["NELECT"] = float(vasp_files.vasprun.final_structure._charge)
+                user_incar["NELECT"] = float(vasp_files.vasprun.final_structure._charge or 0.0)
                 self.vasp_defaults["NELECT"].operation = "approx"
                 self.vasp_defaults["NELECT"].comment = (
                     f"This causes the structure to have a charge of {user_incar['NELECT']}. "

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from pymatgen.io.validation.common import SETTINGS, BaseValidator
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from numpy.typing import ArrayLike
 
     from pymatgen.io.validation.common import VaspFiles
@@ -151,8 +152,12 @@ class CheckCommonErrors(BaseValidator):
     def _check_large_magmoms(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # Check for excessively large final magnetic moments
 
-        if not vasp_files.outcar:
-            warnings.append("MAGNETISM --> No OUTCAR file specified")
+        if (
+            not vasp_files.outcar
+            or not vasp_files.outcar.magnetization
+            or any(mag.get("tot") is None for mag in vasp_files.outcar.magnetization)
+        ):
+            warnings.append("MAGNETISM --> No OUTCAR file specified or data missing.")
             return
 
         cur_magmoms = [abs(mag["tot"]) for mag in vasp_files.outcar.magnetization]
@@ -221,7 +226,7 @@ class CheckStructureProperties(BaseValidator):
     )
 
     @staticmethod
-    def _has_frozen_degrees_of_freedom(selective_dynamics_array: ArrayLike[bool] | None) -> bool:
+    def _has_frozen_degrees_of_freedom(selective_dynamics_array: Sequence[bool] | None) -> bool:
         """Check selective dynamics array for False values."""
         if selective_dynamics_array is None:
             return False
@@ -243,7 +248,7 @@ class CheckStructureProperties(BaseValidator):
     def _has_nonzero_velocities(velocities: ArrayLike | None, tol: float = 1.0e-8) -> bool:
         if velocities is None:
             return False
-        return np.any(np.abs(velocities) > tol)
+        return np.any(np.abs(velocities) > tol)  # type: ignore [return-value]
 
     def _check_velocities(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         """Check structure for non-zero velocities."""

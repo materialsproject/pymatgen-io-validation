@@ -52,4 +52,4 @@ repos:
         args:
           - --namespace-packages
           - --explicit-package-bases
-        additional_dependencies: ['types-requests']
+        additional_dependencies: ['types-requests','pydantic>=2.0.1']

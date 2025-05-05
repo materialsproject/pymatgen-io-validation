@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import datetime
 from pydantic import Field
 
-from emmet.core.tasks import TaskDoc
-from emmet.core.vasp.calculation import Calculation
-from emmet.core.vasp.task_valid import TaskDocument
-from emmet.core.base import EmmetBaseModel
-from emmet.core.mpid import MPID
-from emmet.core.utils import utcnow
+from emmet.core.tasks import TaskDoc  # type: ignore[import-untyped]
+from emmet.core.vasp.calculation import Calculation  # type: ignore[import-untyped]
+from emmet.core.vasp.task_valid import TaskDocument  # type: ignore[import-untyped]
+from emmet.core.base import EmmetBaseModel  # type: ignore[import-untyped]
+from emmet.core.mpid import MPID  # type: ignore[import-untyped]
+from emmet.core.utils import utcnow  # type: ignore[import-untyped]
 
 from pymatgen.io.vasp import Incar
 

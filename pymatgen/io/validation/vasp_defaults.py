@@ -114,7 +114,7 @@ class VaspParam(BaseModel):
             self[k] = v
 
     @staticmethod
-    def _comparator(lhs: Any, operation: str, rhs: Any, **kwargs) -> bool:
+    def _comparator(lhs: Any, operation: str | None, rhs: Any, **kwargs) -> bool:
         """
         Compare different values using one of VALID_OPERATIONS.
 
@@ -122,9 +122,10 @@ class VaspParam(BaseModel):
         -----------
         lhs : Any
             Left-hand side of the operation.
-        operation : str
+        operation : str or None
             Operation acting on rhs from lhs. For example, if operation is ">",
             this returns (lhs > rhs).
+            Check is skipped if operation is None
         rhs : Any
             Right-hand of the operation.
         kwargs
@@ -193,7 +194,7 @@ class VaspParam(BaseModel):
             if not valid_value:
                 comment_str = (
                     f"INPUT SETTINGS --> {self.alias or self.name}: is {cval}, but should be "
-                    f"{'' if operation == 'auto fail' else operation + ' '}{reference_values[iop]}."
+                    f"{'' if operation == 'auto fail' else f'{operation} '}{reference_values[iop]}."
                 )
                 if self.comment:
                     comment_str += f"{' ' if len(self.comment) > 0 else ''}{self.comment}"

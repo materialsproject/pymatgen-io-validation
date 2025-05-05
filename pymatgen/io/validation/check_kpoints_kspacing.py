@@ -15,7 +15,7 @@ class CheckKpointsKspacing(BaseValidator):
     """Check that k-point density is sufficiently high and is compatible with lattice symmetry."""
 
     name: str = "Check k-point density"
-    kpts_tolerance: float | None = Field(
+    kpts_tolerance: float = Field(
         SETTINGS.VASP_KPTS_TOLERANCE,
         description="Tolerance for evaluating k-point density, to accommodate different the k-point generation schemes across VASP versions.",
     )
@@ -46,8 +46,10 @@ class CheckKpointsKspacing(BaseValidator):
         int, the minimum permitted number of k-points, consistent with self.kpts_tolerance
         """
         # If MP input set specifies KSPACING in the INCAR
-        if ("KSPACING" in vasp_files.valid_input_set.incar.keys()) and (vasp_files.valid_input_set.kpoints is None):
-            valid_kspacing = vasp_files.valid_input_set.incar.get("KSPACING", self.vasp_defaults["KSPACING"].value)
+        if (kspacing := vasp_files.valid_input_set.incar.get("KSPACING")) and (
+            vasp_files.valid_input_set.kpoints is None
+        ):
+            valid_kspacing = kspacing
             # number of kpoints along each of the three lattice vectors
             nk = [
                 max(1, np.ceil(vasp_files.user_input.structure.lattice.reciprocal_lattice.abc[ik] / valid_kspacing))
@@ -55,7 +57,7 @@ class CheckKpointsKspacing(BaseValidator):
             ]
             valid_num_kpts = np.prod(nk)
         # If MP input set specifies a KPOINTS file
-        else:
+        elif vasp_files.valid_input_set.kpoints:
             valid_num_kpts = vasp_files.valid_input_set.kpoints.num_kpts or np.prod(
                 vasp_files.valid_input_set.kpoints.kpts[0]
             )
@@ -64,7 +66,7 @@ class CheckKpointsKspacing(BaseValidator):
 
     def _check_user_shifted_mesh(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # Check for user shifts
-        if (not self.allow_kpoint_shifts) and any(shift_val != 0 for shift_val in vasp_files.actual_kpoints.kpts_shift):
+        if (not self.allow_kpoint_shifts) and any(shift_val != 0 for shift_val in vasp_files.actual_kpoints.kpts_shift):  # type: ignore[union-attr]
             reasons.append("INPUT SETTINGS --> KPOINTS: shifting the kpoint mesh is not currently allowed.")
 
     def _check_explicit_mesh_permitted(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
@@ -77,7 +79,7 @@ class CheckKpointsKspacing(BaseValidator):
         else:
             allow_explicit = False
 
-        if (not allow_explicit) and len(vasp_files.actual_kpoints.kpts) > 1:
+        if (not allow_explicit) and len(vasp_files.actual_kpoints.kpts) > 1:  # type: ignore[union-attr]
             reasons.append(
                 "INPUT SETTINGS --> KPOINTS: explicitly defining "
                 "the k-point mesh is not currently allowed. "
@@ -92,10 +94,10 @@ class CheckKpointsKspacing(BaseValidator):
         # Check number of kpoints used
         valid_num_kpts = self._get_valid_num_kpts(vasp_files)
 
-        cur_num_kpts = max(
-            vasp_files.actual_kpoints.num_kpts,
-            np.prod(vasp_files.actual_kpoints.kpts),
-            len(vasp_files.actual_kpoints.kpts),
+        cur_num_kpts: int = max(  # type: ignore[assignment]
+            vasp_files.actual_kpoints.num_kpts,  # type: ignore[union-attr]
+            np.prod(vasp_files.actual_kpoints.kpts),  # type: ignore[union-attr]
+            len(vasp_files.actual_kpoints.kpts),  # type: ignore[union-attr]
         )
         if cur_num_kpts < valid_num_kpts:
             reasons.append(
@@ -106,19 +108,19 @@ class CheckKpointsKspacing(BaseValidator):
     def _check_kpoint_mesh_symmetry(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
         # check for valid kpoint mesh (which depends on symmetry of the structure)
 
-        cur_kpoint_style = vasp_files.actual_kpoints.style.name.lower()
+        cur_kpoint_style = vasp_files.actual_kpoints.style.name.lower()  # type: ignore[union-attr]
         is_hexagonal = vasp_files.user_input.structure.lattice.is_hexagonal()
         is_face_centered = vasp_files.user_input.structure.get_space_group_info()[0][0] == "F"
         monkhorst_mesh_is_invalid = is_hexagonal or is_face_centered
         if (
             cur_kpoint_style == "monkhorst"
             and monkhorst_mesh_is_invalid
-            and any(x % 2 == 0 for x in vasp_files.actual_kpoints.kpts[0])
+            and any(x % 2 == 0 for x in vasp_files.actual_kpoints.kpts[0])  # type: ignore[union-attr]
         ):
             # only allow Monkhorst with all odd number of subdivisions per axis.
-            kx, ky, kz = vasp_files.actual_kpoints.kpts[0]
+            kv = vasp_files.actual_kpoints.kpts[0]  # type: ignore[union-attr]
             reasons.append(
-                f"INPUT SETTINGS --> KPOINTS or KGAMMA: ({kx}x{ky}x{kz}) "
+                f"INPUT SETTINGS --> KPOINTS or KGAMMA: ({'×'.join([f'{_k}' for _k in kv])}) "
                 "Monkhorst-Pack kpoint mesh was used."
                 "To be compatible with the symmetry of the lattice, "
                 "a Monkhorst-Pack mesh should have only odd number of "
