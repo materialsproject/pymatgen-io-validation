@@ -12,6 +12,7 @@ from pymatgen.io.validation.check_incar import CheckIncar
 
 if TYPE_CHECKING:
     import os
+    from typing_extensions import Self
 
 DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, CheckKpointsKspacing, CheckIncar]
 
@@ -43,7 +44,7 @@ class VaspValidator(BaseModel):
         vasp_files: VaspFiles | None = None,
         fast: bool = False,
         check_potcar: bool = True,
-    ):
+    ) -> Self:
         """
         Validate a VASP calculation from VASP files or their object representation.
 
