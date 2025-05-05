@@ -2,13 +2,12 @@ import pytest
 import copy
 
 
-from pymatgen.io.validation.common import VaspFiles
-from pymatgen.io.validation.validation import VaspValidator
 from monty.serialization import loadfn
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
 
-from pymatgen.io.validation.common import ValidationError
+from pymatgen.io.validation.validation import VaspValidator
+from pymatgen.io.validation.common import ValidationError, VaspFiles, PotcarSummaryStats
 
 from conftest import vasp_calc_data, incar_check_list
 
@@ -69,7 +68,7 @@ def test_validation_from_files(test_dir):
 def test_potcar_validation(test_dir, object_name):
     vf_og = vasp_calc_data[object_name]
 
-    correct_potcar_summary_stats = loadfn(test_dir / "vasp" / "Si_potcar_spec.json.gz")
+    correct_potcar_summary_stats = [PotcarSummaryStats(**ps) for ps in loadfn(test_dir / "vasp" / "fake_Si_potcar_spec.json.gz")]
 
     # Check POTCAR (this test should PASS, as we ARE using a MP-compatible pseudopotential)
     vf = copy.deepcopy(vf_og)
