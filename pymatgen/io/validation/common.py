@@ -96,6 +96,17 @@ class LightVasprun(BaseModel):
 
     @classmethod
     def from_vasprun(cls, vasprun: Vasprun) -> Self:
+        """
+        Create a LightVasprun from a pymatgen Vasprun.
+
+        Parameters
+        -----------
+        vasprun : pymatgen Vasprun
+
+        Returns
+        -----------
+        LightVasprun
+        """
         return cls(
             **{k: getattr(vasprun, k) for k in cls.model_fields if k != "bandgap"},
             bandgap=vasprun.get_band_structure(efermi="smart").get_band_gap()["energy"],
@@ -129,6 +140,17 @@ class VaspInputSafe(BaseModel):
 
     @classmethod
     def from_vasp_input_set(cls, vis: VaspInputSet) -> Self:
+        """
+        Create a VaspInputSafe from a pymatgen VaspInputSet.
+
+        Parameters
+        -----------
+        vasprun : pymatgen VaspInputSet
+
+        Returns
+        -----------
+        VaspInputSafe
+        """
         new_vis = cls(
             **{
                 k: getattr(vis, k)
@@ -160,6 +182,7 @@ class VaspFiles(BaseModel):
 
     @property
     def actual_kpoints(self) -> Kpoints | None:
+        """The actual KPOINTS / IBZKPT used in the calculation, if applicable."""
         if self.user_input.kpoints:
             return self.user_input.kpoints
         elif self.vasprun:

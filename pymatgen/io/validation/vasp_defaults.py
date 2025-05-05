@@ -84,6 +84,17 @@ class VaspParam(BaseModel):
 
     @staticmethod
     def listify(val: Any) -> list[Any]:
+        """Return scalars as list of single scalar.
+
+        Parameters
+        -----------
+        val (Any) : scalar or vector-like
+
+        Returns
+        -----------
+        list containing val if val was a scalar,
+        otherwise the list version of val.
+        """
         if hasattr(val, "__len__"):
             if isinstance(val, str):
                 return [val]

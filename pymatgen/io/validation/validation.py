@@ -20,6 +20,7 @@ DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, Chec
 
 
 class VaspValidator(BaseModel):
+    """Validate a VASP calculation."""
 
     reasons: list[str] = Field([], description="List of deprecation tags detailing why this task isn't valid")
     warnings: list[str] = Field([], description="List of warnings about this calculation")
@@ -27,10 +28,12 @@ class VaspValidator(BaseModel):
 
     @property
     def is_valid(self) -> bool:
+        """Determine if the calculation is valid."""
         return len(self.reasons) == 0
 
     @property
     def has_warnings(self) -> bool:
+        """Determine if any warnings were incurred."""
         return len(self.warnings) > 0
 
     @classmethod
@@ -41,6 +44,29 @@ class VaspValidator(BaseModel):
         fast: bool = False,
         check_potcar: bool = True,
     ):
+        """
+        Validate a VASP calculation from VASP files or their object representation.
+
+        Parameters
+        -----------
+        vasp_file_paths : dict of str to os.PathLike, optional
+            If specified, a dict of the form:
+                {
+                    "incar": < path to INCAR>,
+                    "poscar": < path to POSCAR>,
+                    ...
+                }
+            where keys are taken by `VaspFiles.from_paths`.
+        vasp_files : VaspFiles, optional
+            This takes higher precendence than `vasp_file_paths`, and
+            allows the user to specify VASP input/output from a VaspFiles
+            object.
+        fast : bool (default = False)
+            Whether to stop validation at the first failure (True)
+            or to list all reasons why a calculation failed (False)
+        check_potcar : bool (default = True)
+            Whether to check the POTCAR for validity.
+        """
 
         if vasp_files:
             vf: VaspFiles = vasp_files
