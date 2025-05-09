@@ -1,0 +1,776 @@
+- name: ADDGRID
+  value: false
+  operation: ==
+  alias: ADDGRID
+  tag: fft
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: AEXX
+  value: 0.0
+  operation:
+  alias: AEXX
+  tag: hybrid
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: AGGAC
+  value: 1.0
+  operation:
+  alias: AGGAC
+  tag: hybrid
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: AGGAX
+  value: 1.0
+  operation:
+  alias: AGGAX
+  tag: hybrid
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ALDAC
+  value: 1.0
+  operation:
+  alias: ALDAC
+  tag: hybrid
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ALDAX
+  value: 1.0
+  operation:
+  alias: ALDAX
+  tag: hybrid
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ALGO
+  value: normal
+  operation:
+  alias: ALGO
+  tag: electronic_self_consistency
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: AMGGAC
+  value: 1.0
+  operation:
+  alias: AMGGAC
+  tag: hybrid
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: AMGGAX
+  value: 1.0
+  operation:
+  alias: AMGGAX
+  tag: hybrid
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: DEPER
+  value: 0.3
+  operation: ==
+  alias: DEPER
+  tag: misc
+  tolerance: 0.0001
+  comment: According to the VASP manual, DEPER should not be set by the user.
+  warning:
+  severity: reason
+- name: EBREAK
+  value:
+  operation:
+  alias: EBREAK
+  tag: post_init
+  tolerance: 0.0001
+  comment: According to the VASP manual, EBREAK should not be set by the user.
+  warning:
+  severity: reason
+- name: EDIFF
+  value: 0.0001
+  operation: <=
+  alias: EDIFF
+  tag: electronic
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: EFERMI
+  value: LEGACY
+  operation:
+  alias: EFERMI
+  tag: misc_special
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: EFIELD
+  value: 0.0
+  operation: ==
+  alias: EFIELD
+  tag: dipole
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ENAUG
+  value: .inf
+  operation:
+  alias: ENAUG
+  tag: electronic
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ENINI
+  value: 0
+  operation:
+  alias: ENINI
+  tag: electronic
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ENMAX
+  value: .inf
+  operation: '>='
+  alias: ENCUT
+  tag: fft
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: EPSILON
+  value: 1.0
+  operation: ==
+  alias: EPSILON
+  tag: dipole
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: GGA_COMPAT
+  value: true
+  operation: ==
+  alias: GGA_COMPAT
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: IALGO
+  value: 38
+  operation: in
+  alias: IALGO
+  tag: misc_special
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: IBRION
+  value: 0
+  operation: in
+  alias: IBRION
+  tag: ionic
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ICHARG
+  value: 2
+  operation:
+  alias: ICHARG
+  tag: startup
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ICORELEVEL
+  value: 0
+  operation: ==
+  alias: ICORELEVEL
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: IDIPOL
+  value: 0
+  operation: ==
+  alias: IDIPOL
+  tag: dipole
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: IMAGES
+  value: 0
+  operation: ==
+  alias: IMAGES
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: INIWAV
+  value: 1
+  operation: ==
+  alias: INIWAV
+  tag: startup
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ISIF
+  value: 2
+  operation: '>='
+  alias: ISIF
+  tag: ionic
+  tolerance: 0.0001
+  comment: ISIF values < 2 do not output the complete stress tensor.
+  warning:
+  severity: reason
+- name: ISMEAR
+  value: 1
+  operation: in
+  alias: ISMEAR
+  tag: smearing
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ISPIN
+  value: 1
+  operation:
+  alias: ISPIN
+  tag: misc_special
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ISTART
+  value: 0
+  operation: in
+  alias: ISTART
+  tag: startup
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ISYM
+  value: 2
+  operation: in
+  alias: ISYM
+  tag: symmetry
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: IVDW
+  value: 0
+  operation: ==
+  alias: IVDW
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: IWAVPR
+  value:
+  operation:
+  alias: IWAVPR
+  tag: misc_special
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: KGAMMA
+  value: true
+  operation:
+  alias: KGAMMA
+  tag: k_mesh
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: KSPACING
+  value: 0.5
+  operation:
+  alias: KSPACING
+  tag: k_mesh
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LASPH
+  value: true
+  operation: ==
+  alias: LASPH
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LBERRY
+  value: false
+  operation: ==
+  alias: LBERRY
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LCALCEPS
+  value: false
+  operation: ==
+  alias: LCALCEPS
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LCALCPOL
+  value: false
+  operation: ==
+  alias: LCALCPOL
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LCHIMAG
+  value: false
+  operation: ==
+  alias: LCHIMAG
+  tag: chemical_shift
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LCORR
+  value: true
+  operation:
+  alias: LCORR
+  tag: misc_special
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LDAU
+  value: false
+  operation:
+  alias: LDAU
+  tag: dft_plus_u
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LDAUJ
+  value: []
+  operation:
+  alias: LDAUJ
+  tag: dft_plus_u
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LDAUL
+  value: []
+  operation:
+  alias: LDAUL
+  tag: dft_plus_u
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LDAUTYPE
+  value: 2
+  operation:
+  alias: LDAUTYPE
+  tag: dft_plus_u
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LDAUU
+  value: []
+  operation:
+  alias: LDAUU
+  tag: dft_plus_u
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LDIPOL
+  value: false
+  operation: ==
+  alias: LDIPOL
+  tag: dipole
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LEFG
+  value: false
+  operation: ==
+  alias: LEFG
+  tag: write
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LEPSILON
+  value: false
+  operation: ==
+  alias: LEPSILON
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LHFCALC
+  value: false
+  operation:
+  alias: LHFCALC
+  tag: hybrid
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LHYPERFINE
+  value: false
+  operation: ==
+  alias: LHYPERFINE
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LKPOINTS_OPT
+  value: false
+  operation: ==
+  alias: LKPOINTS_OPT
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LKPROJ
+  value: false
+  operation: ==
+  alias: LKPROJ
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LMAXMIX
+  value: 2
+  operation:
+  alias: LMAXMIX
+  tag: density_mixing
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LMAXPAW
+  value: -100
+  operation: ==
+  alias: LMAXPAW
+  tag: electronic_projector
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LMAXTAU
+  value: 6
+  operation:
+  alias: LMAXTAU
+  tag: density_mixing
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LMONO
+  value: false
+  operation: ==
+  alias: LMONO
+  tag: dipole
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LMP2LT
+  value: false
+  operation: ==
+  alias: LMP2LT
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LNMR_SYM_RED
+  value: false
+  operation: ==
+  alias: LNMR_SYM_RED
+  tag: chemical_shift
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LNONCOLLINEAR
+  value: false
+  operation: ==
+  alias: LNONCOLLINEAR
+  tag: ncl
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LOCPROJ
+  value: NONE
+  operation: ==
+  alias: LOCPROJ
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LOPTICS
+  value: false
+  operation: ==
+  alias: LOPTICS
+  tag: tddft
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LORBIT
+  value:
+  operation:
+  alias: LORBIT
+  tag: misc_special
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LREAL
+  value: 'false'
+  operation: in
+  alias: LREAL
+  tag: precision
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LRPA
+  value: false
+  operation: ==
+  alias: LRPA
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LSMP2LT
+  value: false
+  operation: ==
+  alias: LSMP2LT
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LSORBIT
+  value: false
+  operation: ==
+  alias: LSORBIT
+  tag: ncl
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LSPECTRAL
+  value: false
+  operation: ==
+  alias: LSPECTRAL
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: LSUBROT
+  value: false
+  operation: ==
+  alias: LSUBROT
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: METAGGA
+  value:
+  operation:
+  alias: METAGGA
+  tag: dft
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: ML_LMLFF
+  value: false
+  operation: ==
+  alias: ML_LMLFF
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: NELECT
+  value:
+  operation:
+  alias: NELECT
+  tag: electronic
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: NELM
+  value: 60
+  operation:
+  alias: NELM
+  tag: electronic_self_consistency
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: NELMDL
+  value: -5
+  operation:
+  alias: NELMDL
+  tag: electronic_self_consistency
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: NLSPLINE
+  value: false
+  operation: ==
+  alias: NLSPLINE
+  tag: electronic_projector
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: NSW
+  value: 0
+  operation:
+  alias: NSW
+  tag: startup
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: NWRITE
+  value: 2
+  operation: '>='
+  alias: NWRITE
+  tag: write
+  tolerance: 0.0001
+  comment: The specified value of NWRITE does not output all needed information.
+  warning:
+  severity: reason
+- name: POTIM
+  value: 0.5
+  operation:
+  alias: POTIM
+  tag: ionic
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: PREC
+  value: NORMAL
+  operation:
+  alias: PREC
+  tag: precision
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: PSTRESS
+  value: 0.0
+  operation: approx
+  alias: PSTRESS
+  tag: ionic
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: RWIGS
+  value:
+  - -1.0
+  operation:
+  alias: RWIGS
+  tag: misc_special
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: SCALEE
+  value: 1.0
+  operation: approx
+  alias: SCALEE
+  tag: ionic
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: SIGMA
+  value: 0.2
+  operation:
+  alias: SIGMA
+  tag: smearing
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: SYMPREC
+  value: 1e-05
+  operation:
+  alias: SYMPREC
+  tag: symmetry
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: VCA
+  value:
+  - 1.0
+  operation:
+  alias: VCA
+  tag: misc_special
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason
+- name: WEIMIN
+  value: 0.001
+  operation: <=
+  alias: WEIMIN
+  tag: misc
+  tolerance: 0.0001
+  comment:
+  warning:
+  severity: reason

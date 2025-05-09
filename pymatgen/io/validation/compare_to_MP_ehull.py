@@ -1,6 +1,6 @@
 """Module for checking if a structure's energy is within a certain distance of the MPDB hull"""
 
-from mp_api.client import MPRester
+from mp_api.client import MPRester  # type: ignore[import-untyped]
 from pymatgen.analysis.phase_diagram import PhaseDiagram
 from pymatgen.entries.mixing_scheme import MaterialsProjectDFTMixingScheme
 from pymatgen.entries.computed_entries import ComputedStructureEntry
