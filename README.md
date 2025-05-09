@@ -21,7 +21,7 @@ from pymatgen.io.validation import VaspValidator
 validation_doc = VaspValidator.from_directory(path_to_vasp_calculation_directory)
 ```
 
-In the above case, whether a calculation passes the validator can be accessed via `validation_doc.is_valid`. Moreover, reasons for an invalidated calculation can be accessed via `validation_doc.reasons` (this will be empty for valid calculations). Last but not least, warnings for potential issues (sometimes minor, sometimes major) can be accessed via `validation_doc.warnings`.
+In the above case, whether a calculation passes the validator can be accessed via `validation_doc.valid`. Moreover, reasons for an invalidated calculation can be accessed via `validation_doc.reasons` (this will be empty for valid calculations). Last but not least, warnings for potential issues (sometimes minor, sometimes major) can be accessed via `validation_doc.warnings`.
 
 Contributors
 =====

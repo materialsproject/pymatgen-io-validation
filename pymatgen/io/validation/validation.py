@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 from typing import TYPE_CHECKING
 
 from monty.os.path import zpath
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     import os
     from typing_extensions import Self
 
+
 DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, CheckKpointsKspacing, CheckIncar]
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
@@ -27,19 +28,66 @@ DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, Chec
 class VaspValidator(BaseModel):
     """Validate a VASP calculation."""
 
+    vasp_files: VaspFiles = Field(description="The VASP I/O.")
     reasons: list[str] = Field([], description="List of deprecation tags detailing why this task isn't valid")
     warnings: list[str] = Field([], description="List of warnings about this calculation")
-    vasp_files: VaspFiles = Field(description="The VASP I/O.")
+
+    _validated_md5: str | None = PrivateAttr(None)
 
     @property
-    def is_valid(self) -> bool:
-        """Determine if the calculation is valid."""
+    def valid(self) -> bool:
+        """Determine if the calculation is valid after ensuring inputs have not changed."""
+        self.recheck()
         return len(self.reasons) == 0
 
     @property
     def has_warnings(self) -> bool:
         """Determine if any warnings were incurred."""
         return len(self.warnings) > 0
+
+    def recheck(self) -> None:
+        """Rerun validation, prioritizing speed."""
+        new_md5 = None
+        if self._validated_md5 is None or (new_md5 := self.vasp_files.md5) != self._validated_md5:
+
+            if self.vasp_files.user_input.potcar:
+                check_list = DEFAULT_CHECKS
+            else:
+                check_list = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
+            self.reasons, self.warnings = self.run_checks(self.vasp_files, check_list=check_list, fast=True)
+            self._validated_md5 = new_md5 or self.vasp_files.md5
+
+    @staticmethod
+    def run_checks(
+        vasp_files: VaspFiles,
+        check_list: list | tuple = DEFAULT_CHECKS,
+        fast: bool = False,
+    ) -> tuple[list[str], list[str]]:
+        """Perform validation.
+
+        Parameters
+        -----------
+        vasp_files : VaspFiles
+            The VASP I/O to validate.
+        check_list : list or tuple of BaseValidator.
+            The list of checks to perform. Defaults to `DEFAULT_CHECKS`.
+        fast : bool (default = False)
+            Whether to stop validation at the first validation failure (True)
+            or compile a list of all failure reasons.
+
+        Returns
+        -----------
+        tuple of list of str
+            The first list are all reasons for validation failure,
+            the second list contains all warnings.
+        """
+        reasons: list[str] = []
+        warnings: list[str] = []
+        for check in check_list:
+            check(fast=fast).check(vasp_files, reasons, warnings)  # type: ignore[arg-type]
+            if fast and len(reasons) > 0:
+                break
+        return reasons, warnings
 
     @classmethod
     def from_vasp_input(
@@ -87,15 +135,14 @@ class VaspValidator(BaseModel):
         }
 
         if check_potcar:
-            checkers = DEFAULT_CHECKS
+            check_list = DEFAULT_CHECKS
         else:
-            checkers = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
+            check_list = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
 
-        for check in checkers:
-            check(fast=fast).check(vf, config["reasons"], config["warnings"])  # type: ignore[arg-type]
-            if fast and len(config["reasons"]) > 0:
-                break
-        return cls(**config, vasp_files=vf, **kwargs)
+        config["reasons"], config["warnings"] = cls.run_checks(vf, check_list=check_list, fast=fast)
+        validated = cls(**config, vasp_files=vf, **kwargs)
+        validated._validated_md5 = vf.md5
+        return validated
 
     @classmethod
     def from_directory(cls, dir_name: str | Path, **kwargs) -> Self:

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from functools import cached_property
+import hashlib
 from importlib import import_module
 import os
+import numpy as np
 from pathlib import Path
 from pydantic import BaseModel, Field, model_serializer, PrivateAttr
 from typing import TYPE_CHECKING, Any, Optional
@@ -115,6 +117,20 @@ class LightVasprun(BaseModel):
             bandgap=vasprun.get_band_structure(efermi="smart").get_band_gap()["energy"],
         )
 
+    @model_serializer
+    def deserialize_objects(self) -> dict[str, Any]:
+        """Ensure all pymatgen objects are deserialized."""
+        model_dumped = {k: getattr(self, k) for k in self.__class__.model_fields}
+        for k in ("final_structure", "kpoints"):
+            model_dumped[k] = model_dumped[k].as_dict()
+        for iion, istep in enumerate(model_dumped["ionic_steps"]):
+            if (istruct := istep.get("structure")) and isinstance(istruct, Structure):
+                model_dumped["ionic_steps"][iion]["structure"] = istruct.as_dict()
+            for k in ("forces", "stress"):
+                if (val := istep.get(k)) is not None and isinstance(val, np.ndarray):
+                    model_dumped["ionic_steps"][iion][k] = val.tolist()
+        return model_dumped
+
 
 class VaspInputSafe(BaseModel):
     """Stricter VaspInputSet with no POTCAR info."""
@@ -182,6 +198,11 @@ class VaspFiles(BaseModel):
     user_input: VaspInputSafe = Field(description="The VASP input set used in the calculation.")
     outcar: Optional[LightOutcar] = None
     vasprun: Optional[LightVasprun] = None
+
+    @property
+    def md5(self) -> str:
+        """Get MD5 of VaspFiles for use in validation checks."""
+        return hashlib.md5(self.model_dump_json().encode()).hexdigest()
 
     @property
     def actual_kpoints(self) -> Kpoints | None:

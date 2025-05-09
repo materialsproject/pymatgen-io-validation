@@ -54,6 +54,20 @@ def test_validation_from_files(test_dir):
         for k in ("incar", "structure", "kpoints")
     )
 
+    # Ensure that user modifcation to inputs after submitting valid
+    # input leads to subsequent validation failures.
+    # Re-instantiate VaspValidator to ensure pointers don't get messed up
+    validated = VaspValidator(**validator_from_paths.model_dump())
+    og_md5 = validated.vasp_files.md5
+    assert validated.valid
+    assert validated._validated_md5 == og_md5
+
+    validated.vasp_files.user_input.incar["ENCUT"] = 1.0
+    new_md5 = validated.vasp_files.md5
+    assert new_md5 != og_md5
+    assert not validated.valid
+    assert validated._validated_md5 == new_md5
+
 
 @pytest.mark.parametrize(
     "object_name",
@@ -470,7 +484,7 @@ def test_fast_mode():
     validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=False)
 
     # Without POTCAR check, this doc is valid
-    assert validated.is_valid
+    assert validated.valid
 
     # Now introduce sequence of changes to test how fast validation works
     # Check order:
@@ -532,7 +546,7 @@ def test_site_properties(test_dir):
     vf = VaspFiles(**loadfn(test_dir / "vasp" / "mp-1245223_site_props_check.json.gz"))
     vd = VaspValidator.from_vasp_input(vasp_files=vf)
 
-    assert not vd.is_valid
+    assert not vd.valid
     assert any("selective dynamics" in reason.lower() for reason in vd.reasons)
 
     # map non-zero velocities to input structure and re-check
