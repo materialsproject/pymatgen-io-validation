@@ -8,7 +8,7 @@ from importlib import import_module
 import os
 import numpy as np
 from pathlib import Path
-from pydantic import BaseModel, Field, model_serializer, PrivateAttr
+from pydantic import BaseModel, Field, model_validator, model_serializer, PrivateAttr
 from typing import TYPE_CHECKING, Any, Optional
 
 from pymatgen.core import Structure
@@ -199,6 +199,20 @@ class VaspFiles(BaseModel):
     outcar: Optional[LightOutcar] = None
     vasprun: Optional[LightVasprun] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_to_lightweight(cls, config: Any) -> Any:
+        """Ensure that pymatgen objects are converted to minimal representations."""
+        if isinstance(config.get("outcar"), Outcar):
+            config["outcar"] = LightOutcar(
+                drift=config["outcar"].drift,
+                magnetization=config["outcar"].magnetization,
+            )
+
+        if isinstance(config.get("vasprun"), Vasprun):
+            config["vasprun"] = LightVasprun.from_vasprun(config["vasprun"])
+        return config
+
     @property
     def md5(self) -> str:
         """Get MD5 of VaspFiles for use in validation checks."""
@@ -256,15 +270,7 @@ class VaspFiles(BaseModel):
                 if file_name == "potcar":
                     potcar_enmax = max(ps.ENMAX for ps in Potcar.from_file(path))
 
-        if config.get("outcar"):
-            config["outcar"] = LightOutcar(
-                drift=config["outcar"].drift,
-                magnetization=config["outcar"].magnetization,
-            )
-
-        if config.get("vasprun"):
-            config["vasprun"] = LightVasprun.from_vasprun(config["vasprun"])
-        elif not config["user_input"]["incar"].get("ENCUT") and potcar_enmax:
+        if not config.get("vasprun") and not config["user_input"]["incar"].get("ENCUT") and potcar_enmax:
             config["user_input"]["incar"]["ENCUT"] = potcar_enmax
 
         return cls(**config)
