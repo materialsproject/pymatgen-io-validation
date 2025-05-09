@@ -236,6 +236,7 @@ class CheckIncar(BaseValidator):
 
         if (
             user_incar["ISPIN"] == 2
+            and vasp_files.outcar
             and len(getattr(vasp_files.outcar, "magnetization", [])) != vasp_files.user_input.structure.num_sites
         ):
             self.vasp_defaults["LORBIT"].update(
