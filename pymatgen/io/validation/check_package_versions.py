@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from importlib.metadata import version
-import requests
+import requests  # type: ignore[import-untyped]
 import warnings
 
 
