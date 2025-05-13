@@ -4,6 +4,6 @@ pydantic==2.4.2
 pydantic-core==2.10.1
 pydantic-settings==2.2.1
 typing-extensions==4.12.2
-monty==2025.1.9
+monty==2025.3.3
 numpy==1.26.1
 requests==2.32.3
