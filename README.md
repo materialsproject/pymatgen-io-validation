@@ -17,18 +17,11 @@ Usage
 
 For validating calculations from the raw files, run:
 ```
-from pymatgen.io.validation import ValidationDoc
-validation_doc = ValidationDoc.from_directory(dir_name = path_to_vasp_calculation_directory)
+from pymatgen.io.validation import VaspValidator
+validation_doc = VaspValidator.from_directory(path_to_vasp_calculation_directory)
 ```
 
 In the above case, whether a calculation passes the validator can be accessed via `validation_doc.valid`. Moreover, reasons for an invalidated calculation can be accessed via `validation_doc.reasons` (this will be empty for valid calculations). Last but not least, warnings for potential issues (sometimes minor, sometimes major) can be accessed via `validation_doc.warnings`.
-\
-\
-For validating calculations from `TaskDoc` objects from the [Emmet](https://github.com/materialsproject/emmet) package, run:
-```
-from pymatgen.io.validation import ValidationDoc
-validation_doc = ValidationDoc.from_task_doc(task_doc = my_task_doc)
-```
 
 Contributors
 =====

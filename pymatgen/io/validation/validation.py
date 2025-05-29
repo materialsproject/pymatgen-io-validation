@@ -1,372 +1,173 @@
-"""Validate VASP calculations using emmet."""
+"""Define core validation schema."""
 
 from __future__ import annotations
-
-from datetime import datetime
-from pydantic import Field
-from pydantic.types import ImportString  # replacement for PyObject
 from pathlib import Path
+from pydantic import BaseModel, Field, PrivateAttr
+from typing import TYPE_CHECKING
 
-from pymatgen.io.vasp.sets import VaspInputSet
+from monty.os.path import zpath
 
-# TODO: AK: why MPMetalRelaxSet
-# TODO: MK: because more kpoints are needed for metals given the more complicated Fermi surfaces, and MPMetalRelaxSet uses more kpoints
-from pymatgen.io.vasp.sets import MPMetalRelaxSet
-
-from emmet.core.tasks import TaskDoc
-from emmet.core.vasp.task_valid import TaskDocument
-from emmet.core.base import EmmetBaseModel
-from emmet.core.mpid import MPID
-from emmet.core.utils import jsanitize
-from emmet.core.vasp.calc_types.enums import CalcType, TaskType
-from emmet.core.vasp.calc_types import (
-    RunType,
-    calc_type as emmet_calc_type,
-    run_type as emmet_run_type,
-    task_type as emmet_task_type,
-)
-from pymatgen.core import Structure
-from pymatgen.io.validation.check_incar import CheckIncar
-from pymatgen.io.validation.check_common_errors import (
-    CheckCommonErrors,
-    CheckVaspVersion,
-    CheckStructureProperties,
-)
+from pymatgen.io.validation.common import VaspFiles
+from pymatgen.io.validation.check_common_errors import CheckStructureProperties, CheckCommonErrors
 from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
-from pymatgen.io.validation.settings import IOValidationSettings
-from pymatgen.io.validation.vasp_defaults import VASP_DEFAULTS_DICT
-
-from typing import Optional, TYPE_CHECKING
+from pymatgen.io.validation.check_incar import CheckIncar
 
 if TYPE_CHECKING:
-    from typing import Any
+    from collections.abc import Mapping
+    import os
+    from typing_extensions import Self
 
-SETTINGS = IOValidationSettings()
+
+DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, CheckKpointsKspacing, CheckIncar]
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
 
 
-class ValidationDoc(EmmetBaseModel):
-    """
-    Validation document for a VASP calculation
-    """
+class VaspValidator(BaseModel):
+    """Validate a VASP calculation."""
 
-    task_id: Optional[MPID] = Field(None, description="The task_id for this validation document")
+    vasp_files: VaspFiles = Field(description="The VASP I/O.")
+    reasons: list[str] = Field([], description="List of deprecation tags detailing why this task isn't valid")
+    warnings: list[str] = Field([], description="List of warnings about this calculation")
 
-    valid: bool = Field(False, description="Whether this task is valid or not")
+    _validated_md5: str | None = PrivateAttr(None)
 
-    last_updated: datetime = Field(
-        description="Last updated date for this document",
-        default_factory=datetime.utcnow,
-    )
+    @property
+    def valid(self) -> bool:
+        """Determine if the calculation is valid after ensuring inputs have not changed."""
+        self.recheck()
+        return len(self.reasons) == 0
 
-    reasons: list[str] = Field(None, description="List of deprecation tags detailing why this task isn't valid")
+    @property
+    def has_warnings(self) -> bool:
+        """Determine if any warnings were incurred."""
+        return len(self.warnings) > 0
 
-    warnings: list[str] = Field([], description="List of potential warnings about this calculation")
+    def recheck(self) -> None:
+        """Rerun validation, prioritizing speed."""
+        new_md5 = None
+        if self._validated_md5 is None or (new_md5 := self.vasp_files.md5) != self._validated_md5:
 
-    # data: Dict = Field(
-    #     description="Dictionary of data used to perform validation."
-    #     " Useful for post-mortem analysis"
-    # )
+            if self.vasp_files.user_input.potcar:
+                check_list = DEFAULT_CHECKS
+            else:
+                check_list = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
+            self.reasons, self.warnings = self.run_checks(self.vasp_files, check_list=check_list, fast=True)
+            self._validated_md5 = new_md5 or self.vasp_files.md5
 
-    def model_post_init(self, context: Any) -> None:
-        """
-        Optionally check whether package versions are up to date with PyPI.
+    @staticmethod
+    def run_checks(
+        vasp_files: VaspFiles,
+        check_list: list | tuple = DEFAULT_CHECKS,
+        fast: bool = False,
+    ) -> tuple[list[str], list[str]]:
+        """Perform validation.
 
         Parameters
         -----------
-        context : .Any
-            Has no effect at present, kept to retain structure of pydantic .BaseModel
+        vasp_files : VaspFiles
+            The VASP I/O to validate.
+        check_list : list or tuple of BaseValidator.
+            The list of checks to perform. Defaults to `DEFAULT_CHECKS`.
+        fast : bool (default = False)
+            Whether to stop validation at the first validation failure (True)
+            or compile a list of all failure reasons.
+
+        Returns
+        -----------
+        tuple of list of str
+            The first list are all reasons for validation failure,
+            the second list contains all warnings.
         """
-
-        self.valid = len(self.reasons) == 0
-
-    class Config:  # noqa
-        extra = "allow"
+        reasons: list[str] = []
+        warnings: list[str] = []
+        for check in check_list:
+            check(fast=fast).check(vasp_files, reasons, warnings)  # type: ignore[arg-type]
+            if fast and len(reasons) > 0:
+                break
+        return reasons, warnings
 
     @classmethod
-    def from_task_doc(cls, task_doc: TaskDoc | TaskDocument, **kwargs) -> ValidationDoc:
-        """
-        Assess if a calculation is valid based on a pymatgen input set.
-
-        Args:
-            task_doc: the task document to process
-        Possible kwargs for `from_dict` method:
-            input_sets: a dictionary of task_types -> pymatgen input set for validation
-            potcar_summary_stats: Dictionary of potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.
-            kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
-            allow_kpoint_shifts: Whether to consider a task valid if kpoints are shifted by the user
-            allow_explicit_kpoint_mesh: Whether to consider a task valid if the user defines an explicit kpoint mesh
-            fft_grid_tolerance: Relative tolerance for FFT grid parameters to still be a valid
-            num_ionic_steps_to_avg_drift_over: Number of ionic steps to average over when validating drift forces
-            max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
-                initial equilibriation period. Note this is in eV/atom.
-            fast : whether to stop validation when any check fails
-        """
-
-        if isinstance(task_doc, TaskDocument):
-            task_doc = TaskDoc(**{k: v for k, v in task_doc.model_dump().items() if k != "run_stats"})
-
-        return cls.from_dict(jsanitize(task_doc), **kwargs)
-
-    @classmethod
-    def from_dict(
+    def from_vasp_input(
         cls,
-        task_doc: dict,
-        input_sets: dict[str, ImportString] = SETTINGS.VASP_DEFAULT_INPUT_SETS,
+        vasp_file_paths: Mapping[str, str | Path | os.PathLike[str]] | None = None,
+        vasp_files: VaspFiles | None = None,
+        fast: bool = False,
         check_potcar: bool = True,
-        kpts_tolerance: float = SETTINGS.VASP_KPTS_TOLERANCE,
-        allow_kpoint_shifts: bool = SETTINGS.VASP_ALLOW_KPT_SHIFT,
-        allow_explicit_kpoint_mesh: str | bool = SETTINGS.VASP_ALLOW_EXPLICIT_KPT_MESH,
-        fft_grid_tolerance: float = SETTINGS.VASP_FFT_GRID_TOLERANCE,
-        num_ionic_steps_to_avg_drift_over: int = SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
-        max_allowed_scf_gradient: float = SETTINGS.VASP_MAX_SCF_GRADIENT,
-        fast: bool = SETTINGS.FAST_VALIDATION,
-    ) -> ValidationDoc:
+        **kwargs,
+    ) -> Self:
         """
-        Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
+        Validate a VASP calculation from VASP files or their object representation.
 
-        Args:
-            task_doc: the task document to process
-        Kwargs:
-            input_sets: a dictionary of task_types -> pymatgen input set for validation
-            potcar_summary_stats: Dictionary of potcar summary data. Mapping is calculation type -> potcar symbol -> summary data.
-            kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
-            allow_kpoint_shifts: Whether to consider a task valid if kpoints are shifted by the user
-            allow_explicit_kpoint_mesh: Whether to consider a task valid if the user defines an explicit kpoint mesh
-            fft_grid_tolerance: Relative tolerance for FFT grid parameters to still be a valid
-            num_ionic_steps_to_avg_drift_over: Number of ionic steps to average over when validating drift forces
-            max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
-                initial equillibriation period. Note this is in eV per atom.
-            fast : whether to stop validation when any check fails
+        Parameters
+        -----------
+        vasp_file_paths : dict of str to os.PathLike, optional
+            If specified, a dict of the form:
+                {
+                    "incar": < path to INCAR>,
+                    "poscar": < path to POSCAR>,
+                    ...
+                }
+            where keys are taken by `VaspFiles.from_paths`.
+        vasp_files : VaspFiles, optional
+            This takes higher precendence than `vasp_file_paths`, and
+            allows the user to specify VASP input/output from a VaspFiles
+            object.
+        fast : bool (default = False)
+            Whether to stop validation at the first failure (True)
+            or to list all reasons why a calculation failed (False)
+        check_potcar : bool (default = True)
+            Whether to check the POTCAR for validity.
+        **kwargs
+            kwargs to pass to `VaspValidator`
         """
 
-        bandgap = task_doc["output"]["bandgap"]
-        calcs_reversed = task_doc["calcs_reversed"]
+        if vasp_files:
+            vf: VaspFiles = vasp_files
+        elif vasp_file_paths:
+            vf = VaspFiles.from_paths(**vasp_file_paths)
 
-        # used for most input tag checks (as this is more reliable than examining the INCAR file directly in most cases)
-        parameters = task_doc["input"]["parameters"]
-
-        # used for INCAR tag checks where you need to look at the actual INCAR (semi-rare)
-        incar = calcs_reversed[0]["input"]["incar"]
-
-        orig_inputs = {} if (task_doc["orig_inputs"] is None) else task_doc["orig_inputs"]
-
-        cls_kwargs: dict[str, Any] = {
-            "task_id": task_doc["task_id"] if task_doc["task_id"] else None,
-            "calc_type": _get_calc_type(calcs_reversed, orig_inputs),
-            "task_type": _get_task_type(calcs_reversed, orig_inputs),
-            "run_type": _get_run_type(calcs_reversed),
+        config: dict[str, list[str]] = {
             "reasons": [],
             "warnings": [],
         }
 
-        vasp_version = [int(x) for x in calcs_reversed[0]["vasp_version"].split(".")[:3]]
-        CheckVaspVersion(
-            reasons=cls_kwargs["reasons"],
-            warnings=cls_kwargs["warnings"],
-            vasp_version=vasp_version,
-            parameters=parameters,
-            incar=incar,
-            defaults=VASP_DEFAULTS_DICT,
-            fast=fast,
-        ).check()
-
-        CheckStructureProperties(
-            **{k: cls_kwargs[k] for k in ("reasons", "warnings", "task_type")},
-            fast=fast,
-            structures=[
-                task_doc["input"]["structure"],
-                task_doc["output"]["structure"],
-                task_doc["calcs_reversed"][0]["output"]["structure"],
-            ],
-        ).check()
-
-        if len(cls_kwargs["reasons"]) > 0 and fast:
-            return cls(**cls_kwargs)
-
-        if allow_explicit_kpoint_mesh == "auto":
-            allow_explicit_kpoint_mesh = True if "NSCF" in cls_kwargs["calc_type"].name else False
-
-        if calcs_reversed[0].get("input", {}).get("structure", None):
-            structure = calcs_reversed[0]["input"]["structure"]
+        if check_potcar:
+            check_list = DEFAULT_CHECKS
         else:
-            structure = task_doc["input"]["structure"] or task_doc["output"]["structure"]
-        structure = Structure.from_dict(structure)
+            check_list = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
 
-        try:
-            valid_input_set = _get_input_set(
-                cls_kwargs["run_type"],
-                cls_kwargs["task_type"],
-                cls_kwargs["calc_type"],
-                structure,
-                input_sets,
-                bandgap,
-            )
-        except Exception as e:
-            cls_kwargs["reasons"].append(
-                "NO MATCHING MP INPUT SET --> no matching MP input set was found. If you believe this to be a mistake, please create a GitHub issue."
-            )
-            valid_input_set = None
-            print(f"Error while finding MP input set: {e}.")
-
-        if valid_input_set:
-            # Tests ordered by expected computational burden - help optimize `fast` check
-            # Intuitively, more important checks (INCAR, KPOINTS, and POTCAR settings) would come first
-            # But to optimize speed in fast mode (relevant for validating a large batch of calculations)
-            # the faster checks have to come first:
-            #   1. VASP version
-            #   2. Common errors (known bugs in VASP, erratic SCF convergence, etc.)
-            #   3. KPOINTS or KSPACING (from INCAR)
-            #   4. INCAR (many sequential checks of possible INCAR tags + updating defaults)
-
-            # TODO: check for surface/slab calculations!!!!!!
-
-            CheckCommonErrors(
-                reasons=cls_kwargs["reasons"],
-                warnings=cls_kwargs["warnings"],
-                task_doc=task_doc,
-                parameters=parameters,
-                structure=structure,
-                run_type=cls_kwargs["run_type"],
-                fast=fast,
-                defaults=VASP_DEFAULTS_DICT,
-                valid_max_allowed_scf_gradient=max_allowed_scf_gradient,
-                num_ionic_steps_to_avg_drift_over=num_ionic_steps_to_avg_drift_over,
-            ).check()
-
-            CheckKpointsKspacing(
-                reasons=cls_kwargs["reasons"],
-                warnings=cls_kwargs["warnings"],
-                valid_input_set=valid_input_set,
-                kpoints=calcs_reversed[0]["input"]["kpoints"],
-                structure=structure,
-                defaults=VASP_DEFAULTS_DICT,
-                kpts_tolerance=kpts_tolerance,
-                allow_explicit_kpoint_mesh=allow_explicit_kpoint_mesh,
-                allow_kpoint_shifts=allow_kpoint_shifts,
-                fast=fast,
-            ).check()
-
-            if check_potcar:
-                CheckPotcar(
-                    reasons=cls_kwargs["reasons"],
-                    warnings=cls_kwargs["warnings"],
-                    valid_input_set=valid_input_set,
-                    structure=structure,
-                    potcars=calcs_reversed[0]["input"]["potcar_spec"],
-                    fast=fast,
-                ).check()
-
-            CheckIncar(
-                reasons=cls_kwargs["reasons"],
-                warnings=cls_kwargs["warnings"],
-                valid_input_set=valid_input_set,
-                task_doc=task_doc,
-                parameters=parameters,
-                structure=structure,
-                vasp_version=vasp_version,
-                task_type=cls_kwargs["task_type"],
-                defaults=VASP_DEFAULTS_DICT,
-                fft_grid_tolerance=fft_grid_tolerance,
-                fast=fast,
-            ).check()
-
-        return cls(**cls_kwargs)
+        config["reasons"], config["warnings"] = cls.run_checks(vf, check_list=check_list, fast=fast)
+        validated = cls(**config, vasp_files=vf, **kwargs)
+        validated._validated_md5 = vf.md5
+        return validated
 
     @classmethod
-    def from_directory(cls, dir_name: Path | str, **kwargs) -> ValidationDoc:
+    def from_directory(cls, dir_name: str | Path, **kwargs) -> Self:
+        """Convenience method to validate a calculation from a directory.
+
+        This method is intended solely for use cases where VASP input/output
+        files are not renamed, beyond the compression methods supported by
+        monty.os.zpath.
+
+        Thus, INCAR, INCAR.gz, INCAR.bz2, INCAR.lzma are all acceptable, but
+        INCAR.relax1.gz is not.
+
+        For finer-grained control of which files are validated, explicitly
+        pass file names to `VaspValidator.from_vasp_input`.
+
+        Parameters
+        -----------
+        dir_name : str or Path
+            The path to the calculation directory.
+        **kwargs
+            kwargs to pass to `VaspValidator`
         """
-        Determines if a calculation is valid based on expected input parameters from a pymatgen inputset
-
-        Args:
-            dir_name: the directory containing the calculation files to process
-        Possible kwargs for `from_dict` method:
-            input_sets: a dictionary of task_types -> pymatgen input set for validation
-            check_potcar: Whether to check POTCARs against known libraries.
-            kpts_tolerance: the tolerance to allow kpts to lag behind the input set settings
-            allow_kpoint_shifts: Whether to consider a task valid if kpoints are shifted by the user
-            allow_explicit_kpoint_mesh: Whether to consider a task valid if the user defines an explicit kpoint mesh
-            fft_grid_tolerance: Relative tolerance for FFT grid parameters to still be a valid
-            num_ionic_steps_to_avg_drift_over: Number of ionic steps to average over when validating drift forces
-            max_allowed_scf_gradient: maximum uphill gradient allowed for SCF steps after the
-                initial equillibriation period. Note this is in eV per atom.
-        """
-        try:
-            task_doc = TaskDoc.from_directory(
-                dir_name=dir_name,
-                volumetric_files=(),
-            )
-
-            return cls.from_task_doc(task_doc=task_doc, **kwargs)
-
-        except Exception as e:
-            if "no vasp files found" in str(e).lower():
-                raise Exception(f"NO CALCULATION FOUND --> {dir_name} is not a VASP calculation directory.")
-            else:
-                raise Exception(
-                    f"CANNOT PARSE CALCULATION --> Issue parsing results. This often means your calculation did not complete. The error stack reads: \n {e}"
-                )
-
-
-def _get_input_set(run_type, task_type, calc_type, structure, input_sets, bandgap):
-    # TODO: For every input set key in emmet.core.settings.VASP_DEFAULT_INPUT_SETS,
-    #       with "GGA" in it, create an equivalent dictionary item with "PBE" instead.
-    # In the mean time, the below workaround is used.
-    gga_pbe_structure_opt_calc_types = [
-        CalcType.GGA_Structure_Optimization,
-        CalcType.GGA_U_Structure_Optimization,
-        CalcType.PBE_Structure_Optimization,
-        CalcType.PBE_U_Structure_Optimization,
-    ]
-
-    # Ensure input sets get proper additional input values
-    if "SCAN" in run_type.value:
-        valid_input_set: VaspInputSet = input_sets[str(calc_type)](structure, bandgap=bandgap)  # type: ignore
-
-    elif task_type == TaskType.NSCF_Uniform:
-        valid_input_set = input_sets[str(calc_type)](structure, mode="uniform")
-    elif task_type == TaskType.NSCF_Line:
-        valid_input_set = input_sets[str(calc_type)](structure, mode="line")
-
-    elif "dielectric" in str(task_type).lower():
-        valid_input_set = input_sets[str(calc_type)](structure, lepsilon=True)
-
-    elif task_type == TaskType.NMR_Electric_Field_Gradient:
-        valid_input_set = input_sets[str(calc_type)](structure, mode="efg")
-    elif task_type == TaskType.NMR_Nuclear_Shielding:
-        valid_input_set = input_sets[str(calc_type)](
-            structure, mode="cs"
-        )  # Is this correct? Someone more knowledgeable either fix this or remove this comment if it is correct please!
-
-    elif calc_type in gga_pbe_structure_opt_calc_types:
-        if bandgap == 0:
-            valid_input_set = MPMetalRelaxSet(structure)
-        else:
-            valid_input_set = input_sets[str(calc_type)](structure)
-
-    else:
-        valid_input_set = input_sets[str(calc_type)](structure)
-
-    return valid_input_set
-
-
-def _get_run_type(calcs_reversed) -> RunType:
-    params = calcs_reversed[0].get("input", {}).get("parameters", {})
-    incar = calcs_reversed[0].get("input", {}).get("incar", {})
-    return emmet_run_type({**params, **incar})
-
-
-def _get_task_type(calcs_reversed, orig_inputs):
-    inputs = calcs_reversed[0].get("input", {}) if len(calcs_reversed) > 0 else orig_inputs
-    return emmet_task_type(inputs)
-
-
-def _get_calc_type(calcs_reversed, orig_inputs):
-    inputs = calcs_reversed[0].get("input", {}) if len(calcs_reversed) > 0 else orig_inputs
-    params = calcs_reversed[0].get("input", {}).get("parameters", {})
-    incar = calcs_reversed[0].get("input", {}).get("incar", {})
-
-    return emmet_calc_type(inputs, {**params, **incar})
+        dir_name = Path(dir_name)
+        vasp_file_paths = {}
+        for file_name in ("INCAR", "KPOINTS", "POSCAR", "POTCAR", "OUTCAR", "vasprun.xml"):
+            if (file_path := Path(zpath(str(dir_name / file_name)))).exists():
+                vasp_file_paths[file_name.lower().split(".")[0]] = file_path
+        return cls.from_vasp_input(vasp_file_paths=vasp_file_paths, **kwargs)
