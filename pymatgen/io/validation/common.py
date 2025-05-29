@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 import hashlib
 from importlib import import_module
+from monty.serialization import loadfn
 import os
 import numpy as np
 from pathlib import Path
@@ -12,7 +13,8 @@ from pydantic import BaseModel, Field, model_validator, model_serializer, Privat
 from typing import TYPE_CHECKING, Any, Optional
 
 from pymatgen.core import Structure
-from pymatgen.io.vasp import Incar, Kpoints, Poscar, Potcar, Outcar, Vasprun
+from pymatgen.io.vasp.inputs import POTCAR_STATS_PATH, Incar, Kpoints, Poscar, Potcar
+from pymatgen.io.vasp.outputs import Outcar, Vasprun
 from pymatgen.io.vasp.sets import VaspInputSet
 
 from pymatgen.io.validation.vasp_defaults import VaspParam, VASP_DEFAULTS_DICT
@@ -170,18 +172,49 @@ class VaspInputSafe(BaseModel):
         -----------
         VaspInputSafe
         """
-        new_vis = cls(
-            **{
-                k: getattr(vis, k)
-                for k in (
-                    "incar",
-                    "kpoints",
-                    "structure",
-                )
-            },
-            potcar=PotcarSummaryStats.from_file(vis.potcar),
-            potcar_functional=vis.potcar_functional,
+
+        cls_config: dict[str, Any] = {
+            k: getattr(vis, k)
+            for k in (
+                "incar",
+                "kpoints",
+                "structure",
+            )
+        }
+        try:
+            # Cleaner solution (because these map one POTCAR symbol to one POTCAR)
+            # Requires POTCAR library to be available
+            potcar: list[PotcarSummaryStats] = PotcarSummaryStats.from_file(vis.potcar)
+            potcar_functional = vis.potcar_functional
+
+        except FileNotFoundError:
+            # Fall back to pregenerated POTCAR meta
+            # Note that multiple POTCARs may use the same symbol / TITEL
+            # within a given release of VASP.
+
+            potcar_stats = loadfn(POTCAR_STATS_PATH)
+            potcar_functional = vis._config_dict["POTCAR_FUNCTIONAL"]
+            potcar = []
+            for ele in vis.structure.elements:
+                if potcar_symb := vis._config_dict["POTCAR"].get(ele.name):
+                    for titel_no_spc, potcars in potcar_stats[potcar_functional].items():
+                        for entry in potcars:
+                            if entry["symbol"] == potcar_symb:
+                                titel_comp = titel_no_spc.split(potcar_symb)
+
+                                potcar += [
+                                    PotcarSummaryStats(
+                                        titel=" ".join([titel_comp[0], potcar_symb, titel_comp[1]]),
+                                        lexch=entry.get("LEXCH"),
+                                        **entry,
+                                    )
+                                ]
+
+        cls_config.update(
+            potcar=potcar,
+            potcar_functional=potcar_functional,
         )
+        new_vis = cls(**cls_config)
         new_vis._pmg_vis = vis
         return new_vis
 

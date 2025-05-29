@@ -8,8 +8,10 @@ from pymatgen.io.validation.common import VaspFiles
 
 _test_dir = Path(__file__).parent.joinpath("test_files").resolve()
 
-FAKE_POTCAR_DIR = _test_dir / "vasp" / "fake_potcar"
-pytest.MonkeyPatch().setitem(PMG_SETTINGS, "PMG_VASP_PSP_DIR", str(FAKE_POTCAR_DIR))
+
+def set_fake_potcar_dir() -> None:
+    FAKE_POTCAR_DIR = _test_dir / "vasp" / "fake_potcar"
+    pytest.MonkeyPatch().setitem(PMG_SETTINGS, "PMG_VASP_PSP_DIR", str(FAKE_POTCAR_DIR))
 
 
 @pytest.fixture(scope="session")

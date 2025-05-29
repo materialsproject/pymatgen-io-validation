@@ -67,12 +67,12 @@ class CheckKpointsKspacing(BaseValidator):
             valid_kspacing = kspacing
             # number of kpoints along each of the three lattice vectors
             valid_num_kpts = np.prod(
-                get_kpoint_divisions_from_kspacing(vasp_files.user_input.structure, valid_kspacing)
+                get_kpoint_divisions_from_kspacing(vasp_files.user_input.structure, valid_kspacing), dtype=int
             )
         # If MP input set specifies a KPOINTS file
         elif vasp_files.valid_input_set.kpoints:
             valid_num_kpts = vasp_files.valid_input_set.kpoints.num_kpts or np.prod(
-                vasp_files.valid_input_set.kpoints.kpts[0]
+                vasp_files.valid_input_set.kpoints.kpts[0], dtype=int
             )
 
         return int(np.floor(int(valid_num_kpts) * self.kpts_tolerance))
@@ -115,17 +115,17 @@ class CheckKpointsKspacing(BaseValidator):
         # Checks should work regardless of whether vasprun was supplied.
         valid_num_kpts = self._get_valid_num_kpts(vasp_files)
         if vasp_files.actual_kpoints:
-            cur_num_kpts: int = max(  # type: ignore[assignment]
-                vasp_files.actual_kpoints.num_kpts,  # type: ignore[union-attr]
-                np.prod(vasp_files.actual_kpoints.kpts),  # type: ignore[union-attr]
-                len(vasp_files.actual_kpoints.kpts),  # type: ignore[union-attr]
-            )
+            if vasp_files.actual_kpoints.num_kpts <= 0:
+                cur_num_kpts = np.prod(vasp_files.actual_kpoints.kpts, dtype=int)
+            else:
+                cur_num_kpts = vasp_files.actual_kpoints.num_kpts
         else:
             cur_num_kpts = np.prod(
                 get_kpoint_divisions_from_kspacing(
                     vasp_files.user_input.structure,
                     vasp_files.user_input.incar.get("KSPACING", self.vasp_defaults["KSPACING"].value),
-                )
+                ),
+                dtype=int,
             )
 
         if cur_num_kpts < valid_num_kpts:

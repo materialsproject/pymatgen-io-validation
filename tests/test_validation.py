@@ -8,7 +8,7 @@ from pymatgen.io.vasp import Kpoints
 from pymatgen.io.validation.validation import VaspValidator
 from pymatgen.io.validation.common import ValidationError, VaspFiles, PotcarSummaryStats
 
-from conftest import vasp_calc_data, incar_check_list
+from conftest import vasp_calc_data, incar_check_list, set_fake_potcar_dir
 
 
 ### TODO: add tests for many other MP input sets (e.g. MPNSCFSet, MPNMRSet, MPScanRelaxSet, Hybrid sets, etc.)
@@ -16,6 +16,8 @@ from conftest import vasp_calc_data, incar_check_list
 ### TODO: add in check for MP set where LEFG = True
 ### TODO: add in check for MP set where LOPTICS = True
 ### TODO: fix logic for calc_type / run_type identification in Emmet!!! Or handle how we interpret them...
+
+set_fake_potcar_dir()
 
 
 def run_check(
