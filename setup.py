@@ -14,7 +14,7 @@ with open(os.path.join(SETUP_PTH, "README.md"), encoding="utf8") as f:
 setup(
     name="pymatgen-io-validation",
     packages=find_namespace_packages(include=["pymatgen.io.*"]),
-    version="0.0.3",
+    version="0.1.0rc",
     install_requires=[
         "pymatgen>=2024.5.1",
         "pydantic>=2.4.2",
