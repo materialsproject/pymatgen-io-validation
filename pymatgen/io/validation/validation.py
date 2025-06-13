@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 
 DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, CheckKpointsKspacing, CheckIncar]
+REQUIRED_VASP_FILES: set[str] = {"INCAR", "KPOINTS", "POSCAR", "POTCAR", "OUTCAR", "vasprun.xml"}
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
@@ -128,6 +129,8 @@ class VaspValidator(BaseModel):
             vf: VaspFiles = vasp_files
         elif vasp_file_paths:
             vf = VaspFiles.from_paths(**vasp_file_paths)
+        else:
+            raise ValueError("You must specify either a VaspFiles object or a dict of paths.")
 
         config: dict[str, list[str]] = {
             "reasons": [],
@@ -167,7 +170,9 @@ class VaspValidator(BaseModel):
         """
         dir_name = Path(dir_name)
         vasp_file_paths = {}
-        for file_name in ("INCAR", "KPOINTS", "POSCAR", "POTCAR", "OUTCAR", "vasprun.xml"):
+        for file_name in REQUIRED_VASP_FILES:
             if (file_path := Path(zpath(str(dir_name / file_name)))).exists():
                 vasp_file_paths[file_name.lower().split(".")[0]] = file_path
+        if not vasp_file_paths:
+            raise ValueError("No valid VASP files were found.")
         return cls.from_vasp_input(vasp_file_paths=vasp_file_paths, **kwargs)

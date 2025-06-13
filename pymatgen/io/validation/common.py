@@ -292,7 +292,7 @@ class VaspFiles(BaseModel):
         }
         potcar_enmax = None
         for file_name, file_cls in to_obj.items():
-            if (path := _vars.get(file_name)) and Path(path).exists():
+            if (path := _vars.get(file_name)) and Path(path).exists() and os.path.getsize(path) > 0:
                 if file_name == "poscar":
                     config["user_input"]["structure"] = Poscar.from_file(path).structure
                 elif hasattr(file_cls, "from_file"):
@@ -417,7 +417,7 @@ class VaspFiles(BaseModel):
                 set_name = "MPNMRSet"
             elif self.run_type == "md":
                 set_name = None
-            else:
+            elif self.run_type in ("relax", "static"):
                 set_name = f"MP{self.run_type.capitalize()}Set"
         elif self.functional in ("pbesol", "scan", "r2scan", "hse06"):
             if self.functional == "pbesol":
