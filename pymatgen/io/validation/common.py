@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, model_validator, model_serializer, Privat
 from typing import TYPE_CHECKING, Any, Optional
 
 from pymatgen.core import Structure
-from pymatgen.io.vasp.inputs import POTCAR_STATS_PATH, Incar, Kpoints, Poscar, Potcar
+from pymatgen.io.vasp.inputs import POTCAR_STATS_PATH, Incar, Kpoints, Poscar, Potcar, PmgVaspPspDirError
 from pymatgen.io.vasp.outputs import Outcar, Vasprun
 from pymatgen.io.vasp.sets import VaspInputSet
 
@@ -187,7 +187,7 @@ class VaspInputSafe(BaseModel):
             potcar: list[PotcarSummaryStats] = PotcarSummaryStats.from_file(vis.potcar)
             potcar_functional = vis.potcar_functional
 
-        except FileNotFoundError:
+        except (FileNotFoundError, PmgVaspPspDirError):
             # Fall back to pregenerated POTCAR meta
             # Note that multiple POTCARs may use the same symbol / TITEL
             # within a given release of VASP.
