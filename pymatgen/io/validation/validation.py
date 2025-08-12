@@ -1,8 +1,9 @@
 """Define core validation schema."""
 
 from __future__ import annotations
+
 from pathlib import Path
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, computed_field
 from typing import TYPE_CHECKING
 
 from monty.os.path import zpath
@@ -35,6 +36,7 @@ class VaspValidator(BaseModel):
 
     _validated_md5: str | None = PrivateAttr(None)
 
+    @computed_field  # type: ignore[misc]
     @property
     def valid(self) -> bool:
         """Determine if the calculation is valid after ensuring inputs have not changed."""
@@ -49,13 +51,16 @@ class VaspValidator(BaseModel):
     def recheck(self) -> None:
         """Rerun validation, prioritizing speed."""
         new_md5 = None
-        if self._validated_md5 is None or (new_md5 := self.vasp_files.md5) != self._validated_md5:
+        if (self._validated_md5 is None) or (new_md5 := self.vasp_files.md5) != self._validated_md5:
+            self.reasons = []
+            self.warnings = []
 
             if self.vasp_files.user_input.potcar:
                 check_list = DEFAULT_CHECKS
             else:
                 check_list = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
             self.reasons, self.warnings = self.run_checks(self.vasp_files, check_list=check_list, fast=True)
+
             self._validated_md5 = new_md5 or self.vasp_files.md5
 
     @staticmethod
@@ -82,6 +87,11 @@ class VaspValidator(BaseModel):
             The first list are all reasons for validation failure,
             the second list contains all warnings.
         """
+
+        if vasp_files.validation_errors:
+            # Cannot validate the calculation, immediate failure
+            return vasp_files.validation_errors, []
+
         reasons: list[str] = []
         warnings: list[str] = []
         for check in check_list:

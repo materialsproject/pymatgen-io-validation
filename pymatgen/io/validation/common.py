@@ -229,8 +229,14 @@ class VaspFiles(BaseModel):
     """Define required and optional files for validation."""
 
     user_input: VaspInputSafe = Field(description="The VASP input set used in the calculation.")
-    outcar: Optional[LightOutcar] = None
-    vasprun: Optional[LightVasprun] = None
+    outcar: LightOutcar | None = None
+    vasprun: LightVasprun | None = None
+    run_type: str | None = Field(None, description="The type of VASP calculation performed.")
+    functional: str | None = Field(None, description="The density functional used in the calculation.")
+    valid_input_set_name: str | None = Field(
+        None, description="The import string of the reference MP-compatible input set."
+    )
+    validation_errors: list[str] = Field([], description="Errors arising when attempting to validate the input set.")
 
     @model_validator(mode="before")
     @classmethod
@@ -245,6 +251,17 @@ class VaspFiles(BaseModel):
         if isinstance(config.get("vasprun"), Vasprun):
             config["vasprun"] = LightVasprun.from_vasprun(config["vasprun"])
         return config
+
+    @model_validator(mode="after")
+    def validate_inputs(self) -> Self:
+        """Check that the input set could be referenced against known input sets."""
+        self.validation_errors = []
+        self.run_type = self.set_run_type()
+        self.functional = self.set_functional()
+        self.valid_input_set_name = None  # Ensure this gets reset / checked
+        if self.run_type and self.functional:
+            self.valid_input_set_name = self.set_valid_input_set_name()
+        return self
 
     @property
     def md5(self) -> str:
@@ -308,8 +325,7 @@ class VaspFiles(BaseModel):
 
         return cls(**config)
 
-    @cached_property
-    def run_type(self) -> str:
+    def set_run_type(self) -> str | None:
         """Get the run type of a calculation."""
 
         ibrion = self.user_input.incar.get("IBRION", VASP_DEFAULTS_DICT["IBRION"].value)
@@ -322,7 +338,7 @@ class VaspFiles(BaseModel):
             **{k: "relax" for k in range(1, 4)},
             **{k: "phonon" for k in range(5, 9)},
             **{k: "ts" for k in (40, 44)},
-        }.get(ibrion)
+        }.get(ibrion, None)
 
         if self.user_input.incar.get("ICHARG", VASP_DEFAULTS_DICT["ICHARG"].value) >= 10:
             run_type = "nonscf"
@@ -330,22 +346,20 @@ class VaspFiles(BaseModel):
             run_type == "nmr"
 
         if run_type is None:
-            raise ValidationError(
+            self.validation_errors += [
                 "Could not determine a valid run type. We currently only validate "
                 "Geometry optimizations (relaxations), single-points (statics), "
                 "and non-self-consistent fixed charged density calculations. ",
-            )
+            ]
 
         return run_type
 
-    @cached_property
-    def functional(self) -> str:
+    def set_functional(self) -> str | None:
         """Determine the functional used in the calculation.
 
         Note that this is not a complete determination.
         Only the functionals used by MP are detected here.
         """
-
         func = None
         func_from_potcar = None
         if self.user_input.potcar:
@@ -364,11 +378,13 @@ class VaspFiles(BaseModel):
 
         if (metagga := self.user_input.incar.get("METAGGA")) and metagga.lower() != "none":
             if gga:
-                raise ValidationError(
+                self.validation_errors += [
                     "Both the GGA and METAGGA tags were set, which can lead to large errors. "
                     "For context, see:\n"
                     "https://github.com/materialsproject/atomate2/issues/453#issuecomment-1699605867"
-                )
+                ]
+                return None
+
             if metagga.lower() == "scan":
                 func = "scan"
             elif metagga.lower().startswith("r2sca"):
@@ -384,12 +400,13 @@ class VaspFiles(BaseModel):
 
         func = func or func_from_potcar
         if func is None:
-            raise ValidationError(
+            self.validation_errors += [
                 "Currently, we only validate calculations using the following functionals:\n"
                 "GGA : PBE, PBEsol\n"
                 "meta-GGA : SCAN, r2SCAN\n"
                 "Hybrids: HSE06"
-            )
+            ]
+
         return func
 
     @property
@@ -399,16 +416,14 @@ class VaspFiles(BaseModel):
             return self.vasprun.bandgap
         return None
 
-    @cached_property
-    def valid_input_set(self) -> VaspInputSafe:
+    def set_valid_input_set_name(self) -> str | None:
         """
-        Determine the MP-compliant input set for a calculation.
+        Determine the MP-compliant input set import string for a calculation.
 
         We need only determine a rough input set here.
         The precise details of the input set do not matter.
         """
 
-        incar_updates: dict[str, Any] = {}
         set_name: str | None = None
         if self.functional == "pbe":
             if self.run_type == "nonscf":
@@ -420,26 +435,36 @@ class VaspFiles(BaseModel):
             elif self.run_type in ("relax", "static"):
                 set_name = f"MP{self.run_type.capitalize()}Set"
         elif self.functional in ("pbesol", "scan", "r2scan", "hse06"):
-            if self.functional == "pbesol":
-                incar_updates["GGA"] = "PS"
-            elif self.functional == "scan":
-                incar_updates["METAGGA"] = "SCAN"
-            elif self.functional == "hse06":
-                incar_updates.update(
-                    LHFCALC=True,
-                    HFSCREEN=0.2,
-                    GGA="PE",
-                )
             set_name = f"MPScan{self.run_type.capitalize()}Set"
 
         if set_name is None:
-            raise ValidationError(
+            self.validation_errors += [
                 "Could not determine a valid input set from the specified "
                 f"functional = {self.functional} and calculation type {self.run_type}."
-            )
+            ]
+            return None
+        return set_name
 
+    @cached_property
+    def valid_input_set(self) -> VaspInputSafe:
+        """Determine the MP-compliant input set for a calculation."""
+
+        if self.valid_input_set_name is None:
+            raise ValidationError("Cannot determine a valid input set, see `validation_errors` for more details.")
+
+        incar_updates: dict[str, Any] = {}
+        if self.functional == "pbesol":
+            incar_updates["GGA"] = "PS"
+        elif self.functional == "scan":
+            incar_updates["METAGGA"] = "SCAN"
+        elif self.functional == "hse06":
+            incar_updates.update(
+                LHFCALC=True,
+                HFSCREEN=0.2,
+                GGA="PE",
+            )
         # Note that only the *previous* bandgap informs the k-point density
-        vis = getattr(import_module("pymatgen.io.vasp.sets"), set_name)(
+        vis = getattr(import_module("pymatgen.io.vasp.sets"), self.valid_input_set_name)(
             structure=self.user_input.structure,
             bandgap=None,
             user_incar_settings=incar_updates,

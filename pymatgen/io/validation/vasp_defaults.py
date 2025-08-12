@@ -922,7 +922,7 @@ VASP_DEFAULTS_LIST = [
     ),
     VaspParam(
         name="LORBIT",
-        value=None,
+        value=0,
         operation=None,
         alias="LORBIT",
         tag="misc_special",

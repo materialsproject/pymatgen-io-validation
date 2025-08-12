@@ -319,7 +319,8 @@ def test_common_error_checks(object_name):
             GGA="PE",
             METAGGA="R2SCAN",
         )
-        VaspFiles(**vfd).valid_input_set
+        vf_new = VaspFiles(**vfd)
+        vf_new.valid_input_set
 
     # Drift forces too high check - a warning
     vf = copy.deepcopy(vf_og)

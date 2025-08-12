@@ -557,7 +557,7 @@
   warning:
   severity: reason
 - name: LORBIT
-  value:
+  value:  0
   operation:
   alias: LORBIT
   tag: misc_special
