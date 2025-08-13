@@ -45,3 +45,14 @@ jobs:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
         verbose: true
+
+    - name: Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.event.workflow_run.head_branch }}
+        release_name: ${{ github.event.workflow_run.head_branch }}
+        draft: false
+        prerelease: false
