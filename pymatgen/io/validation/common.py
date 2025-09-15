@@ -115,6 +115,7 @@ class LightOutcar(BaseModel):
 
 
 class LightElectronicStep(BaseModel):
+    """Lightweight representation of electronic step data from VASP."""
 
     e_0_energy: float | None = None
     e_fr_energy: float | None = None
@@ -123,6 +124,7 @@ class LightElectronicStep(BaseModel):
 
 
 class LightIonicStep(BaseModel):
+    """Lightweight representation of ionic step data from VASP."""
 
     e_0_energy: float | None = None
     e_fr_energy: float | None = None
