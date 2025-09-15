@@ -9,7 +9,16 @@ import json
 from monty.serialization import loadfn
 import os
 from pathlib import Path
-from pydantic import BaseModel, Field, model_validator, model_serializer, PrivateAttr, PlainSerializer, BeforeValidator
+from pydantic import (
+    BaseModel,
+    Field,
+    model_validator,
+    model_serializer,
+    PrivateAttr,
+    PlainSerializer,
+    BeforeValidator,
+    RootModel,
+)
 from typing import TYPE_CHECKING, Any, Annotated, TypeAlias
 
 from pymatgen.core import Structure
@@ -52,6 +61,14 @@ StructureType: TypeAlias = Annotated[
     BeforeValidator(lambda x: _msonable_from_str(x, Structure)),
     PlainSerializer(lambda x: json.dumps(x.as_dict()), return_type=str),
 ]
+
+
+class _MsonStrType(RootModel):
+    root: str
+
+
+for pmg_obj in (Incar, Kpoints, Structure):
+    setattr(pmg_obj, "__type_adapter__", _MsonStrType)
 
 
 class ValidationError(Exception):
