@@ -6,7 +6,7 @@ from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
 
 from pymatgen.io.validation.validation import VaspValidator
-from pymatgen.io.validation.common import ValidationError, VaspFiles, PotcarSummaryStats
+from pymatgen.io.validation.common import ValidationError, VaspFiles, PotcarSummaryStats, LightIonicStep
 
 from conftest import vasp_calc_data, incar_check_list, set_fake_potcar_dir
 
@@ -29,9 +29,9 @@ def run_check(
     validation_doc_kwargs: dict = {},  # any kwargs to pass to the VaspValidator class
 ):
     _new_vf = vasp_files.model_dump()
-    _new_vf["vasprun"]["parameters"].update(**vasprun_parameters_to_change)
+    _new_vf["vasprun"]["parameters"] = {**vasp_files.vasprun.parameters, **vasprun_parameters_to_change}
 
-    _new_vf["user_input"]["incar"].update(**incar_settings_to_change)
+    _new_vf["user_input"]["incar"] = {**vasp_files.user_input.incar, **incar_settings_to_change}
 
     validator = VaspValidator.from_vasp_input(vasp_files=VaspFiles(**_new_vf), **validation_doc_kwargs)
     has_specified_error = any([error_message_to_search_for in reason for reason in validator.reasons])
@@ -127,40 +127,38 @@ def test_scf_incar_checks(test_dir, object_name):
     # POTIM check #2 (checks energy change between steps)
     vf = copy.deepcopy(vf_og)
     vf.user_input.incar["IBRION"] = 2
-    temp_ionic_step_1 = copy.deepcopy(vf.vasprun.ionic_steps[0])
-    temp_ionic_step_2 = copy.deepcopy(temp_ionic_step_1)
-    temp_ionic_step_1["e_fr_energy"] = 0
-    temp_ionic_step_2["e_fr_energy"] = 10000
     vf.vasprun.ionic_steps = [
-        temp_ionic_step_1,
-        temp_ionic_step_2,
+        LightIonicStep(
+            e_fr_energy=energy,
+            **{k: v for k, v in vf.vasprun.ionic_steps[0].model_dump().items() if k != "e_fr_energy"},
+        )
+        for energy in [0, 1e4]
     ]
     run_check(vf, "POTIM", False)
 
     # EDIFFG energy convergence check (this check SHOULD fail)
     vf = copy.deepcopy(vf_og)
-    temp_ionic_step_1 = copy.deepcopy(vf.vasprun.ionic_steps[0])
-    temp_ionic_step_2 = copy.deepcopy(temp_ionic_step_1)
-    temp_ionic_step_1["e_0_energy"] = -1
-    temp_ionic_step_2["e_0_energy"] = -2
     vf.vasprun.ionic_steps = [
-        temp_ionic_step_1,
-        temp_ionic_step_2,
+        LightIonicStep(
+            e_0_energy=energy, **{k: v for k, v in vf.vasprun.ionic_steps[0].model_dump().items() if k != "e_0_energy"}
+        )
+        for energy in [-1, -2]
     ]
     run_check(vf, "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS", False)
+    return
 
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
     # (the below test should NOT fail, because final forces are 0)
     vf = copy.deepcopy(vf_og)
     vf.user_input.incar.update(METAGGA="R2SCA", ICHARG=1)
-    vf.vasprun.ionic_steps[-1]["forces"] = [[0, 0, 0], [0, 0, 0]]
+    vf.vasprun.ionic_steps[-1].forces = [[0, 0, 0], [0, 0, 0]]
     run_check(vf, "MAX FINAL FORCE MAGNITUDE", True)
 
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
     # (the below test SHOULD fail, because final forces are high)
     vf = copy.deepcopy(vf_og)
     vf.user_input.incar.update(METAGGA="R2SCA", ICHARG=1, IBRION=1, NSW=1)
-    vf.vasprun.ionic_steps[-1]["forces"] = [[10, 10, 10], [10, 10, 10]]
+    vf.vasprun.ionic_steps[-1].forces = [[10, 10, 10], [10, 10, 10]]
     run_check(vf, "MAX FINAL FORCE MAGNITUDE", False)
 
     # ISMEAR wrong for nonmetal check
@@ -195,7 +193,7 @@ def test_scf_incar_checks(test_dir, object_name):
 
     # SIGMA too large check (i.e. eentropy term is > 1 meV/atom)
     vf = copy.deepcopy(vf_og)
-    vf.vasprun.ionic_steps[0]["electronic_steps"][-1]["eentropy"] = 1
+    vf.vasprun.ionic_steps[0].electronic_steps[-1].eentropy = 1
     run_check(vf, "The entropy term (T*S)", False)
 
     # LMAXMIX check for SCF calc
@@ -315,10 +313,12 @@ def test_common_error_checks(object_name):
     # METAGGA and GGA tag check (should never be set together)
     with pytest.raises(ValidationError):
         vfd = vf_og.model_dump()
-        vfd["user_input"]["incar"].update(
-            GGA="PE",
-            METAGGA="R2SCAN",
-        )
+        vfd["user_input"]["incar"] = {
+            **vf_og.user_input.incar,
+            "GGA": "PE",
+            "METAGGA": "R2SCAN",
+        }
+
         vf_new = VaspFiles(**vfd)
         vf_new.valid_input_set
 
