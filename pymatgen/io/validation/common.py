@@ -17,9 +17,8 @@ from pydantic import (
     PrivateAttr,
     PlainSerializer,
     BeforeValidator,
-    RootModel,
 )
-from typing import TYPE_CHECKING, Any, Annotated, TypeAlias
+from typing import TYPE_CHECKING, Any, Annotated, TypeAlias, TypeVar
 
 from pymatgen.core import Structure
 from pymatgen.io.vasp.inputs import POTCAR_STATS_PATH, Incar, Kpoints, Poscar, Potcar, PmgVaspPspDirError
@@ -44,31 +43,26 @@ def _msonable_from_str(obj: Any, cls: type[MSONable]) -> MSONable:
     return obj
 
 
+IncarTypeVar = TypeVar("IncarTypeVar", Incar, str)
 IncarType: TypeAlias = Annotated[
-    Incar,
+    IncarTypeVar,
     BeforeValidator(lambda x: _msonable_from_str(x, Incar)),
     PlainSerializer(lambda x: json.dumps(x.as_dict()), return_type=str),
 ]
 
+KpointsTypeVar = TypeVar("KpointsTypeVar", Kpoints, str)
 KpointsType: TypeAlias = Annotated[
-    Kpoints,
+    KpointsTypeVar,
     BeforeValidator(lambda x: _msonable_from_str(x, Kpoints)),
     PlainSerializer(lambda x: json.dumps(x.as_dict()), return_type=str),
 ]
 
+StructureTypeVar = TypeVar("StructureTypeVar", Structure, str)
 StructureType: TypeAlias = Annotated[
-    Structure,
+    StructureTypeVar,
     BeforeValidator(lambda x: _msonable_from_str(x, Structure)),
     PlainSerializer(lambda x: json.dumps(x.as_dict()), return_type=str),
 ]
-
-
-class _MsonStrType(RootModel):
-    root: str
-
-
-for pmg_obj in (Incar, Kpoints, Structure):
-    setattr(pmg_obj, "__type_adapter__", _MsonStrType)
 
 
 class ValidationError(Exception):
