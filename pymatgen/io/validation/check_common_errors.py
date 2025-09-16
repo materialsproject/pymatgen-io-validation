@@ -85,7 +85,7 @@ class CheckCommonErrors(BaseValidator):
         ):
             # Response function calculations are non-self-consistent: only one ionic step, no electronic SCF
             if vasp_files.user_input.incar.get("LEPSILON", self.vasp_defaults["LEPSILON"].value):
-                final_esteps = vasp_files.vasprun.ionic_steps[-1]["electronic_steps"]
+                final_esteps = vasp_files.vasprun.ionic_steps[-1].electronic_steps
                 to_check = {"e_wo_entrp", "e_fr_energy", "e_0_energy"}
 
                 for i in range(len(final_esteps)):
@@ -98,7 +98,7 @@ class CheckCommonErrors(BaseValidator):
 
             else:
                 conv_steps = [
-                    len(ionic_step["electronic_steps"])
+                    len(ionic_step.electronic_steps)
                     < vasp_files.user_input.incar.get("NELM", self.vasp_defaults["NELM"].value)
                     for ionic_step in vasp_files.vasprun.ionic_steps
                 ]
@@ -190,7 +190,7 @@ class CheckCommonErrors(BaseValidator):
 
         skip = abs(vasp_files.user_input.incar.get("NELMDL", self.vasp_defaults["NELMDL"].value)) - 1
 
-        energies = [d["e_fr_energy"] for d in vasp_files.vasprun.ionic_steps[-1]["electronic_steps"]]
+        energies = [d.e_fr_energy for d in vasp_files.vasprun.ionic_steps[-1].electronic_steps]
         if len(energies) > skip:
             cur_max_gradient = np.max(np.gradient(energies)[skip:])
             cur_max_gradient_per_atom = cur_max_gradient / vasp_files.user_input.structure.num_sites

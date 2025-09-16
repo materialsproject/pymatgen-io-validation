@@ -431,7 +431,7 @@ class CheckIncar(BaseValidator):
         user_incar["ELECTRONIC ENTROPY"] = -1e20
         if vasp_files.vasprun:
             for ionic_step in vasp_files.vasprun.ionic_steps:
-                if eentropy := ionic_step["electronic_steps"][-1].get("eentropy"):
+                if eentropy := ionic_step.electronic_steps[-1].eentropy:
                     user_incar["ELECTRONIC ENTROPY"] = max(
                         user_incar["ELECTRONIC ENTROPY"],
                         abs(eentropy / vasp_files.user_input.structure.num_sites),
@@ -552,9 +552,7 @@ class CheckIncar(BaseValidator):
         ]:
             ref_incar["IBRION"].append(inp_set_ibrion)
 
-        ionic_steps = []
-        if vasp_files.vasprun is not None:
-            ionic_steps = vasp_files.vasprun.ionic_steps
+        ionic_steps = vasp_files.vasprun.ionic_steps if vasp_files.vasprun else []
 
         # POTIM.
         if user_incar["IBRION"] in [1, 2, 3, 5, 6]:
@@ -567,7 +565,7 @@ class CheckIncar(BaseValidator):
             if len(ionic_steps) > 1:
                 # Do not use `e_0_energy`, as there is a bug in the vasprun.xml when printing that variable
                 # (see https://www.vasp.at/forum/viewtopic.php?t=16942 for more details).
-                cur_ionic_step_energies = [ionic_step["e_fr_energy"] for ionic_step in ionic_steps]
+                cur_ionic_step_energies = [ionic_step.e_fr_energy for ionic_step in ionic_steps]
                 cur_ionic_step_energy_gradient = np.diff(cur_ionic_step_energies)
                 user_incar["MAX ENERGY GRADIENT"] = round(
                     max(np.abs(cur_ionic_step_energy_gradient)) / vasp_files.user_input.structure.num_sites,
@@ -606,14 +604,14 @@ class CheckIncar(BaseValidator):
             f"to |EDIFFG|={abs(ref_incar['EDIFFG'])} (or smaller in magnitude)."
         )
 
-        if ionic_steps[-1].get("forces") is None:
+        if not ionic_steps[-1].forces:
             self.vasp_defaults["EDIFFG"].comment = (
                 "vasprun.xml does not contain forces, cannot check force convergence."
             )
             self.vasp_defaults["EDIFFG"].severity = "warning"
             self.vasp_defaults["EDIFFG"].operation = "auto fail"
 
-        elif ref_incar["EDIFFG"] < 0.0 and (vrun_forces := ionic_steps[-1].get("forces")) is not None:
+        elif ref_incar["EDIFFG"] < 0.0 and (vrun_forces := ionic_steps[-1].forces):
             user_incar["EDIFFG"] = round(
                 max([np.linalg.norm(force_on_atom) for force_on_atom in vrun_forces]),
                 3,
@@ -630,9 +628,7 @@ class CheckIncar(BaseValidator):
 
         # the latter two checks just ensure the code does not error by indexing out of range
         elif ref_incar["EDIFFG"] > 0.0 and vasp_files.vasprun and len(ionic_steps) > 1:
-            energy_of_last_step = ionic_steps[-1]["e_0_energy"]
-            energy_of_second_to_last_step = ionic_steps[-2]["e_0_energy"]
-            user_incar["EDIFFG"] = abs(energy_of_last_step - energy_of_second_to_last_step)
+            user_incar["EDIFFG"] = abs(ionic_steps[-1].e_0_energy - ionic_steps[-2].e_0_energy)
             self.vasp_defaults["EDIFFG"].operation = "<="
             self.vasp_defaults["EDIFFG"].alias = "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS"
 

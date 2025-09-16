@@ -5,12 +5,20 @@ from __future__ import annotations
 from functools import cached_property
 import hashlib
 from importlib import import_module
+import json
 from monty.serialization import loadfn
 import os
-import numpy as np
 from pathlib import Path
-from pydantic import BaseModel, Field, model_validator, model_serializer, PrivateAttr
-from typing import TYPE_CHECKING, Any, Optional
+from pydantic import (
+    BaseModel,
+    Field,
+    model_validator,
+    model_serializer,
+    PrivateAttr,
+    PlainSerializer,
+    BeforeValidator,
+)
+from typing import TYPE_CHECKING, Any, Annotated, TypeAlias, TypeVar
 
 from pymatgen.core import Structure
 from pymatgen.io.vasp.inputs import POTCAR_STATS_PATH, Incar, Kpoints, Poscar, Potcar, PmgVaspPspDirError
@@ -22,8 +30,39 @@ from pymatgen.io.validation.settings import IOValidationSettings
 
 if TYPE_CHECKING:
     from typing_extensions import Self
+    from monty.json import MSONable
 
 SETTINGS = IOValidationSettings()
+
+
+def _msonable_from_str(obj: Any, cls: type[MSONable]) -> MSONable:
+    if isinstance(obj, str):
+        obj = json.loads(obj)
+    if isinstance(obj, dict):
+        return cls.from_dict(obj)
+    return obj
+
+
+IncarTypeVar = TypeVar("IncarTypeVar", Incar, str)
+IncarType: TypeAlias = Annotated[
+    IncarTypeVar,
+    BeforeValidator(lambda x: _msonable_from_str(x, Incar)),
+    PlainSerializer(lambda x: json.dumps(x.as_dict()), return_type=str),
+]
+
+KpointsTypeVar = TypeVar("KpointsTypeVar", Kpoints, str)
+KpointsType: TypeAlias = Annotated[
+    KpointsTypeVar,
+    BeforeValidator(lambda x: _msonable_from_str(x, Kpoints)),
+    PlainSerializer(lambda x: json.dumps(x.as_dict()), return_type=str),
+]
+
+StructureTypeVar = TypeVar("StructureTypeVar", Structure, str)
+StructureType: TypeAlias = Annotated[
+    StructureTypeVar,
+    BeforeValidator(lambda x: _msonable_from_str(x, Structure)),
+    PlainSerializer(lambda x: json.dumps(x.as_dict()), return_type=str),
+]
 
 
 class ValidationError(Exception):
@@ -62,8 +101,8 @@ class PotcarSummaryStatistics(BaseModel):
 class PotcarSummaryStats(BaseModel):
     """Schematize `PotcarSingle._summary_stats`."""
 
-    keywords: Optional[PotcarSummaryKeywords] = None
-    stats: Optional[PotcarSummaryStatistics] = None
+    keywords: PotcarSummaryKeywords | None = None
+    stats: PotcarSummaryStatistics | None = None
     titel: str
     lexch: str
 
@@ -80,23 +119,41 @@ class PotcarSummaryStats(BaseModel):
 class LightOutcar(BaseModel):
     """Schematic of pymatgen's Outcar."""
 
-    drift: Optional[list[list[float]]] = Field(None, description="The drift forces.")
-    magnetization: Optional[list[dict[str, float]]] = Field(
+    drift: list[list[float]] | None = Field(None, description="The drift forces.")
+    magnetization: list[dict[str, float]] | None = Field(
         None, description="The on-site magnetic moments, possibly with orbital resolution."
     )
+
+
+class LightElectronicStep(BaseModel):
+    """Lightweight representation of electronic step data from VASP."""
+
+    e_0_energy: float | None = None
+    e_fr_energy: float | None = None
+    e_wo_entrp: float | None = None
+    eentropy: float | None = None
+
+
+class LightIonicStep(BaseModel):
+    """Lightweight representation of ionic step data from VASP."""
+
+    e_0_energy: float | None = None
+    e_fr_energy: float | None = None
+    forces: list[list[float]] | None = None
+    electronic_steps: list[LightElectronicStep] | None = None
 
 
 class LightVasprun(BaseModel):
     """Lightweight version of pymatgen Vasprun."""
 
     vasp_version: str = Field(description="The dot-separated version of VASP used.")
-    ionic_steps: list[dict[str, Any]] = Field(description="The ionic steps in the calculation.")
     final_energy: float = Field(description="The final total energy in eV.")
-    final_structure: Structure = Field(description="The final structure.")
-    kpoints: Kpoints = Field(description="The actual k-points used in the calculation.")
-    parameters: dict[str, Any] = Field(description="The default-padded input parameters interpreted by VASP.")
+    final_structure: StructureType = Field(description="The final structure.")
+    kpoints: KpointsType = Field(description="The actual k-points used in the calculation.")
+    parameters: IncarType = Field(description="The default-padded input parameters interpreted by VASP.")
     bandgap: float = Field(description="The bandgap - note that this field is derived from the Vasprun object.")
-    potcar_symbols: Optional[list[str]] = Field(
+    ionic_steps: list[LightIonicStep] = Field([], description="The ionic steps in the calculation.")
+    potcar_symbols: list[str] | None = Field(
         None,
         description="Optional: if a POTCAR is unavailable, this is used to determine the functional used in the calculation.",
     )
@@ -119,45 +176,18 @@ class LightVasprun(BaseModel):
             bandgap=vasprun.get_band_structure(efermi="smart").get_band_gap()["energy"],
         )
 
-    @model_serializer
-    def deserialize_objects(self) -> dict[str, Any]:
-        """Ensure all pymatgen objects are deserialized."""
-        model_dumped = {k: getattr(self, k) for k in self.__class__.model_fields}
-        for k in ("final_structure", "kpoints"):
-            model_dumped[k] = model_dumped[k].as_dict()
-        for iion, istep in enumerate(model_dumped["ionic_steps"]):
-            if (istruct := istep.get("structure")) and isinstance(istruct, Structure):
-                model_dumped["ionic_steps"][iion]["structure"] = istruct.as_dict()
-            for k in ("forces", "stress"):
-                if (val := istep.get(k)) is not None and isinstance(val, np.ndarray):
-                    model_dumped["ionic_steps"][iion][k] = val.tolist()
-        return model_dumped
-
 
 class VaspInputSafe(BaseModel):
     """Stricter VaspInputSet with no POTCAR info."""
 
-    incar: Incar = Field(description="The INCAR used in the calculation.")
-    structure: Structure = Field(description="The structure associated with the calculation.")
-    kpoints: Optional[Kpoints] = Field(None, description="The optional KPOINTS or IBZKPT file used in the calculation.")
-    potcar: Optional[list[PotcarSummaryStats]] = Field(None, description="The optional POTCAR used in the calculation.")
-    potcar_functional: Optional[str] = Field(None, description="The pymatgen-labelled POTCAR library release.")
-    _pmg_vis: Optional[VaspInputSet] = PrivateAttr(None)
-
-    @model_serializer
-    def deserialize_objects(self) -> dict[str, Any]:
-        """Ensure all pymatgen objects are deserialized."""
-        model_dumped: dict[str, Any] = {}
-        if self.potcar:
-            model_dumped["potcar"] = [p.model_dump() for p in self.potcar]
-        for k in (
-            "incar",
-            "structure",
-            "kpoints",
-        ):
-            if pmg_obj := getattr(self, k):
-                model_dumped[k] = pmg_obj.as_dict()
-        return model_dumped
+    incar: IncarType = Field(description="The INCAR used in the calculation.")
+    structure: StructureType = Field(description="The structure associated with the calculation.")
+    kpoints: KpointsType | None = Field(
+        None, description="The optional KPOINTS or IBZKPT file used in the calculation."
+    )
+    potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
+    potcar_functional: str | None = Field(None, description="The pymatgen-labelled POTCAR library release.")
+    _pmg_vis: VaspInputSet | None = PrivateAttr(None)
 
     @classmethod
     def from_vasp_input_set(cls, vis: VaspInputSet) -> Self:
