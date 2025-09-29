@@ -7,4 +7,4 @@ flake8==7.3.0
 pylint==3.3.8
 black==25.1.0
 pydantic==2.11.9
-pydantic-settings==2.10.1
+pydantic-settings==2.11.0
