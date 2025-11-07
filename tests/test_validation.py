@@ -145,7 +145,6 @@ def test_scf_incar_checks(test_dir, object_name):
         for energy in [-1, -2]
     ]
     run_check(vf, "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS", False)
-    return
 
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
     # (the below test should NOT fail, because final forces are 0)
