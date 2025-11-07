@@ -26,11 +26,10 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install --quiet -r requirements.txt -r requirements-dev.txt
-        pip install -e .
+        pip install -e '.[all]'
     - name: pytest
       run: |
-        pytest #--cov=pymatgen tests
+        pytest -n auto tests
     - name: Upload coverage reports to Codecov
       if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.task == 'release')
       uses: codecov/codecov-action@v3

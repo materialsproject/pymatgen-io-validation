@@ -1,5 +1,6 @@
 pytest==8.4.2
 pytest-cov==7.0.0
+pytest-xdist==3.8.0
 coverage==7.10.6
 mypy==1.18.1
 pydocstyle==6.1.1

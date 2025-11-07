@@ -37,14 +37,14 @@ keywords = ["io", "validation", "dft", "vasp"]
 license = { text = "modified BSD" }
 name = "pymatgen-io-validation"
 readme = "README.md"
-requires-python = '>=3.8'
+requires-python = '>=3.11'
 
 [project.optional-dependencies]
 dev = ["pre-commit>=2.12.1"]
 #docs = ["jupyter-book>=0.13.1",]
 
-tests = ["pytest==8.4.2", "pytest-cov==7.0.0", "types-requests"]
-
+tests = ["pytest>=8.4.2", "pytest-cov>=7.0.0", "pytest-xdist>=3.8.0", "types-requests"]
+all = ["pymatgen-io-validation[dev,tests]"]
 
 [tool.setuptools.dynamic]
 readme = { file = ["README.md"] }
