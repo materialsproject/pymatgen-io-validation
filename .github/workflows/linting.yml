@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e '.[all]' types-requests
+        pip install -e '.[lint]' types-requests
     - name: mypy
       run: |
         mypy pymatgen
