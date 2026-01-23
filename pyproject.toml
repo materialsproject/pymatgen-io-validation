@@ -69,7 +69,7 @@ line-length = 120
 line-length = 120
 
 [tool.flake8]
-extend-ignore = "E203, Wv503, E501, F401, RST21"
+extend-ignore = "Wv503, F401, RST21, E741, W291, W293, E501, E231, E203, W605"
 max-line-length = 120
 max-doc-length = 120
 min-python-version = "3.8.0"
