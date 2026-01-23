@@ -1,5 +1,7 @@
 pymatgen-io-validation
 =====
+[![testing](https://github.com/materialsproject/pymatgen-io-validation/actions/workflows/testing.yml/badge.svg?branch=main)](https://github.com/materialsproject/pymatgen-io-validation/actions?query=workflow%3Atesting+branch%3Amain)
+![python](https://img.shields.io/badge/Python-3.11+-blue.svg?logo=python&amp;logoColor=white)
 
 This package is an extension to `pymatgen` for performing I/O validation. Specifically, this package checks for discrepancies between a specific calculation and a provided input set; it also checks for known bugs when certain input parameters are used in combination, alongside several other small checks. The motivation for creating this package was to ensure VASP calculations performed by groups outside of the Materials Project (MP) are compliant with MP data, thus enabling their raw data to be included in the MP Database.
 

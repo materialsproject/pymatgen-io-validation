@@ -68,14 +68,6 @@ line-length = 120
 [tool.blacken-docs]
 line-length = 120
 
-[tool.flake8]
-extend-ignore = "E203, Wv503, E501, F401, RST21"
-max-line-length = 120
-max-doc-length = 120
-min-python-version = "3.8.0"
-rst-roles = "class, func, ref, obj"
-select = "C, E, F, W, B, B950"
-
 [tool.mypy]
 explicit_package_bases = true
 namespace_packages = true
