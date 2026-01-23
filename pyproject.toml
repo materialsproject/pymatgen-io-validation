@@ -11,10 +11,8 @@ authors = [
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
@@ -34,7 +32,7 @@ dependencies = [
 description = "A comprehensive I/O validator for electronic structure calculations"
 dynamic = ["version"]
 keywords = ["io", "validation", "dft", "vasp"]
-license = { text = "modified BSD" }
+license = "BSD-3-Clause-LBNL"
 name = "pymatgen-io-validation"
 readme = "README.md"
 requires-python = '>=3.11'
@@ -50,8 +48,8 @@ all = ["pymatgen-io-validation[dev,tests,lint]"]
 [tool.setuptools.dynamic]
 readme = { file = ["README.md"] }
 
-#[project.urls]
-#repository = "https://github.com/materialsproject/pymatgen-io-validation"
+[project.urls]
+repository = "https://github.com/materialsproject/pymatgen-io-validation"
 
 [tool.setuptools.packages.find]
 exclude = ["tests","examples"]
@@ -96,12 +94,24 @@ source = ["pymatgen/"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "@deprecated",
+  "if TYPE_CHECKING:",
+]
 
 [tool.pydocstyle]
 convention = 'google'
 match = '^pymatgen/(?!_).*\.py'
 inherit = false
-add-ignore = "D107, "
+add-ignore = "D107, D105, D2, D4, "
 
 [tool.autoflake]
 in-place = true
