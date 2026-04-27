@@ -10,7 +10,6 @@ from pymatgen.io.validation.common import ValidationError, VaspFiles, PotcarSumm
 
 from conftest import vasp_calc_data, incar_check_list, set_fake_potcar_dir
 
-
 ### TODO: add tests for many other MP input sets (e.g. MPNSCFSet, MPNMRSet, MPScanRelaxSet, Hybrid sets, etc.)
 ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
 ### TODO: add in check for MP set where LEFG = True
