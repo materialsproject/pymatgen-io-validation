@@ -22,9 +22,13 @@ def test_validation_without_potcars(test_dir):
 
         # Add summary stats to input files
         ref_titel = "PAW_PBE Si 05Jan2001"
-        ref_pspec = PotcarSingle._potcar_summary_stats["PBE"][ref_titel.replace(" ", "")][0]
+        ref_pspec = PotcarSingle._potcar_summary_stats["PBE"][
+            ref_titel.replace(" ", "")
+        ][0]
         vf = loadfn(test_dir / "vasp" / "Si_uniform.json.gz")
-        vf["user_input"]["potcar"] = [PotcarSummaryStats(titel=ref_titel, lexch="PE", **ref_pspec)]
+        vf["user_input"]["potcar"] = [
+            PotcarSummaryStats(titel=ref_titel, lexch="PE", **ref_pspec)
+        ]
         vf["user_input"]["potcar_functional"] = "PBE"
         vasp_files = VaspFiles(**vf)
 

@@ -29,7 +29,9 @@ class InvalidOperation(Exception):
         Args:
         operation (str) : a symbolic string for an operation that is not valid.
         """
-        msg = f"Unknown operation type {operation}; valid values are: {VALID_OPERATIONS}"
+        msg = (
+            f"Unknown operation type {operation}; valid values are: {VALID_OPERATIONS}"
+        )
         super().__init__(msg)
 
 
@@ -71,16 +73,26 @@ class VaspParam(BaseModel):
         description="the general category of input the tag belongs to. Used only to properly update INCAR fields in the same way VASP does."
     )
     operation: Optional[str | list[str] | tuple[str]] = Field(
-        None, description="One or more of VALID_OPERATIONS to apply in validating this parameter."
+        None,
+        description="One or more of VALID_OPERATIONS to apply in validating this parameter.",
     )
     alias: Optional[str] = Field(
         None,
         description="If a str, an alternate name for a parameter to use when reporting invalid values, e.g., ENMAX instead of ENCUT.",
     )
-    tolerance: float = Field(1e-4, description="The tolerance used when evaluating approximate float equality.")
-    comment: Optional[str] = Field(None, description="Additional information to pass to the user if a check fails.")
-    warning: Optional[str] = Field(None, description="Additional warnings to pass to the user if a check fails.")
-    severity: Literal["reason", "warning"] = Field("reason", description="The severity of failing this check.")
+    tolerance: float = Field(
+        1e-4,
+        description="The tolerance used when evaluating approximate float equality.",
+    )
+    comment: Optional[str] = Field(
+        None, description="Additional information to pass to the user if a check fails."
+    )
+    warning: Optional[str] = Field(
+        None, description="Additional warnings to pass to the user if a check fails."
+    )
+    severity: Literal["reason", "warning"] = Field(
+        "reason", description="The severity of failing this check."
+    )
 
     @staticmethod
     def listify(val: Any) -> list[Any]:
@@ -108,7 +120,9 @@ class VaspParam(BaseModel):
 
         list_v = cls.listify(v)
         if not all(v in VALID_OPERATIONS for v in list_v):
-            raise InvalidOperation(f"[{', '.join(v for v in list_v if v not in VALID_OPERATIONS)}]")
+            raise InvalidOperation(
+                f"[{', '.join(v for v in list_v if v not in VALID_OPERATIONS)}]"
+            )
         return v
 
     def __getitem__(self, name: str) -> Any:
@@ -200,7 +214,9 @@ class VaspParam(BaseModel):
             kwargs: dict[str, Any] = {}
             if operation == "approx" and isinstance(cval, float):
                 kwargs.update({"rel_tol": self.tolerance, "abs_tol": 0.0})
-            valid_value = self._comparator(cval, operation, reference_values[iop], **kwargs)
+            valid_value = self._comparator(
+                cval, operation, reference_values[iop], **kwargs
+            )
 
             if not valid_value:
                 comment_str = (
@@ -208,7 +224,9 @@ class VaspParam(BaseModel):
                     f"{'' if operation == 'auto fail' else f'{operation} '}{reference_values[iop]}."
                 )
                 if self.comment:
-                    comment_str += f"{' ' if len(self.comment) > 0 else ''}{self.comment}"
+                    comment_str += (
+                        f"{' ' if len(self.comment) > 0 else ''}{self.comment}"
+                    )
                 checks[self.severity].append(comment_str)
         return checks
 
@@ -231,7 +249,10 @@ def _make_pythonic_defaults(config_path: str | Path | None = None) -> str:
     return (
         "VASP_DEFAULTS_LIST = [\n"
         + ",\n".join(
-            [f"    VaspParam({', '.join(f'{k} = {format_val(v)}' for k, v in param.items())})" for param in config]
+            [
+                f"    VaspParam({', '.join(f'{k} = {format_val(v)}' for k, v in param.items())})"
+                for param in config
+            ]
         )
         + "\n]"
     )

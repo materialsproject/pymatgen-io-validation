@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from emmet.core.utils import jsanitize
-from emmet.core.vasp.task_valid import TaskDocument
+from emmet.core.tasks import TaskDoc
 from jobflow import Flow
 from monty.serialization import dumpfn
 import numpy as np
 from pymatgen.core import Structure, Lattice
+from emmet.core.mpid import AlphaID
 
 
 def get_GaAs_structure(a0: float = 5.6) -> Structure:
-    lattice_vectors = a0 * np.array([[0.0 if i == j else 0.5 for j in range(3)] for i in range(3)])
+    lattice_vectors = a0 * np.array(
+        [[0.0 if i == j else 0.5 for j in range(3)] for i in range(3)]
+    )
     return Structure(
         lattice=Lattice(lattice_vectors),
         species=["Ga", "As"],
@@ -36,10 +39,10 @@ def get_MP_compliant_r2SCAN_flow(
     metadata: dict | None = None,
     name: str | None = None,
 ) -> Flow:
-    from atomate2.vasp.jobs.mp import MPMetaGGAStaticMaker
+    from atomate2.vasp.jobs.mp import MP24StaticMaker
     from atomate2.vasp.powerups import update_user_incar_settings
 
-    maker = MPMetaGGAStaticMaker()
+    maker = MP24StaticMaker()
 
     user_incar_settings = user_incar_settings or {}
     if len(user_incar_settings) > 0:
@@ -111,16 +114,13 @@ def MP_flows() -> None:
     )
 
 
-def generate_task_documents(cdir, task_id: str | None = None, filename: str | None = None) -> TaskDocument:
-    from atomate.vasp.drones import VaspDrone
-    from emmet.core.mpid import MPID
+def generate_task_documents(
+    cdir, task_id: str | None = None, filename: str | None = None
+) -> TaskDoc:
 
-    drone = VaspDrone(store_volumetric_data=[])
-    task_doc_dict = drone.assimilate(cdir)
-
-    task_id = task_id or "mp-100000000"
-    task_doc_dict["task_id"] = MPID(task_id)
-    task_doc = TaskDocument(**task_doc_dict)
+    task_doc = TaskDoc.from_directory(cdir)
+    if task_id:
+        task_doc.task_id = AlphaID(task_id)
 
     if filename:
         dumpfn(jsanitize(task_doc), filename)

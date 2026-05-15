@@ -6,7 +6,12 @@ from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
 
 from pymatgen.io.validation.validation import VaspValidator
-from pymatgen.io.validation.common import ValidationError, VaspFiles, PotcarSummaryStats, LightIonicStep
+from pymatgen.io.validation.common import (
+    ValidationError,
+    VaspFiles,
+    PotcarSummaryStats,
+    LightIonicStep,
+)
 
 from conftest import vasp_calc_data, incar_check_list, set_fake_potcar_dir
 
@@ -28,12 +33,22 @@ def run_check(
     validation_doc_kwargs: dict = {},  # any kwargs to pass to the VaspValidator class
 ):
     _new_vf = vasp_files.model_dump()
-    _new_vf["vasprun"]["parameters"] = {**vasp_files.vasprun.parameters, **vasprun_parameters_to_change}
+    _new_vf["vasprun"]["parameters"] = {
+        **vasp_files.vasprun.parameters,
+        **vasprun_parameters_to_change,
+    }
 
-    _new_vf["user_input"]["incar"] = {**vasp_files.user_input.incar, **incar_settings_to_change}
+    _new_vf["user_input"]["incar"] = {
+        **vasp_files.user_input.incar,
+        **incar_settings_to_change,
+    }
 
-    validator = VaspValidator.from_vasp_input(vasp_files=VaspFiles(**_new_vf), **validation_doc_kwargs)
-    has_specified_error = any([error_message_to_search_for in reason for reason in validator.reasons])
+    validator = VaspValidator.from_vasp_input(
+        vasp_files=VaspFiles(**_new_vf), **validation_doc_kwargs
+    )
+    has_specified_error = any(
+        [error_message_to_search_for in reason for reason in validator.reasons]
+    )
 
     assert (not has_specified_error) if should_the_check_pass else has_specified_error
 
@@ -42,16 +57,21 @@ def test_validation_from_files(test_dir):
 
     dir_name = test_dir / "vasp" / "Si_uniform"
     validator_from_paths = VaspValidator.from_directory(dir_name)
-    validator_from_vasp_files = VaspValidator.from_vasp_input(vasp_files=vasp_calc_data["Si_uniform"])
+    validator_from_vasp_files = VaspValidator.from_vasp_input(
+        vasp_files=vasp_calc_data["Si_uniform"]
+    )
 
     # Note: because the POTCAR info cannot be distributed, `validator_from_paths`
     # is missing POTCAR checks.
-    assert set([r for r in validator_from_paths.reasons if "POTCAR" not in r]) == set(validator_from_vasp_files.reasons)
+    assert set([r for r in validator_from_paths.reasons if "POTCAR" not in r]) == set(
+        validator_from_vasp_files.reasons
+    )
     assert set([r for r in validator_from_paths.warnings if "POTCAR" not in r]) == set(
         validator_from_vasp_files.warnings
     )
     assert all(
-        getattr(validator_from_paths.vasp_files.user_input, k) == getattr(validator_from_paths.vasp_files.user_input, k)
+        getattr(validator_from_paths.vasp_files.user_input, k)
+        == getattr(validator_from_paths.vasp_files.user_input, k)
         for k in ("incar", "structure", "kpoints")
     )
 
@@ -80,7 +100,8 @@ def test_potcar_validation(test_dir, object_name):
     vf_og = vasp_calc_data[object_name]
 
     correct_potcar_summary_stats = [
-        PotcarSummaryStats(**ps) for ps in loadfn(test_dir / "vasp" / "fake_Si_potcar_spec.json.gz")
+        PotcarSummaryStats(**ps)
+        for ps in loadfn(test_dir / "vasp" / "fake_Si_potcar_spec.json.gz")
     ]
 
     # Check POTCAR (this test should PASS, as we ARE using a MP-compatible pseudopotential)
@@ -129,7 +150,11 @@ def test_scf_incar_checks(test_dir, object_name):
     vf.vasprun.ionic_steps = [
         LightIonicStep(
             e_fr_energy=energy,
-            **{k: v for k, v in vf.vasprun.ionic_steps[0].model_dump().items() if k != "e_fr_energy"},
+            **{
+                k: v
+                for k, v in vf.vasprun.ionic_steps[0].model_dump().items()
+                if k != "e_fr_energy"
+            },
         )
         for energy in [0, 1e4]
     ]
@@ -139,7 +164,12 @@ def test_scf_incar_checks(test_dir, object_name):
     vf = copy.deepcopy(vf_og)
     vf.vasprun.ionic_steps = [
         LightIonicStep(
-            e_0_energy=energy, **{k: v for k, v in vf.vasprun.ionic_steps[0].model_dump().items() if k != "e_0_energy"}
+            e_0_energy=energy,
+            **{
+                k: v
+                for k, v in vf.vasprun.ionic_steps[0].model_dump().items()
+                if k != "e_0_energy"
+            },
         )
         for energy in [-1, -2]
     ]
@@ -373,7 +403,9 @@ def test_common_error_checks(object_name):
     # Element Po / Am present
     for unsupported_ele in ("Po", "Am"):
         vf = copy.deepcopy(vf_og)
-        vf.user_input.structure.replace_species({ele: unsupported_ele for ele in vf.user_input.structure.elements})
+        vf.user_input.structure.replace_species(
+            {ele: unsupported_ele for ele in vf.user_input.structure.elements}
+        )
         with pytest.raises(KeyError):
             run_check(vf, "COMPOSITION", False)
 
@@ -509,7 +541,9 @@ def test_fast_mode():
     # print(vf.user_input.kpoints.as_dict)
     _update_kpoints_for_test(vf, {"kpoints": [[1, 1, 2]]})
 
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=True, fast=True
+    )
     assert len(validated.reasons) == 1
     assert "VASP VERSION" in validated.reasons[0]
 
@@ -521,24 +555,32 @@ def test_fast_mode():
 
     # Now remove GGA tag, get k-point density error
     # vf.user_input.incar.pop("GGA")
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=True, fast=True
+    )
     assert len(validated.reasons) == 1
     assert "INPUT SETTINGS --> KPOINTS or KSPACING:" in validated.reasons[0]
 
     # Now restore k-points and don't check POTCAR --> get error
     _update_kpoints_for_test(vf, og_kpoints)
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=False, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=False, fast=True
+    )
     assert len(validated.reasons) == 1
     assert "NBANDS" in validated.reasons[0]
 
     # Fix NBANDS, get no errors
     vf.vasprun.parameters["NBANDS"] = 10
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=True, fast=True
+    )
     assert len(validated.reasons) == 0
 
     # Remove POTCAR, should fail validation
     vf.user_input.potcar = None
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=True, fast=True
+    )
     assert "PSEUDOPOTENTIALS" in validated.reasons[0]
 
 

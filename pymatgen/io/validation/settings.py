@@ -24,7 +24,9 @@ class IOValidationSettings(BaseSettings):
     Settings for pymatgen-io-validation
     """
 
-    config_file: str = Field(DEFAULT_CONFIG_FILE_PATH, description="File to load alternative defaults from")
+    config_file: str = Field(
+        DEFAULT_CONFIG_FILE_PATH, description="File to load alternative defaults from"
+    )
 
     CHECK_PYPI_AT_LOAD: bool = Field(
         False,
@@ -58,14 +60,15 @@ class IOValidationSettings(BaseSettings):
         {
             "GGA Structure Optimization": "pymatgen.io.vasp.sets.MPRelaxSet",
             "GGA+U Structure Optimization": "pymatgen.io.vasp.sets.MPRelaxSet",
-            "r2SCAN Structure Optimization": "pymatgen.io.vasp.sets.MPScanRelaxSet",
+            "r2SCAN Structure Optimization": "pymatgen.io.vasp.sets.MP24RelaxSet",
             "SCAN Structure Optimization": "pymatgen.io.vasp.sets.MPScanRelaxSet",
             "PBESol Structure Optimization": "pymatgen.io.vasp.sets.MPScanRelaxSet",
             "GGA Static": "pymatgen.io.vasp.sets.MPStaticSet",
             "GGA+U Static": "pymatgen.io.vasp.sets.MPStaticSet",
             "PBE Static": "pymatgen.io.vasp.sets.MPStaticSet",
             "PBE+U Static": "pymatgen.io.vasp.sets.MPStaticSet",
-            "r2SCAN Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
+            "r2SCAN Static": "pymatgen.io.vasp.sets.MP24StaticSet",
+            "r2SCAN SCF Line": "pymatgen.io.vasp.sets.MP24StaticSet",
             "SCAN Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
             "PBESol Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
             "HSE06 Static": "pymatgen.io.vasp.sets.MPScanStaticSet",
@@ -96,10 +99,13 @@ class IOValidationSettings(BaseSettings):
     )
 
     VASP_MAX_POSITIVE_ENERGY: float = Field(
-        50.0, description="Maximum allowable positive energy at the end of a calculation."
+        50.0,
+        description="Maximum allowable positive energy at the end of a calculation.",
     )
 
-    model_config = SettingsConfigDict(env_prefix="pymatgen_io_validation_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="pymatgen_io_validation_", extra="ignore"
+    )
 
     FAST_VALIDATION: bool = Field(
         default=False,
