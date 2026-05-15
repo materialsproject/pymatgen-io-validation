@@ -23,7 +23,7 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-  "pymatgen",
+  "pymatgen-core>=2026.4.16",
   "numpy",
   "requests",
   "pydantic>=2.0.1",
@@ -39,10 +39,9 @@ requires-python = '>=3.11'
 
 [project.optional-dependencies]
 dev = ["pre-commit>=2.12.1"]
-#docs = ["jupyter-book>=0.13.1",]
 
 tests = ["pytest>=8.4.2", "pytest-cov>=7.0.0", "pytest-xdist>=3.8.0", "types-requests"]
-lint = ["pydocstyle", "mypy", "black", "flake8"]
+lint = ["pydocstyle", "mypy", "black", "ruff"]
 all = ["pymatgen-io-validation[dev,tests,lint]"]
 
 [tool.setuptools.dynamic]
@@ -59,14 +58,26 @@ where = ["./"]
 default-tag = "0.0.1"
 method = "git"
 
-[tool.isort]
-profile = "black"
-
-[tool.black]
+[tool.ruff]
 line-length = 120
 
-[tool.blacken-docs]
-line-length = 120
+[tool.ruff.lint]
+exclude = [".git","__pycache__","tests"]
+ignore = ["E741","W291","W293","E501","E231","E203","W605"]
+max-line-length = 120
+
+[tool.ruff.lint.pydocstyle]
+convention = 'google'
+match = '^pymatgen/(?!_).*\.py'
+inherit = false
+add-ignore = "D107, D105, D2, D4, "
+
+[tool.ruff.lint.autoflake]
+in-place = true
+remove-unused-variables = true
+remove-all-unused-imports = true
+expand-star-imports = true
+ignore-init-module-imports = true
 
 [tool.mypy]
 explicit_package_bases = true
@@ -98,16 +109,3 @@ exclude_lines = [
   "@deprecated",
   "if TYPE_CHECKING:",
 ]
-
-[tool.pydocstyle]
-convention = 'google'
-match = '^pymatgen/(?!_).*\.py'
-inherit = false
-add-ignore = "D107, D105, D2, D4, "
-
-[tool.autoflake]
-in-place = true
-remove-unused-variables = true
-remove-all-unused-imports = true
-expand-star-imports = true
-ignore-init-module-imports = true
