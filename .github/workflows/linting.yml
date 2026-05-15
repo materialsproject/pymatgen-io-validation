@@ -25,15 +25,6 @@ jobs:
     - name: mypy
       run: |
         mypy pymatgen
-    - name: black
+    - name: ruff
       run: |
-        black --version
-        black --check --diff --color pymatgen
-    - name: flake8
-      run: |
-        flake8 --count --show-source --statistics pymatgen
-        # exit-zero treats all errors as warnings.
-        flake8 --count --exit-zero --max-complexity=20 --statistics pymatgen
-    - name: pydocstyle
-      run: |
-        pydocstyle --count pymatgen
+        python -m ruff check --fix

@@ -36,11 +36,16 @@ class CheckIncar(BaseValidator):
 
     name: str = "Check INCAR tags"
     fft_grid_tolerance: float | None = Field(
-        SETTINGS.VASP_FFT_GRID_TOLERANCE, description="Tolerance for determining sufficient density of FFT grid."
+        SETTINGS.VASP_FFT_GRID_TOLERANCE,
+        description="Tolerance for determining sufficient density of FFT grid.",
     )
-    bandgap_tol: float = Field(1.0e-4, description="Tolerance for assuming a material has no gap.")
+    bandgap_tol: float = Field(
+        1.0e-4, description="Tolerance for assuming a material has no gap."
+    )
 
-    def check(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def check(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         """
         Check calculation parameters related to INCAR input tags.
 
@@ -59,7 +64,9 @@ class CheckIncar(BaseValidator):
         # Instantiate class that updates "dynamic" INCAR tags
         # (like NBANDS, or hybrid-related parameters)
 
-        user_incar_params, valid_incar_params = self.update_parameters_and_defaults(vasp_files)
+        user_incar_params, valid_incar_params = self.update_parameters_and_defaults(
+            vasp_files
+        )
         msgs = {
             "reason": reasons,
             "warning": warnings,
@@ -69,10 +76,14 @@ class CheckIncar(BaseValidator):
             if self.fast and len(reasons) > 0:
                 # fast check: stop checking whenever a single check fails
                 break
-            resp = vasp_param.check(user_incar_params[vasp_param.name], valid_incar_params[vasp_param.name])
+            resp = vasp_param.check(
+                user_incar_params[vasp_param.name], valid_incar_params[vasp_param.name]
+            )
             msgs[vasp_param.severity].extend(resp.get(vasp_param.severity, []))
 
-    def update_parameters_and_defaults(self, vasp_files: VaspFiles) -> tuple[dict[str, Any], dict[str, Any]]:
+    def update_parameters_and_defaults(
+        self, vasp_files: VaspFiles
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Update a set of parameters according to supplied rules and defaults.
 
         While many of the parameters in VASP need only a simple check to determine
@@ -95,8 +106,16 @@ class CheckIncar(BaseValidator):
 
         # Note: we cannot make these INCAR objects because INCAR checks certain keys
         # Like LREAL and forces them to bool when the validator expects them to be str
-        user_incar = {k: v for k, v in vasp_files.user_input.incar.as_dict().items() if not k.startswith("@")}
-        ref_incar = {k: v for k, v in vasp_files.valid_input_set.incar.as_dict().items() if not k.startswith("@")}
+        user_incar = {
+            k: v
+            for k, v in vasp_files.user_input.incar.as_dict().items()
+            if not k.startswith("@")
+        }
+        ref_incar = {
+            k: v
+            for k, v in vasp_files.valid_input_set.incar.as_dict().items()
+            if not k.startswith("@")
+        }
 
         self.add_defaults_to_parameters(user_incar, ref_incar)
         # collect list of tags in parameter defaults
@@ -120,22 +139,32 @@ class CheckIncar(BaseValidator):
                 if (incar.get(key)) is None:
                     incar[key] = self.vasp_defaults[key].value
 
-    def _update_dft_plus_u_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_dft_plus_u_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """Update DFT+U params."""
         if not user_incar["LDAU"]:
             return
 
-        for key in [v.name for v in self.vasp_defaults.values() if v.tag == "dft_plus_u"]:
+        for key in [
+            v.name for v in self.vasp_defaults.values() if v.tag == "dft_plus_u"
+        ]:
 
             # TODO: ADK: is LDAUTYPE usually specified as a list??
             if key == "LDAUTYPE":
-                user_incar[key] = user_incar[key][0] if isinstance(user_incar[key], list) else user_incar[key]
+                user_incar[key] = (
+                    user_incar[key][0]
+                    if isinstance(user_incar[key], list)
+                    else user_incar[key]
+                )
                 if isinstance(ref_incar[key], list):
                     ref_incar[key] = ref_incar[key][0]
 
             self.vasp_defaults[key].operation = "=="
 
-    def _update_symmetry_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_symmetry_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """Update symmetry-related parameters."""
         # ISYM.
         ref_incar["ISYM"] = [-1, 0, 1, 2]
@@ -154,7 +183,9 @@ class CheckIncar(BaseValidator):
             "a GitHub issue and we will consider to admit your calculations."
         )
 
-    def _update_startup_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_startup_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """Update VASP initialization parameters."""
         ref_incar["ISTART"] = [0, 1, 2]
 
@@ -166,7 +197,9 @@ class CheckIncar(BaseValidator):
             ref_incar["ICHARG"] = ref_incar.get("ICHARG")
             self.vasp_defaults["ICHARG"].operation = "=="
 
-    def _update_precision_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_precision_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """Update VASP parameters related to precision."""
         # LREAL.
         # Do NOT use the value for LREAL from the `Vasprun.parameters` object, as VASP changes these values
@@ -182,7 +215,9 @@ class CheckIncar(BaseValidator):
         if ref_incar["PREC"].upper() in {"ACCURATE", "HIGH"}:
             ref_incar["PREC"] = ["ACCURATE", "ACCURA", "HIGH"]
         else:
-            raise ValueError("Validation code check for PREC tag needs to be updated to account for a new input set!")
+            raise ValueError(
+                "Validation code check for PREC tag needs to be updated to account for a new input set!"
+            )
         self.vasp_defaults["PREC"].operation = "in"
 
         # ROPT. Should be better than or equal to default for the PREC level.
@@ -202,7 +237,9 @@ class CheckIncar(BaseValidator):
                 "MED": -0.002,
                 "HIGH": -4e-4,
             }
-            user_incar["ROPT"] = [abs(value) for value in user_incar.get("ROPT", [ropt_default[cur_prec]])]
+            user_incar["ROPT"] = [
+                abs(value) for value in user_incar.get("ROPT", [ropt_default[cur_prec]])
+            ]
             self.vasp_defaults["ROPT"] = VaspParam(
                 name="ROPT",
                 value=[abs(ropt_default[cur_prec]) for _ in user_incar["ROPT"]],
@@ -210,12 +247,18 @@ class CheckIncar(BaseValidator):
                 operation=["<=" for _ in user_incar["ROPT"]],
             )
 
-    def _update_misc_special_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_misc_special_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """Update miscellaneous parameters that do not fall into another category."""
         # EFERMI. Only available for VASP >= 6.4. Should not be set to a numerical
         # value, as this may change the number of electrons.
         # self.vasp_version = (major, minor, patch)
-        if vasp_files.vasp_version and (vasp_files.vasp_version[0] >= 6) and (vasp_files.vasp_version[1] >= 4):
+        if (
+            vasp_files.vasp_version
+            and (vasp_files.vasp_version[0] >= 6)
+            and (vasp_files.vasp_version[1] >= 4)
+        ):
             # Must check EFERMI in the *incar*, as it is saved as a numerical
             # value after VASP guesses it in the vasprun.xml `parameters`
             # (which would always cause this check to fail, even if the user
@@ -237,7 +280,8 @@ class CheckIncar(BaseValidator):
         if (
             user_incar["ISPIN"] == 2
             and vasp_files.outcar
-            and len(getattr(vasp_files.outcar, "magnetization", [])) != vasp_files.user_input.structure.num_sites
+            and len(getattr(vasp_files.outcar, "magnetization", []))
+            != vasp_files.user_input.structure.num_sites
         ):
             self.vasp_defaults["LORBIT"].update(
                 {
@@ -276,13 +320,19 @@ class CheckIncar(BaseValidator):
             )
             ref_incar[key] = self.vasp_defaults[key].value
 
-    def _update_hybrid_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_hybrid_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """Update params related to hybrid functionals."""
-        ref_incar["LHFCALC"] = ref_incar.get("LHFCALC", self.vasp_defaults["LHFCALC"].value)
+        ref_incar["LHFCALC"] = ref_incar.get(
+            "LHFCALC", self.vasp_defaults["LHFCALC"].value
+        )
 
         if ref_incar["LHFCALC"]:
             self.vasp_defaults["AEXX"].value = 0.25
-            user_incar["AEXX"] = user_incar.get("AEXX", self.vasp_defaults["AEXX"].value)
+            user_incar["AEXX"] = user_incar.get(
+                "AEXX", self.vasp_defaults["AEXX"].value
+            )
             self.vasp_defaults["AGGAC"].value = 0.0
             for key in ("AGGAX", "ALDAX", "AMGGAX"):
                 self.vasp_defaults[key].value = 1.0 - user_incar["AEXX"]
@@ -292,15 +342,23 @@ class CheckIncar(BaseValidator):
                 self.vasp_defaults["AMGGAC"].value = 0.0
 
         for key in [v.name for v in self.vasp_defaults.values() if v.tag == "hybrid"]:
-            self.vasp_defaults[key]["operation"] = "==" if isinstance(self.vasp_defaults[key].value, bool) else "approx"
+            self.vasp_defaults[key]["operation"] = (
+                "==" if isinstance(self.vasp_defaults[key].value, bool) else "approx"
+            )
 
-    def _update_fft_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_fft_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """Update ENCUT and parameters related to the FFT grid."""
 
         # ensure that ENCUT is appropriately updated
-        user_incar["ENMAX"] = user_incar.get("ENCUT", getattr(vasp_files.vasprun, "parameters", {}).get("ENMAX"))
+        user_incar["ENMAX"] = user_incar.get(
+            "ENCUT", getattr(vasp_files.vasprun, "parameters", {}).get("ENMAX")
+        )
 
-        ref_incar["ENMAX"] = vasp_files.valid_input_set.incar.get("ENCUT", self.vasp_defaults["ENMAX"])
+        ref_incar["ENMAX"] = vasp_files.valid_input_set.incar.get(
+            "ENCUT", self.vasp_defaults["ENMAX"]
+        )
 
         grid_keys = {"NGX", "NGXF", "NGY", "NGYF", "NGZ", "NGZF"}
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
@@ -308,7 +366,9 @@ class CheckIncar(BaseValidator):
             enmaxs = [user_incar["ENMAX"], ref_incar["ENMAX"]]
             ref_incar["ENMAX"] = max([v for v in enmaxs if v < float("inf")])
 
-            if fft_grid := vasp_files.valid_input_set._calculate_ng(custom_encut=ref_incar["ENMAX"]):
+            if fft_grid := vasp_files.valid_input_set._calculate_ng(
+                custom_encut=ref_incar["ENMAX"]
+            ):
                 (
                     [
                         ref_incar["NGX"],
@@ -336,7 +396,9 @@ class CheckIncar(BaseValidator):
                     ),
                 )
 
-    def _update_density_mixing_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_density_mixing_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """
         Check that LMAXMIX and LMAXTAU are above the required value.
 
@@ -378,7 +440,9 @@ class CheckIncar(BaseValidator):
             else:
                 self.vasp_defaults[key].operation = "=="
 
-    def _update_smearing_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles) -> None:
+    def _update_smearing_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ) -> None:
         """
         Update parameters related to Fermi-level smearing.
 
@@ -386,9 +450,7 @@ class CheckIncar(BaseValidator):
         """
         if vasp_files.bandgap is not None:
 
-            smearing_comment = (
-                f"This is flagged as incorrect because this calculation had a bandgap of {round(vasp_files.bandgap,3)}"
-            )
+            smearing_comment = f"This is flagged as incorrect because this calculation had a bandgap of {round(vasp_files.bandgap,3)}"
 
             # bandgap_tol taken from
             # https://github.com/materialsproject/pymatgen/blob/1f98fa21258837ac174105e00e7ac8563e119ef0/pymatgen/io/vasp/sets.py#L969
@@ -438,7 +500,9 @@ class CheckIncar(BaseValidator):
                     )
 
             convert_eV_to_meV = 1000
-            user_incar["ELECTRONIC ENTROPY"] = round(user_incar["ELECTRONIC ENTROPY"] * convert_eV_to_meV, 3)
+            user_incar["ELECTRONIC ENTROPY"] = round(
+                user_incar["ELECTRONIC ENTROPY"] * convert_eV_to_meV, 3
+            )
             ref_incar["ELECTRONIC ENTROPY"] = 0.001 * convert_eV_to_meV
 
             self.vasp_defaults["ELECTRONIC ENTROPY"] = VaspParam(
@@ -453,7 +517,9 @@ class CheckIncar(BaseValidator):
                 operation="<=",
             )
 
-    def _get_default_nbands(self, nelect: float, user_incar: dict, vasp_files: VaspFiles):
+    def _get_default_nbands(
+        self, nelect: float, user_incar: dict, vasp_files: VaspFiles
+    ):
         """
         Estimate number of bands used in calculation.
 
@@ -482,7 +548,9 @@ class CheckIncar(BaseValidator):
 
         return int(default_nbands)
 
-    def _update_electronic_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles):
+    def _update_electronic_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ):
         """Update electronic self-consistency parameters."""
         # ENINI. Only check for IALGO = 48 / ALGO = VeryFast, as this is the only algo that uses this tag.
         if user_incar["IALGO"] == 48:
@@ -500,10 +568,14 @@ class CheckIncar(BaseValidator):
 
         # NELECT.
         # Do not check for non-neutral NELECT if NELECT is not in the INCAR
-        if vasp_files.vasprun and (nelect := vasp_files.vasprun.parameters.get("NELECT")):
+        if vasp_files.vasprun and (
+            nelect := vasp_files.vasprun.parameters.get("NELECT")
+        ):
             ref_incar["NELECT"] = 0.0
             try:
-                user_incar["NELECT"] = float(vasp_files.vasprun.final_structure._charge or 0.0)
+                user_incar["NELECT"] = float(
+                    vasp_files.vasprun.final_structure._charge or 0.0
+                )
                 self.vasp_defaults["NELECT"].operation = "approx"
                 self.vasp_defaults["NELECT"].comment = (
                     f"This causes the structure to have a charge of {user_incar['NELECT']}. "
@@ -538,18 +610,22 @@ class CheckIncar(BaseValidator):
                 ),
             )
             ref_incar["NBANDS"] = [min_nbands, 4 * self.vasp_defaults["NBANDS"].value]
-            user_incar["NBANDS"] = [vasp_files.vasprun.parameters.get("NBANDS") for _ in range(2)]
+            user_incar["NBANDS"] = [
+                vasp_files.vasprun.parameters.get("NBANDS") for _ in range(2)
+            ]
 
-    def _update_ionic_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles):
+    def _update_ionic_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ):
         """Update parameters related to ionic relaxation."""
 
         ref_incar["ISIF"] = 2
 
         # IBRION.
         ref_incar["IBRION"] = [-1, 1, 2]
-        if (inp_set_ibrion := vasp_files.valid_input_set.incar.get("IBRION")) and inp_set_ibrion not in ref_incar[
-            "IBRION"
-        ]:
+        if (
+            inp_set_ibrion := vasp_files.valid_input_set.incar.get("IBRION")
+        ) and inp_set_ibrion not in ref_incar["IBRION"]:
             ref_incar["IBRION"].append(inp_set_ibrion)
 
         ionic_steps = vasp_files.vasprun.ionic_steps if vasp_files.vasprun else []
@@ -559,16 +635,21 @@ class CheckIncar(BaseValidator):
             # POTIM is only used for some IBRION values
             ref_incar["POTIM"] = 5
             self.vasp_defaults["POTIM"].operation = "<="
-            self.vasp_defaults["POTIM"].comment = "POTIM being so high will likely lead to erroneous results."
+            self.vasp_defaults["POTIM"].comment = (
+                "POTIM being so high will likely lead to erroneous results."
+            )
 
             # Check for large changes in energy between ionic steps (usually indicates too high POTIM)
             if len(ionic_steps) > 1:
                 # Do not use `e_0_energy`, as there is a bug in the vasprun.xml when printing that variable
                 # (see https://www.vasp.at/forum/viewtopic.php?t=16942 for more details).
-                cur_ionic_step_energies = [ionic_step.e_fr_energy for ionic_step in ionic_steps]
+                cur_ionic_step_energies = [
+                    ionic_step.e_fr_energy for ionic_step in ionic_steps
+                ]
                 cur_ionic_step_energy_gradient = np.diff(cur_ionic_step_energies)
                 user_incar["MAX ENERGY GRADIENT"] = round(
-                    max(np.abs(cur_ionic_step_energy_gradient)) / vasp_files.user_input.structure.num_sites,
+                    max(np.abs(cur_ionic_step_energy_gradient))
+                    / vasp_files.user_input.structure.num_sites,
                     3,
                 )
                 ref_incar["MAX ENERGY GRADIENT"] = 1
@@ -598,7 +679,9 @@ class CheckIncar(BaseValidator):
             operation=None,
         )
 
-        ref_incar["EDIFFG"] = ref_incar.get("EDIFFG", self.vasp_defaults["EDIFFG"].value)
+        ref_incar["EDIFFG"] = ref_incar.get(
+            "EDIFFG", self.vasp_defaults["EDIFFG"].value
+        )
         self.vasp_defaults["EDIFFG"].comment = (
             "The structure is not force-converged according "
             f"to |EDIFFG|={abs(ref_incar['EDIFFG'])} (or smaller in magnitude)."
@@ -628,11 +711,17 @@ class CheckIncar(BaseValidator):
 
         # the latter two checks just ensure the code does not error by indexing out of range
         elif ref_incar["EDIFFG"] > 0.0 and vasp_files.vasprun and len(ionic_steps) > 1:
-            user_incar["EDIFFG"] = abs(ionic_steps[-1].e_0_energy - ionic_steps[-2].e_0_energy)
+            user_incar["EDIFFG"] = abs(
+                ionic_steps[-1].e_0_energy - ionic_steps[-2].e_0_energy
+            )
             self.vasp_defaults["EDIFFG"].operation = "<="
-            self.vasp_defaults["EDIFFG"].alias = "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS"
+            self.vasp_defaults["EDIFFG"].alias = (
+                "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS"
+            )
 
-    def _update_post_init_params(self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles):
+    def _update_post_init_params(
+        self, user_incar: dict, ref_incar: dict, vasp_files: VaspFiles
+    ):
         """Update any params that depend on other params being set/updated."""
 
         # EBREAK

@@ -24,7 +24,9 @@ class IOValidationSettings(BaseSettings):
     Settings for pymatgen-io-validation
     """
 
-    config_file: str = Field(DEFAULT_CONFIG_FILE_PATH, description="File to load alternative defaults from")
+    config_file: str = Field(
+        DEFAULT_CONFIG_FILE_PATH, description="File to load alternative defaults from"
+    )
 
     CHECK_PYPI_AT_LOAD: bool = Field(
         False,
@@ -97,10 +99,13 @@ class IOValidationSettings(BaseSettings):
     )
 
     VASP_MAX_POSITIVE_ENERGY: float = Field(
-        50.0, description="Maximum allowable positive energy at the end of a calculation."
+        50.0,
+        description="Maximum allowable positive energy at the end of a calculation.",
     )
 
-    model_config = SettingsConfigDict(env_prefix="pymatgen_io_validation_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="pymatgen_io_validation_", extra="ignore"
+    )
 
     FAST_VALIDATION: bool = Field(
         default=False,

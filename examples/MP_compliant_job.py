@@ -9,7 +9,9 @@ from pymatgen.core import Structure, Lattice
 
 
 def get_GaAs_structure(a0: float = 5.6) -> Structure:
-    lattice_vectors = a0 * np.array([[0.0 if i == j else 0.5 for j in range(3)] for i in range(3)])
+    lattice_vectors = a0 * np.array(
+        [[0.0 if i == j else 0.5 for j in range(3)] for i in range(3)]
+    )
     return Structure(
         lattice=Lattice(lattice_vectors),
         species=["Ga", "As"],
@@ -111,7 +113,9 @@ def MP_flows() -> None:
     )
 
 
-def generate_task_documents(cdir, task_id: str | None = None, filename: str | None = None) -> TaskDocument:
+def generate_task_documents(
+    cdir, task_id: str | None = None, filename: str | None = None
+) -> TaskDocument:
     from atomate.vasp.drones import VaspDrone
     from emmet.core.mpid import MPID
 

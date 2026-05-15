@@ -46,7 +46,10 @@ def check_for_excess_empty_space(structure):
     try:
         max_voronoi_polyhedra_vol = get_max_voronoi_polyhedra_volume(structure)
     except Exception as e:
-        if "No Voronoi neighbors found for site - try increasing cutoff".lower() in str(e).lower():
+        if (
+            "No Voronoi neighbors found for site - try increasing cutoff".lower()
+            in str(e).lower()
+        ):
             try:
                 structure.make_supercell(
                     2
@@ -56,10 +59,14 @@ def check_for_excess_empty_space(structure):
                 pass
 
         if "infinite vertex in the Voronoi construction".lower() in str(e).lower():
-            print(f"{str(e)} As a result, this structure is marked as having excess empty space.")
+            print(
+                f"{str(e)} As a result, this structure is marked as having excess empty space."
+            )
             max_voronoi_polyhedra_vol = np.inf
 
-    if (max_voronoi_polyhedra_vol > 25) or (max_voronoi_polyhedra_vol > 5 and max_empty_distance > 7.5):
+    if (max_voronoi_polyhedra_vol > 25) or (
+        max_voronoi_polyhedra_vol > 5 and max_empty_distance > 7.5
+    ):
         return True
     else:
         return False

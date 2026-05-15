@@ -9,7 +9,10 @@ from typing import TYPE_CHECKING
 from monty.os.path import zpath
 
 from pymatgen.io.validation.common import VaspFiles
-from pymatgen.io.validation.check_common_errors import CheckStructureProperties, CheckCommonErrors
+from pymatgen.io.validation.check_common_errors import (
+    CheckStructureProperties,
+    CheckCommonErrors,
+)
 from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
 from pymatgen.io.validation.check_incar import CheckIncar
@@ -20,8 +23,21 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-DEFAULT_CHECKS = [CheckStructureProperties, CheckPotcar, CheckCommonErrors, CheckKpointsKspacing, CheckIncar]
-REQUIRED_VASP_FILES: set[str] = {"INCAR", "KPOINTS", "POSCAR", "POTCAR", "OUTCAR", "vasprun.xml"}
+DEFAULT_CHECKS = [
+    CheckStructureProperties,
+    CheckPotcar,
+    CheckCommonErrors,
+    CheckKpointsKspacing,
+    CheckIncar,
+]
+REQUIRED_VASP_FILES: set[str] = {
+    "INCAR",
+    "KPOINTS",
+    "POSCAR",
+    "POTCAR",
+    "OUTCAR",
+    "vasprun.xml",
+}
 
 # TODO: check for surface/slab calculations. Especially necessary for external calcs.
 # TODO: implement check to make sure calcs are within some amount (e.g. 250 meV) of the convex hull in the MPDB
@@ -31,8 +47,12 @@ class VaspValidator(BaseModel):
     """Validate a VASP calculation."""
 
     vasp_files: VaspFiles = Field(description="The VASP I/O.")
-    reasons: list[str] = Field([], description="List of deprecation tags detailing why this task isn't valid")
-    warnings: list[str] = Field([], description="List of warnings about this calculation")
+    reasons: list[str] = Field(
+        [], description="List of deprecation tags detailing why this task isn't valid"
+    )
+    warnings: list[str] = Field(
+        [], description="List of warnings about this calculation"
+    )
 
     _validated_md5: str | None = PrivateAttr(None)
 
@@ -51,7 +71,9 @@ class VaspValidator(BaseModel):
     def recheck(self) -> None:
         """Rerun validation, prioritizing speed."""
         new_md5 = None
-        if (self._validated_md5 is None) or (new_md5 := self.vasp_files.md5) != self._validated_md5:
+        if (self._validated_md5 is None) or (
+            new_md5 := self.vasp_files.md5
+        ) != self._validated_md5:
             self.reasons = []
             self.warnings = []
 
@@ -59,7 +81,9 @@ class VaspValidator(BaseModel):
                 check_list = DEFAULT_CHECKS
             else:
                 check_list = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
-            self.reasons, self.warnings = self.run_checks(self.vasp_files, check_list=check_list, fast=True)
+            self.reasons, self.warnings = self.run_checks(
+                self.vasp_files, check_list=check_list, fast=True
+            )
 
             self._validated_md5 = new_md5 or self.vasp_files.md5
 
@@ -140,7 +164,9 @@ class VaspValidator(BaseModel):
         elif vasp_file_paths:
             vf = VaspFiles.from_paths(**vasp_file_paths)
         else:
-            raise ValueError("You must specify either a VaspFiles object or a dict of paths.")
+            raise ValueError(
+                "You must specify either a VaspFiles object or a dict of paths."
+            )
 
         config: dict[str, list[str]] = {
             "reasons": [],
@@ -152,7 +178,9 @@ class VaspValidator(BaseModel):
         else:
             check_list = [c for c in DEFAULT_CHECKS if c.__name__ != "CheckPotcar"]
 
-        config["reasons"], config["warnings"] = cls.run_checks(vf, check_list=check_list, fast=fast)
+        config["reasons"], config["warnings"] = cls.run_checks(
+            vf, check_list=check_list, fast=fast
+        )
         validated = cls(**config, vasp_files=vf, **kwargs)
         validated._validated_md5 = vf.md5
         return validated

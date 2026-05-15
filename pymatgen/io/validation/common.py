@@ -21,7 +21,14 @@ from pydantic import (
 from typing import TYPE_CHECKING, Any, Annotated, TypeAlias, TypeVar
 
 from pymatgen.core import Structure
-from pymatgen.io.vasp.inputs import POTCAR_STATS_PATH, Incar, Kpoints, Poscar, Potcar, PmgVaspPspDirError
+from pymatgen.io.vasp.inputs import (
+    POTCAR_STATS_PATH,
+    Incar,
+    Kpoints,
+    Poscar,
+    Potcar,
+    PmgVaspPspDirError,
+)
 from pymatgen.io.vasp.outputs import Outcar, Vasprun
 from pymatgen.io.vasp.sets import VaspInputSet
 
@@ -94,8 +101,12 @@ class PotcarSummaryStatisticsFields(BaseModel):
 class PotcarSummaryStatistics(BaseModel):
     """Schematize `PotcarSingle._summary_stats["stats"]` field."""
 
-    header: PotcarSummaryStatisticsFields = Field(description="The keywords in the POTCAR header.")
-    data: PotcarSummaryStatisticsFields = Field(description="The keywords in the POTCAR body.")
+    header: PotcarSummaryStatisticsFields = Field(
+        description="The keywords in the POTCAR header."
+    )
+    data: PotcarSummaryStatisticsFields = Field(
+        description="The keywords in the POTCAR body."
+    )
 
 
 class PotcarSummaryStats(BaseModel):
@@ -121,7 +132,8 @@ class LightOutcar(BaseModel):
 
     drift: list[list[float]] | None = Field(None, description="The drift forces.")
     magnetization: list[dict[str, float]] | None = Field(
-        None, description="The on-site magnetic moments, possibly with orbital resolution."
+        None,
+        description="The on-site magnetic moments, possibly with orbital resolution.",
     )
 
 
@@ -149,10 +161,18 @@ class LightVasprun(BaseModel):
     vasp_version: str = Field(description="The dot-separated version of VASP used.")
     final_energy: float = Field(description="The final total energy in eV.")
     final_structure: StructureType = Field(description="The final structure.")
-    kpoints: KpointsType = Field(description="The actual k-points used in the calculation.")
-    parameters: IncarType = Field(description="The default-padded input parameters interpreted by VASP.")
-    bandgap: float = Field(description="The bandgap - note that this field is derived from the Vasprun object.")
-    ionic_steps: list[LightIonicStep] = Field([], description="The ionic steps in the calculation.")
+    kpoints: KpointsType = Field(
+        description="The actual k-points used in the calculation."
+    )
+    parameters: IncarType = Field(
+        description="The default-padded input parameters interpreted by VASP."
+    )
+    bandgap: float = Field(
+        description="The bandgap - note that this field is derived from the Vasprun object."
+    )
+    ionic_steps: list[LightIonicStep] = Field(
+        [], description="The ionic steps in the calculation."
+    )
     potcar_symbols: list[str] | None = Field(
         None,
         description="Optional: if a POTCAR is unavailable, this is used to determine the functional used in the calculation.",
@@ -181,12 +201,18 @@ class VaspInputSafe(BaseModel):
     """Stricter VaspInputSet with no POTCAR info."""
 
     incar: IncarType = Field(description="The INCAR used in the calculation.")
-    structure: StructureType = Field(description="The structure associated with the calculation.")
+    structure: StructureType = Field(
+        description="The structure associated with the calculation."
+    )
     kpoints: KpointsType | None = Field(
         None, description="The optional KPOINTS or IBZKPT file used in the calculation."
     )
-    potcar: list[PotcarSummaryStats] | None = Field(None, description="The optional POTCAR used in the calculation.")
-    potcar_functional: str | None = Field(None, description="The pymatgen-labelled POTCAR library release.")
+    potcar: list[PotcarSummaryStats] | None = Field(
+        None, description="The optional POTCAR used in the calculation."
+    )
+    potcar_functional: str | None = Field(
+        None, description="The pymatgen-labelled POTCAR library release."
+    )
     _pmg_vis: VaspInputSet | None = PrivateAttr(None)
 
     @classmethod
@@ -227,14 +253,18 @@ class VaspInputSafe(BaseModel):
             potcar = []
             for ele in vis.structure.elements:
                 if potcar_symb := vis._config_dict["POTCAR"].get(ele.name):
-                    for titel_no_spc, potcars in potcar_stats[potcar_functional].items():
+                    for titel_no_spc, potcars in potcar_stats[
+                        potcar_functional
+                    ].items():
                         for entry in potcars:
                             if entry["symbol"] == potcar_symb:
                                 titel_comp = titel_no_spc.split(potcar_symb)
 
                                 potcar += [
                                     PotcarSummaryStats(
-                                        titel=" ".join([titel_comp[0], potcar_symb, titel_comp[1]]),
+                                        titel=" ".join(
+                                            [titel_comp[0], potcar_symb, titel_comp[1]]
+                                        ),
                                         lexch=entry.get("LEXCH"),
                                         **entry,
                                     )
@@ -258,15 +288,23 @@ class VaspInputSafe(BaseModel):
 class VaspFiles(BaseModel):
     """Define required and optional files for validation."""
 
-    user_input: VaspInputSafe = Field(description="The VASP input set used in the calculation.")
+    user_input: VaspInputSafe = Field(
+        description="The VASP input set used in the calculation."
+    )
     outcar: LightOutcar | None = None
     vasprun: LightVasprun | None = None
-    run_type: str | None = Field(None, description="The type of VASP calculation performed.")
-    functional: str | None = Field(None, description="The density functional used in the calculation.")
+    run_type: str | None = Field(
+        None, description="The type of VASP calculation performed."
+    )
+    functional: str | None = Field(
+        None, description="The density functional used in the calculation."
+    )
     valid_input_set_name: str | None = Field(
         None, description="The import string of the reference MP-compatible input set."
     )
-    validation_errors: list[str] = Field([], description="Errors arising when attempting to validate the input set.")
+    validation_errors: list[str] = Field(
+        [], description="Errors arising when attempting to validate the input set."
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -339,7 +377,11 @@ class VaspFiles(BaseModel):
         }
         potcar_enmax = None
         for file_name, file_cls in to_obj.items():
-            if (path := _vars.get(file_name)) and Path(path).exists() and os.path.getsize(path) > 0:
+            if (
+                (path := _vars.get(file_name))
+                and Path(path).exists()
+                and os.path.getsize(path) > 0
+            ):
                 if file_name == "poscar":
                     config["user_input"]["structure"] = Poscar.from_file(path).structure
                 elif hasattr(file_cls, "from_file"):
@@ -350,7 +392,11 @@ class VaspFiles(BaseModel):
                 if file_name == "potcar":
                     potcar_enmax = max(ps.ENMAX for ps in Potcar.from_file(path))
 
-        if not config.get("vasprun") and not config["user_input"]["incar"].get("ENCUT") and potcar_enmax:
+        if (
+            not config.get("vasprun")
+            and not config["user_input"]["incar"].get("ENCUT")
+            and potcar_enmax
+        ):
             config["user_input"]["incar"]["ENCUT"] = potcar_enmax
 
         return cls(**config)
@@ -359,7 +405,10 @@ class VaspFiles(BaseModel):
         """Get the run type of a calculation."""
 
         ibrion = self.user_input.incar.get("IBRION", VASP_DEFAULTS_DICT["IBRION"].value)
-        if self.user_input.incar.get("NSW", VASP_DEFAULTS_DICT["NSW"].value) > 0 and ibrion == -1:
+        if (
+            self.user_input.incar.get("NSW", VASP_DEFAULTS_DICT["NSW"].value) > 0
+            and ibrion == -1
+        ):
             ibrion = 0
 
         run_type = {
@@ -370,7 +419,10 @@ class VaspFiles(BaseModel):
             **{k: "ts" for k in (40, 44)},
         }.get(ibrion, None)
 
-        if self.user_input.incar.get("ICHARG", VASP_DEFAULTS_DICT["ICHARG"].value) >= 10:
+        if (
+            self.user_input.incar.get("ICHARG", VASP_DEFAULTS_DICT["ICHARG"].value)
+            >= 10
+        ):
             run_type = "nonscf"
         if self.user_input.incar.get("LCHIMAG", VASP_DEFAULTS_DICT["LCHIMAG"].value):
             run_type == "nmr"
@@ -393,7 +445,9 @@ class VaspFiles(BaseModel):
         func = None
         func_from_potcar = None
         if self.user_input.potcar:
-            func_from_potcar = {"pe": "pbe", "ca": "lda"}.get(self.user_input.potcar[0].lexch.lower())
+            func_from_potcar = {"pe": "pbe", "ca": "lda"}.get(
+                self.user_input.potcar[0].lexch.lower()
+            )
         elif self.vasprun and self.vasprun.potcar_symbols:
             pot_func = self.vasprun.potcar_symbols[0].split()[0].split("_")[-1]
             func_from_potcar = "pbe" if pot_func == "PBE" else "lda"
@@ -406,7 +460,9 @@ class VaspFiles(BaseModel):
             else:
                 func = gga.lower()
 
-        if (metagga := self.user_input.incar.get("METAGGA")) and metagga.lower() != "none":
+        if (
+            metagga := self.user_input.incar.get("METAGGA")
+        ) and metagga.lower() != "none":
             if gga:
                 self.validation_errors += [
                     "Both the GGA and METAGGA tags were set, which can lead to large errors. "
@@ -423,7 +479,9 @@ class VaspFiles(BaseModel):
                 func = metagga.lower()
 
         if self.user_input.incar.get("LHFCALC", False):
-            if (func == "pbe" or func_from_potcar == "pbe") and (self.user_input.incar.get("HFSCREEN", 0.0) > 0.0):
+            if (func == "pbe" or func_from_potcar == "pbe") and (
+                self.user_input.incar.get("HFSCREEN", 0.0) > 0.0
+            ):
                 func = "hse06"
             else:
                 func = None
@@ -480,7 +538,9 @@ class VaspFiles(BaseModel):
         """Determine the MP-compliant input set for a calculation."""
 
         if self.valid_input_set_name is None:
-            raise ValidationError("Cannot determine a valid input set, see `validation_errors` for more details.")
+            raise ValidationError(
+                "Cannot determine a valid input set, see `validation_errors` for more details."
+            )
 
         incar_updates: dict[str, Any] = {}
         if self.functional == "pbesol":
@@ -494,7 +554,9 @@ class VaspFiles(BaseModel):
                 GGA="PE",
             )
         # Note that only the *previous* bandgap informs the k-point density
-        vis = getattr(import_module("pymatgen.io.vasp.sets"), self.valid_input_set_name)(
+        vis = getattr(
+            import_module("pymatgen.io.vasp.sets"), self.valid_input_set_name
+        )(
             structure=self.user_input.structure,
             bandgap=None,
             user_incar_settings=incar_updates,
@@ -518,15 +580,26 @@ class BaseValidator(BaseModel):
             warnings.append("We prefer sliced mango, but will accept diced mango.")
     """
 
-    name: str = Field("Base validator class", description="Name of the validator class.")
-    vasp_defaults: dict[str, VaspParam] = Field(VASP_DEFAULTS_DICT, description="Default VASP settings.")
-    fast: bool = Field(False, description="Whether to perform a quick check (True) or to perform all checks (False).")
+    name: str = Field(
+        "Base validator class", description="Name of the validator class."
+    )
+    vasp_defaults: dict[str, VaspParam] = Field(
+        VASP_DEFAULTS_DICT, description="Default VASP settings."
+    )
+    fast: bool = Field(
+        False,
+        description="Whether to perform a quick check (True) or to perform all checks (False).",
+    )
 
-    def auto_fail(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> bool:
+    def auto_fail(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> bool:
         """Quick stop in case none of the checks can be performed."""
         return False
 
-    def check(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def check(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         """
         Execute all methods on the class with a name prefix `_check_`.
 

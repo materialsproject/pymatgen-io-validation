@@ -29,7 +29,8 @@ class CheckCommonErrors(BaseValidator):
         description="Set of elements that cannot be added to the Materials Project's hull.",
     )
     valid_max_allowed_scf_gradient: float | None = Field(
-        SETTINGS.VASP_MAX_SCF_GRADIENT, description="Largest permitted change in total energies between two SCF cycles."
+        SETTINGS.VASP_MAX_SCF_GRADIENT,
+        description="Largest permitted change in total energies between two SCF cycles.",
     )
     num_ionic_steps_to_avg_drift_over: int | None = Field(
         SETTINGS.VASP_NUM_IONIC_STEPS_FOR_DRIFT,
@@ -40,7 +41,9 @@ class CheckCommonErrors(BaseValidator):
         description="The maximum permitted, self-consistent positive energy in eV/atom.",
     )
 
-    def _check_vasp_version(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_vasp_version(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         """
         Check for common errors related to the version of VASP used.
 
@@ -59,32 +62,46 @@ class CheckCommonErrors(BaseValidator):
         if (
             vasp_files.vasp_version[0] == 5
             and (
-                vasp_files.user_input.incar.get("METAGGA", self.vasp_defaults["METAGGA"].value)
+                vasp_files.user_input.incar.get(
+                    "METAGGA", self.vasp_defaults["METAGGA"].value
+                )
                 not in [None, "--", "None"]
             )
-            and vasp_files.user_input.incar.get("ISPIN", self.vasp_defaults["ISPIN"].value) == 2
+            and vasp_files.user_input.incar.get(
+                "ISPIN", self.vasp_defaults["ISPIN"].value
+            )
+            == 2
         ):
             reasons.append(
                 "POTENTIAL BUG --> We believe that there may be a bug with spin-polarized calculations for METAGGAs "
                 "in some versions of VASP 5. Please create a new GitHub issue if you believe this "
                 "is not the case and we will consider changing this check!"
             )
-        elif (list(vasp_files.vasp_version) != [5, 4, 4]) and (vasp_files.vasp_version[0] < 6):
+        elif (list(vasp_files.vasp_version) != [5, 4, 4]) and (
+            vasp_files.vasp_version[0] < 6
+        ):
             vasp_version_str = ".".join([str(x) for x in vasp_files.vasp_version])
             reasons.append(
                 f"VASP VERSION --> This calculation is using VASP version {vasp_version_str}, "
                 "but we only allow versions 5.4.4 and >=6.0.0 (as of July 2023)."
             )
 
-    def _check_electronic_convergence(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_electronic_convergence(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         # check if structure electronically converged
 
         if (
-            vasp_files.user_input.incar.get("ALGO", self.vasp_defaults["ALGO"].value).lower() != "chi"
+            vasp_files.user_input.incar.get(
+                "ALGO", self.vasp_defaults["ALGO"].value
+            ).lower()
+            != "chi"
             and vasp_files.vasprun
         ):
             # Response function calculations are non-self-consistent: only one ionic step, no electronic SCF
-            if vasp_files.user_input.incar.get("LEPSILON", self.vasp_defaults["LEPSILON"].value):
+            if vasp_files.user_input.incar.get(
+                "LEPSILON", self.vasp_defaults["LEPSILON"].value
+            ):
                 final_esteps = vasp_files.vasprun.ionic_steps[-1].electronic_steps
                 to_check = {"e_wo_entrp", "e_fr_energy", "e_0_energy"}
 
@@ -93,13 +110,17 @@ class CheckCommonErrors(BaseValidator):
                         break
                     i += 1
 
-                is_converged = i + 1 < vasp_files.user_input.incar.get("NELM", self.vasp_defaults["NELM"].value)
+                is_converged = i + 1 < vasp_files.user_input.incar.get(
+                    "NELM", self.vasp_defaults["NELM"].value
+                )
                 n_non_conv = 1
 
             else:
                 conv_steps = [
                     len(ionic_step.electronic_steps)
-                    < vasp_files.user_input.incar.get("NELM", self.vasp_defaults["NELM"].value)
+                    < vasp_files.user_input.incar.get(
+                        "NELM", self.vasp_defaults["NELM"].value
+                    )
                     for ionic_step in vasp_files.vasprun.ionic_steps
                 ]
                 is_converged = all(conv_steps)
@@ -110,7 +131,9 @@ class CheckCommonErrors(BaseValidator):
                     f"CONVERGENCE --> Did not achieve electronic convergence in {n_non_conv} ionic step(s). NELM should be increased."
                 )
 
-    def _check_drift_forces(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_drift_forces(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         # Check if drift force is too large
 
         if not self.num_ionic_steps_to_avg_drift_over or not vasp_files.outcar:
@@ -120,9 +143,14 @@ class CheckCommonErrors(BaseValidator):
             if len(all_drift_forces) < self.num_ionic_steps_to_avg_drift_over:
                 drift_forces_to_avg_over = all_drift_forces
             else:
-                drift_forces_to_avg_over = all_drift_forces[::-1][: self.num_ionic_steps_to_avg_drift_over]
+                drift_forces_to_avg_over = all_drift_forces[::-1][
+                    : self.num_ionic_steps_to_avg_drift_over
+                ]
 
-            drift_mags_to_avg_over = [np.linalg.norm(drift_forces) for drift_forces in drift_forces_to_avg_over]
+            drift_mags_to_avg_over = [
+                np.linalg.norm(drift_forces)
+                for drift_forces in drift_forces_to_avg_over
+            ]
             cur_avg_drift_mag = np.average(drift_mags_to_avg_over)
 
             valid_max_drift = 0.05
@@ -136,12 +164,17 @@ class CheckCommonErrors(BaseValidator):
                 "Could not determine drift forces from OUTCAR, and thus could not check for excessive drift."
             )
 
-    def _check_positive_energy(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_positive_energy(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         # Check for excessively positive final energies (which usually indicates a bad structure)
         if (
             vasp_files.vasprun
             and self.valid_max_energy_per_atom
-            and (cur_final_energy_per_atom := vasp_files.vasprun.final_energy / len(vasp_files.user_input.structure))
+            and (
+                cur_final_energy_per_atom := vasp_files.vasprun.final_energy
+                / len(vasp_files.user_input.structure)
+            )
             > self.valid_max_energy_per_atom
         ):
             reasons.append(
@@ -149,7 +182,9 @@ class CheckCommonErrors(BaseValidator):
                 f"greater than the maximum allowed value of {self.valid_max_energy_per_atom} eV/atom."
             )
 
-    def _check_large_magmoms(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_large_magmoms(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         # Check for excessively large final magnetic moments
 
         if (
@@ -164,9 +199,13 @@ class CheckCommonErrors(BaseValidator):
         bad_site_magmom_msgs = []
         if len(cur_magmoms) > 0:
             for site_num in range(0, len(vasp_files.user_input.structure)):
-                cur_site_ele = vasp_files.user_input.structure.sites[site_num].species_string
+                cur_site_ele = vasp_files.user_input.structure.sites[
+                    site_num
+                ].species_string
                 cur_site_magmom = cur_magmoms[site_num]
-                cur_site_max_allowed_magmom = self.valid_max_magmoms.get(cur_site_ele, 5.0)
+                cur_site_max_allowed_magmom = self.valid_max_magmoms.get(
+                    cur_site_ele, 5.0
+                )
 
                 if cur_site_magmom > cur_site_max_allowed_magmom:
                     bad_site_magmom_msgs.append(
@@ -180,7 +219,9 @@ class CheckCommonErrors(BaseValidator):
                 f"{'; '.join(set(bad_site_magmom_msgs))}."
             )
 
-    def _check_scf_grad(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_scf_grad(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         # Check for a SCF gradient that is too large (usually indicates unstable calculations)
         # NOTE: do NOT use `e_0_energy`, as there is a bug in the vasprun.xml when printing that variable
         # (see https://www.vasp.at/forum/viewtopic.php?t=16942 for more details).
@@ -188,13 +229,27 @@ class CheckCommonErrors(BaseValidator):
         if not vasp_files.vasprun or not self.valid_max_allowed_scf_gradient:
             return
 
-        skip = abs(vasp_files.user_input.incar.get("NELMDL", self.vasp_defaults["NELMDL"].value)) - 1
+        skip = (
+            abs(
+                vasp_files.user_input.incar.get(
+                    "NELMDL", self.vasp_defaults["NELMDL"].value
+                )
+            )
+            - 1
+        )
 
-        energies = [d.e_fr_energy for d in vasp_files.vasprun.ionic_steps[-1].electronic_steps]
+        energies = [
+            d.e_fr_energy for d in vasp_files.vasprun.ionic_steps[-1].electronic_steps
+        ]
         if len(energies) > skip:
             cur_max_gradient = np.max(np.gradient(energies)[skip:])
-            cur_max_gradient_per_atom = cur_max_gradient / vasp_files.user_input.structure.num_sites
-            if self.valid_max_allowed_scf_gradient and cur_max_gradient_per_atom > self.valid_max_allowed_scf_gradient:
+            cur_max_gradient_per_atom = (
+                cur_max_gradient / vasp_files.user_input.structure.num_sites
+            )
+            if (
+                self.valid_max_allowed_scf_gradient
+                and cur_max_gradient_per_atom > self.valid_max_allowed_scf_gradient
+            ):
                 warnings.append(
                     f"STABILITY --> The max SCF gradient is {round(cur_max_gradient_per_atom,4)} eV/atom, "
                     "which is larger than the typical max expected value of "
@@ -206,10 +261,14 @@ class CheckCommonErrors(BaseValidator):
                 "Not enough electronic steps to compute valid gradient and compare with max SCF gradient tolerance."
             )
 
-    def _check_unused_elements(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_unused_elements(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         # Check for Am and Po elements. These currently do not have proper elemental entries
         # and will not get treated properly by the thermo builder.
-        elements = set(vasp_files.user_input.structure.composition.chemical_system.split("-"))
+        elements = set(
+            vasp_files.user_input.structure.composition.chemical_system.split("-")
+        )
         if excluded_elements := self.exclude_elements.intersection(elements):
             reasons.append(
                 f"COMPOSITION --> Your structure contains the elements {' '.join(excluded_elements)}, "
@@ -222,22 +281,31 @@ class CheckStructureProperties(BaseValidator):
 
     name: str = "VASP POSCAR properties validator"
     site_properties_to_check: tuple[str, ...] = Field(
-        ("selective_dynamics", "velocities"), description="Which site properties to check on a structure."
+        ("selective_dynamics", "velocities"),
+        description="Which site properties to check on a structure.",
     )
 
     @staticmethod
-    def _has_frozen_degrees_of_freedom(selective_dynamics_array: Sequence[bool] | None) -> bool:
+    def _has_frozen_degrees_of_freedom(
+        selective_dynamics_array: Sequence[bool] | None,
+    ) -> bool:
         """Check selective dynamics array for False values."""
         if selective_dynamics_array is None:
             return False
         return not np.all(selective_dynamics_array)
 
-    def _check_selective_dynamics(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_selective_dynamics(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         """Check structure for inappropriate site properties."""
         if (
-            selec_dyn := vasp_files.user_input.structure.site_properties.get("selective_dynamics")
+            selec_dyn := vasp_files.user_input.structure.site_properties.get(
+                "selective_dynamics"
+            )
         ) is not None and vasp_files.run_type == "relax":
-            if any(self._has_frozen_degrees_of_freedom(sd_array) for sd_array in selec_dyn):
+            if any(
+                self._has_frozen_degrees_of_freedom(sd_array) for sd_array in selec_dyn
+            ):
                 reasons.append(
                     "Selective dynamics: certain degrees of freedom in the structure "
                     "were not permitted to relax. To correctly place entries on the convex "
@@ -245,12 +313,16 @@ class CheckStructureProperties(BaseValidator):
                 )
 
     @staticmethod
-    def _has_nonzero_velocities(velocities: ArrayLike | None, tol: float = 1.0e-8) -> bool:
+    def _has_nonzero_velocities(
+        velocities: ArrayLike | None, tol: float = 1.0e-8
+    ) -> bool:
         if velocities is None:
             return False
         return np.any(np.abs(velocities) > tol)  # type: ignore [return-value]
 
-    def _check_velocities(self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]) -> None:
+    def _check_velocities(
+        self, vasp_files: VaspFiles, reasons: list[str], warnings: list[str]
+    ) -> None:
         """Check structure for non-zero velocities."""
         if (
             velos := vasp_files.user_input.structure.site_properties.get("velocities")

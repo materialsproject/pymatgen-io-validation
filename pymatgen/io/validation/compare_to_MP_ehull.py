@@ -9,7 +9,7 @@ warnings.warn(
     "This stub will be removed in the next version "
     "of pymatgen-io-validation.",
     stacklevel=2,
-    category=DeprecationWarning
+    category=DeprecationWarning,
 )
 
 compare_to_MP_ehull = None
