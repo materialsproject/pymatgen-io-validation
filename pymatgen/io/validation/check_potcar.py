@@ -1,20 +1,22 @@
 """Check POTCAR against known POTCARs in pymatgen, without setting up psp_resources."""
 
 from __future__ import annotations
+
 from copy import deepcopy
 from functools import cached_property
-from pathlib import Path
-from pydantic import Field
 from importlib.resources import files as import_resource_files
-from monty.serialization import loadfn
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+from monty.serialization import loadfn
+from pydantic import Field
 from pymatgen.io.vasp import PotcarSingle
 
 from pymatgen.io.validation.common import BaseValidator, ValidationError
 
 if TYPE_CHECKING:
     from typing import Any
+
     from pymatgen.io.validation.common import VaspFiles
 
 

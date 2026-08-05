@@ -1,14 +1,17 @@
 """Check common issues with VASP calculations."""
 
 from __future__ import annotations
-from pydantic import Field
-import numpy as np
+
 from typing import TYPE_CHECKING
+
+import numpy as np
+from pydantic import Field
 
 from pymatgen.io.validation.common import SETTINGS, BaseValidator
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
     from numpy.typing import ArrayLike
 
     from pymatgen.io.validation.common import VaspFiles
@@ -198,7 +201,7 @@ class CheckCommonErrors(BaseValidator):
         cur_magmoms = [abs(mag["tot"]) for mag in vasp_files.outcar.magnetization]
         bad_site_magmom_msgs = []
         if len(cur_magmoms) > 0:
-            for site_num in range(0, len(vasp_files.user_input.structure)):
+            for site_num in range(len(vasp_files.user_input.structure)):
                 cur_site_ele = vasp_files.user_input.structure.sites[
                     site_num
                 ].species_string
@@ -299,18 +302,22 @@ class CheckStructureProperties(BaseValidator):
     ) -> None:
         """Check structure for inappropriate site properties."""
         if (
-            selec_dyn := vasp_files.user_input.structure.site_properties.get(
-                "selective_dynamics"
-            )
-        ) is not None and vasp_files.run_type == "relax":
-            if any(
-                self._has_frozen_degrees_of_freedom(sd_array) for sd_array in selec_dyn
-            ):
-                reasons.append(
-                    "Selective dynamics: certain degrees of freedom in the structure "
-                    "were not permitted to relax. To correctly place entries on the convex "
-                    "hull, all degrees of freedom should be allowed to relax."
+            (
+                selec_dyn := vasp_files.user_input.structure.site_properties.get(
+                    "selective_dynamics"
                 )
+            )
+            is not None
+            and vasp_files.run_type == "relax"
+            and any(
+                self._has_frozen_degrees_of_freedom(sd_array) for sd_array in selec_dyn
+            )
+        ):
+            reasons.append(
+                "Selective dynamics: certain degrees of freedom in the structure "
+                "were not permitted to relax. To correctly place entries on the convex "
+                "hull, all degrees of freedom should be allowed to relax."
+            )
 
     @staticmethod
     def _has_nonzero_velocities(
@@ -325,12 +332,14 @@ class CheckStructureProperties(BaseValidator):
     ) -> None:
         """Check structure for non-zero velocities."""
         if (
-            velos := vasp_files.user_input.structure.site_properties.get("velocities")
-        ) is not None and vasp_files.run_type != "md":
-            if any(self._has_nonzero_velocities(velo) for velo in velos):
-                warnings.append(
-                    "At least one of the structures had non-zero velocities. "
-                    f"While these are ignored by VASP for {vasp_files.run_type} "
-                    "calculations, please ensure that you intended to run a "
-                    "non-molecular dynamics calculation."
-                )
+            (velos := vasp_files.user_input.structure.site_properties.get("velocities"))
+            is not None
+            and vasp_files.run_type != "md"
+            and any(self._has_nonzero_velocities(velo) for velo in velos)
+        ):
+            warnings.append(
+                "At least one of the structures had non-zero velocities. "
+                f"While these are ignored by VASP for {vasp_files.run_type} "
+                "calculations, please ensure that you intended to run a "
+                "non-molecular dynamics calculation."
+            )

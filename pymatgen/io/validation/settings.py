@@ -6,11 +6,11 @@ Settings for pymatgen-io-validation. Used to be part of EmmetSettings.
 
 import json
 from pathlib import Path
-from typing import Dict, Type, TypeVar, Union
+from typing import TypeVar, Union
 
 import requests
 from monty.json import MontyDecoder
-from pydantic import field_validator, model_validator, Field, ImportString
+from pydantic import Field, ImportString, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_CONFIG_FILE_PATH = str(Path.home().joinpath(".emmet.json"))
@@ -46,7 +46,7 @@ class IOValidationSettings(BaseSettings):
         description="Whether to consider a task valid if kpoints are shifted by the user",
     )
 
-    VASP_ALLOW_EXPLICIT_KPT_MESH: Union[str, bool] = Field(
+    VASP_ALLOW_EXPLICIT_KPT_MESH: str | bool = Field(
         "auto",
         description="Whether to consider a task valid if the user defines an explicit kpoint mesh",
     )
@@ -56,7 +56,7 @@ class IOValidationSettings(BaseSettings):
         description="Relative tolerance for FFT grid parameters to still be a valid",
     )
 
-    VASP_DEFAULT_INPUT_SETS: Dict[str, ImportString] = Field(
+    VASP_DEFAULT_INPUT_SETS: dict[str, ImportString] = Field(
         {
             "GGA Structure Optimization": "pymatgen.io.vasp.sets.MPRelaxSet",
             "GGA+U Structure Optimization": "pymatgen.io.vasp.sets.MPRelaxSet",
@@ -137,7 +137,7 @@ class IOValidationSettings(BaseSettings):
         return new_values
 
     @classmethod
-    def autoload(cls: Type[S], settings: Union[None, dict, S]) -> S:  # noqa
+    def autoload(cls: S, settings: Union[None, dict, S]) -> S:  # noqa
         if settings is None:
             return cls()
         elif isinstance(settings, dict):
@@ -146,7 +146,7 @@ class IOValidationSettings(BaseSettings):
 
     @field_validator("VASP_DEFAULT_INPUT_SETS", mode="before")
     @classmethod
-    def convert_input_sets(cls, value):  # noqa
+    def convert_input_sets(cls, value):
         if isinstance(value, dict):
             return {k: MontyDecoder().process_decoded(v) for k, v in value.items()}
         return value

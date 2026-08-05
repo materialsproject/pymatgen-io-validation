@@ -1,14 +1,17 @@
 """Validate VASP KPOINTS files or the KSPACING/KGAMMA INCAR settings."""
 
 from __future__ import annotations
-from pydantic import Field
+
 from typing import TYPE_CHECKING
+
 import numpy as np
+from pydantic import Field
 
 from pymatgen.io.validation.common import SETTINGS, BaseValidator
 
 if TYPE_CHECKING:
     from pymatgen.core import Structure
+
     from pymatgen.io.validation.common import VaspFiles
 
 
@@ -108,7 +111,7 @@ class CheckKpointsKspacing(BaseValidator):
         if isinstance(self.allow_explicit_kpoint_mesh, bool):
             allow_explicit = self.allow_explicit_kpoint_mesh
         elif self.allow_explicit_kpoint_mesh == "auto":
-            allow_explicit = vasp_files.run_type == "nonscf"
+            allow_explicit = vasp_files.run_type in {"nonscf", "scf line"}
         else:
             allow_explicit = False
 
@@ -125,6 +128,11 @@ class CheckKpointsKspacing(BaseValidator):
         """
         Check that k-point density is sufficiently high and is compatible with lattice symmetry.
         """
+
+        if vasp_files.run_type in {"nonscf", "scf line"}:
+            # Explicitly setting k-points for line-mode calculations,
+            # ignore the default density requirements
+            return
 
         # Check number of kpoints used
         # Checks should work regardless of whether vasprun was supplied.

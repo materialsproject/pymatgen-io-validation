@@ -1,6 +1,6 @@
 from pathlib import Path
-import pytest
 
+import pytest
 from monty.serialization import loadfn
 from pymatgen.core import SETTINGS as PMG_SETTINGS
 
@@ -27,4 +27,7 @@ vasp_calc_data: dict[str, VaspFiles] = {
 
 def incar_check_list():
     """Pre-defined list of pass/fail tests."""
-    return loadfn(_test_dir / "vasp" / "scf_incar_check_list.yaml")
+    tests = loadfn(_test_dir / "vasp" / "scf_incar_check_list.yaml")
+    for idx, entry in enumerate(tests):
+        entry["_id"] = f"{entry['err_msg']}-{entry['should_pass']}-{idx}"
+    return tests

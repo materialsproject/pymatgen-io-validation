@@ -1,9 +1,11 @@
 """Optionally check whether package versions are up to date."""
 
 from __future__ import annotations
-from importlib.metadata import version
-import requests  # type: ignore[import-untyped]
+
 import warnings
+from importlib.metadata import version
+
+import requests  # type: ignore[import-untyped]
 
 
 def package_version_check() -> None:
@@ -28,13 +30,13 @@ def is_package_is_up_to_date(package_name: str) -> bool:
 
     try:
         cur_version = version(package_name)
-    except Exception:
+    except Exception:  # noqa: BLE001
         raise ImportError(f"Package `{package_name}` is not installed!")
 
     try:
         response = requests.get(f"https://pypi.org/pypi/{package_name}/json")
         latest_version = response.json()["info"]["version"]
-    except Exception:
+    except Exception:  # noqa: BLE001
         raise ImportError(f"Package `{package_name}` does not exist in PyPI!")
 
     return cur_version == latest_version

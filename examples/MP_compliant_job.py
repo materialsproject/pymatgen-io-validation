@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from emmet.core.utils import jsanitize
+import numpy as np
+from emmet.core.mpid import AlphaID
 from emmet.core.tasks import TaskDoc
+from emmet.core.utils import jsanitize
 from jobflow import Flow
 from monty.serialization import dumpfn
-import numpy as np
-from pymatgen.core import Structure, Lattice
-from emmet.core.mpid import AlphaID
+from pymatgen.core import Lattice, Structure
 
 
 def get_GaAs_structure(a0: float = 5.6) -> Structure:
@@ -57,14 +57,14 @@ def get_MP_compliant_r2SCAN_flow(
 
 
 def run_job_fully_locally(flow, job_store=None):
-    from jobflow import run_locally, JobStore
+    from jobflow import JobStore, run_locally
     from maggma.stores import MemoryStore
 
     if job_store is None:
         job_store = JobStore(MemoryStore(), additional_stores={"data": MemoryStore()})
 
     response = run_locally(flow, store=job_store, create_folders=True)
-    uuid = list(response)[0]
+    uuid = next(iter(response))
     return response[uuid][1].output
 
 

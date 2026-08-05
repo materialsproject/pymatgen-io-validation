@@ -2,41 +2,43 @@
 
 from __future__ import annotations
 
-from functools import cached_property
 import hashlib
-from importlib import import_module
 import json
-from monty.serialization import loadfn
 import os
+from functools import cached_property
+from importlib import import_module
 from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Any, TypeAlias, TypeVar
+
+import numpy as np
+from monty.serialization import loadfn
 from pydantic import (
     BaseModel,
-    Field,
-    model_validator,
-    model_serializer,
-    PrivateAttr,
-    PlainSerializer,
     BeforeValidator,
+    Field,
+    PlainSerializer,
+    PrivateAttr,
+    model_serializer,
+    model_validator,
 )
-from typing import TYPE_CHECKING, Any, Annotated, TypeAlias, TypeVar
-
 from pymatgen.core import Structure
 from pymatgen.io.vasp.inputs import (
     POTCAR_STATS_PATH,
     Incar,
     Kpoints,
+    PmgVaspPspDirError,
     Poscar,
     Potcar,
-    PmgVaspPspDirError,
 )
 from pymatgen.io.vasp.outputs import Outcar, Vasprun
 from pymatgen.io.vasp.sets import VaspInputSet
 
-from pymatgen.io.validation.vasp_defaults import VaspParam, VASP_DEFAULTS_DICT
 from pymatgen.io.validation.settings import IOValidationSettings
+from pymatgen.io.validation.vasp_defaults import VASP_DEFAULTS_DICT, VaspParam
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
+
     from monty.json import MSONable
 
 SETTINGS = IOValidationSettings()
@@ -424,14 +426,30 @@ class VaspFiles(BaseModel):
             >= 10
         ):
             run_type = "nonscf"
+
         if self.user_input.incar.get("LCHIMAG", VASP_DEFAULTS_DICT["LCHIMAG"].value):
-            run_type == "nmr"
+            run_type = "nmr"
+
+        if (
+            run_type == "static"
+            and self.user_input.kpoints is not None
+            and np.any(np.abs(self.user_input.kpoints.kpts_weights or [1e20]) < 1e-6)
+            and (
+                self.user_input.incar.get("METAGGA") is not None
+                or self.user_input.incar.get("LHFCALC", False)
+            )
+        ):
+            # Static meta-GGA or hybrid calculation with zero-weighted k-points
+            # Highly-likely to be a self-consistent line-mode calculation
+            run_type = "scf line"
 
         if run_type is None:
             self.validation_errors += [
-                "Could not determine a valid run type. We currently only validate "
-                "Geometry optimizations (relaxations), single-points (statics), "
-                "and non-self-consistent fixed charged density calculations. ",
+                (
+                    "Could not determine a valid run type. We currently only validate "
+                    "Geometry optimizations (relaxations), single-points (statics), "
+                    "and non-self-consistent fixed charged density calculations. "
+                )
             ]
 
         return run_type
@@ -465,9 +483,11 @@ class VaspFiles(BaseModel):
         ) and metagga.lower() != "none":
             if gga:
                 self.validation_errors += [
-                    "Both the GGA and METAGGA tags were set, which can lead to large errors. "
-                    "For context, see:\n"
-                    "https://github.com/materialsproject/atomate2/issues/453#issuecomment-1699605867"
+                    (
+                        "Both the GGA and METAGGA tags were set, which can lead to large errors. "
+                        "For context, see:\n"
+                        "https://github.com/materialsproject/atomate2/issues/453#issuecomment-1699605867"
+                    )
                 ]
                 return None
 
@@ -489,10 +509,12 @@ class VaspFiles(BaseModel):
         func = func or func_from_potcar
         if func is None:
             self.validation_errors += [
-                "Currently, we only validate calculations using the following functionals:\n"
-                "GGA : PBE, PBEsol\n"
-                "meta-GGA : SCAN, r2SCAN\n"
-                "Hybrids: HSE06"
+                (
+                    "Currently, we only validate calculations using the following functionals:\n"
+                    "GGA : PBE, PBEsol\n"
+                    "meta-GGA : SCAN, r2SCAN\n"
+                    "Hybrids: HSE06"
+                )
             ]
 
         return func
@@ -531,15 +553,17 @@ class VaspFiles(BaseModel):
             # to the MP24 sets.
             if self.run_type == "relax":
                 set_name = "MP24RelaxSet"
-            elif self.run_type == "static":
+            elif self.run_type in {"static", "scf line"}:
                 set_name = "MP24StaticSet"
         elif self.functional in ("pbesol", "scan", "hse06"):
             set_name = f"MPScan{self.run_type.capitalize()}Set"
 
         if set_name is None:
             self.validation_errors += [
-                "Could not determine a valid input set from the specified "
-                f"functional = {self.functional} and calculation type {self.run_type}."
+                (
+                    "Could not determine a valid input set from the specified "
+                    f"functional = {self.functional} and calculation type {self.run_type}."
+                )
             ]
             return None
         return set_name
@@ -564,12 +588,15 @@ class VaspFiles(BaseModel):
                 HFSCREEN=0.2,
                 GGA="PE",
             )
+
         # Note that only the *previous* bandgap informs the k-point density
+        # However the adjustment of k-spacing via the bandgap
+        # might falsely fail some calculations
         vis = getattr(
             import_module("pymatgen.io.vasp.sets"), self.valid_input_set_name
         )(
             structure=self.user_input.structure,
-            bandgap=None,
+            bandgap=self.vasprun.bandgap if self.vasprun else None,
             user_incar_settings=incar_updates,
         )
 

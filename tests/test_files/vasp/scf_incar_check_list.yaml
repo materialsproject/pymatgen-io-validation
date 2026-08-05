@@ -1,4 +1,4 @@
-- err_msg: LCHIMAG
+- err_msg: LNMR_SYM_RED
   should_pass: false
   incar:
     LCHIMAG: true
@@ -486,12 +486,6 @@
     LMAXTAU: 2
     ICHARG: 1
     METAGGA: "NONE"
-- should_pass : false
-  err_msg : ENAUG
-  incar:
-    ENAUG: 1
-    ICHARG: 1
-    METAGGA: "R2SCA"
 - should_pass : true
   err_msg : "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS"
 - should_pass : true

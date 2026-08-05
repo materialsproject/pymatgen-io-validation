@@ -1,11 +1,13 @@
 """Define VASP defaults and input categories to check."""
 
 from __future__ import annotations
-from typing import Any, Literal, Optional
+
 import math
-from pathlib import Path
-from pydantic import BaseModel, Field, field_validator
 from enum import Enum
+from pathlib import Path
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, field_validator
 
 VALID_OPERATIONS: set[str | None] = {
     "==",
@@ -72,11 +74,11 @@ class VaspParam(BaseModel):
     tag: str = Field(
         description="the general category of input the tag belongs to. Used only to properly update INCAR fields in the same way VASP does."
     )
-    operation: Optional[str | list[str] | tuple[str]] = Field(
+    operation: str | list[str] | tuple[str] | None = Field(
         None,
         description="One or more of VALID_OPERATIONS to apply in validating this parameter.",
     )
-    alias: Optional[str] = Field(
+    alias: str | None = Field(
         None,
         description="If a str, an alternate name for a parameter to use when reporting invalid values, e.g., ENMAX instead of ENCUT.",
     )
@@ -84,10 +86,10 @@ class VaspParam(BaseModel):
         1e-4,
         description="The tolerance used when evaluating approximate float equality.",
     )
-    comment: Optional[str] = Field(
+    comment: str | None = Field(
         None, description="Additional information to pass to the user if a check fails."
     )
-    warning: Optional[str] = Field(
+    warning: str | None = Field(
         None, description="Additional warnings to pass to the user if a check fails."
     )
     severity: Literal["reason", "warning"] = Field(

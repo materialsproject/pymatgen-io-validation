@@ -37,12 +37,18 @@ name = "pymatgen-io-validation"
 readme = "README.md"
 requires-python = '>=3.11'
 
-[project.optional-dependencies]
-dev = ["pre-commit>=2.12.1"]
-
-tests = ["pytest>=8.4.2", "pytest-cov>=7.0.0", "pytest-xdist>=3.8.0", "types-requests"]
-lint = ["mypy", "ruff"]
-all = ["pymatgen-io-validation[dev,tests,lint]"]
+[dependency-groups]
+lint = [
+  "pre-commit>=2.12.1",
+  "mypy",
+  "ruff",
+]
+tests = [
+  "pytest>=8.4.2",
+  "pytest-cov>=7.0.0",
+  "pytest-xdist>=3.8.0",
+  "types-requests",
+]
 
 [tool.setuptools.dynamic]
 readme = { file = ["README.md"] }
@@ -60,6 +66,11 @@ method = "git"
 
 [tool.ruff]
 line-length = 120
+extend-exclude = [
+  "tests",
+  "pymatgen/io/validation/check_for_excess_empty_space.py",
+  "pymatgen/io/validation/compare_to_MP_ehull.py",
+]
 
 [tool.ruff.lint]
 exclude = [".git","__pycache__","tests"]
