@@ -522,7 +522,18 @@ class VaspFiles(BaseModel):
                 set_name = None
             elif self.run_type in ("relax", "static"):
                 set_name = f"MP{self.run_type.capitalize()}Set"
-        elif self.functional in ("pbesol", "scan", "r2scan", "hse06"):
+        elif self.functional == "r2scan":
+            # MP's current r2SCAN protocol uses the MP24 input sets (MP24RelaxSet /
+            # MP24StaticSet), which set GGA_COMPAT=False. The legacy MPScan*Set sets
+            # leave GGA_COMPAT unset (defaulting to True), so validating an MP24 r2SCAN
+            # calculation against them spuriously fails the GGA_COMPAT check. This
+            # matches VASP_DEFAULT_INPUT_SETS, which already maps the r2SCAN calc types
+            # to the MP24 sets.
+            if self.run_type == "relax":
+                set_name = "MP24RelaxSet"
+            elif self.run_type == "static":
+                set_name = "MP24StaticSet"
+        elif self.functional in ("pbesol", "scan", "hse06"):
             set_name = f"MPScan{self.run_type.capitalize()}Set"
 
         if set_name is None:
