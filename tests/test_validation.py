@@ -22,6 +22,8 @@ from pymatgen.io.validation.validation import VaspValidator
 
 set_fake_potcar_dir()
 
+INCAR_CHECKS = incar_check_list()
+
 
 def run_check(
     vasp_files: VaspFiles,
@@ -124,7 +126,14 @@ def test_potcar_validation(test_dir, object_name):
 
 @pytest.mark.parametrize(
     "object_name,incar_check",
-    product(["Si_static", "Si_old_double_relax"], incar_check_list()),
+    product(["Si_static", "Si_old_double_relax"], INCAR_CHECKS),
+    ids=[
+        "-".join(p)
+        for p in product(
+            ["Si_static", "Si_old_double_relax"],
+            [entry["_id"] for entry in INCAR_CHECKS],
+        )
+    ],
 )
 def test_scf_incar_checks(test_dir, object_name: str, incar_check: dict):
 
