@@ -1,5 +1,5 @@
 import copy
-
+from itertools import product
 import pytest
 from conftest import incar_check_list, set_fake_potcar_dir, vasp_calc_data
 from monty.serialization import loadfn
@@ -122,8 +122,12 @@ def test_potcar_validation(test_dir, object_name):
     run_check(vf, "PSEUDOPOTENTIALS", False)
 
 
-@pytest.mark.parametrize("object_name", ["Si_static", "Si_old_double_relax"])
-def test_scf_incar_checks(test_dir, object_name):
+@pytest.mark.parametrize(
+    "object_name,incar_check",
+    product(["Si_static", "Si_old_double_relax"], incar_check_list()),
+)
+def test_scf_incar_checks(test_dir, object_name: str, incar_check: dict):
+
     vf_og = vasp_calc_data[object_name]
     vf_og.vasprun.final_structure._charge = 0.0  # patch for old test files
 
@@ -131,14 +135,21 @@ def test_scf_incar_checks(test_dir, object_name):
     # Some parameters are validated from one or the other of these items, depending on whether VASP
     # changes the value between the INCAR and the vasprun.xml (which it often does)
 
-    for incar_check in incar_check_list():
-        run_check(
-            vf_og,
-            incar_check["err_msg"],
-            incar_check["should_pass"],
-            vasprun_parameters_to_change=incar_check.get("vasprun", {}),
-            incar_settings_to_change=incar_check.get("incar", {}),
-        )
+    run_check(
+        vf_og,
+        incar_check["err_msg"],
+        incar_check["should_pass"],
+        vasprun_parameters_to_change=incar_check.get("vasprun", {}),
+        incar_settings_to_change=incar_check.get("incar", {}),
+    )
+
+
+@pytest.mark.parametrize("object_name", ["Si_static", "Si_old_double_relax"])
+def test_bespoke_scf_incar_checks(test_dir, object_name):
+
+    vf_og = vasp_calc_data[object_name]
+    vf_og.vasprun.final_structure._charge = 0.0  # patch for old test files
+
     ### Most all of the tests below are too specific to use the kwargs in the
     # run_check() method. Hence, the calcs are manually modified. Apologies.
 
