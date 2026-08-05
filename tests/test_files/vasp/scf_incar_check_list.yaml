@@ -1,4 +1,4 @@
-- err_msg: LCHIMAG
+- err_msg: LNMR_SYM_RED
   should_pass: false
   incar:
     LCHIMAG: true

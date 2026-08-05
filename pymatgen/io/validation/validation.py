@@ -3,24 +3,24 @@
 from __future__ import annotations
 
 from pathlib import Path
-from pydantic import BaseModel, Field, PrivateAttr, computed_field
 from typing import TYPE_CHECKING
 
 from monty.os.path import zpath
+from pydantic import BaseModel, Field, PrivateAttr, computed_field
 
-from pymatgen.io.validation.common import VaspFiles
 from pymatgen.io.validation.check_common_errors import (
-    CheckStructureProperties,
     CheckCommonErrors,
+    CheckStructureProperties,
 )
+from pymatgen.io.validation.check_incar import CheckIncar
 from pymatgen.io.validation.check_kpoints_kspacing import CheckKpointsKspacing
 from pymatgen.io.validation.check_potcar import CheckPotcar
-from pymatgen.io.validation.check_incar import CheckIncar
+from pymatgen.io.validation.common import VaspFiles
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
     import os
-    from typing_extensions import Self
+    from collections.abc import Mapping
+    from typing import Self
 
 
 DEFAULT_CHECKS = [

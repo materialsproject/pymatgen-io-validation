@@ -1,7 +1,7 @@
 """Module for checking if a structure is not a bulk crystal"""
 
-from pymatgen.analysis.local_env import VoronoiNN
 import numpy as np
+from pymatgen.analysis.local_env import VoronoiNN
 
 
 def check_for_excess_empty_space(structure):
@@ -36,10 +36,9 @@ def check_for_excess_empty_space(structure):
         max_voronoi_polyhedra_vol = 0
         vnn = VoronoiNN().get_all_voronoi_polyhedra(structure)
         for polyhedra in vnn:
-            for key in polyhedra.keys():
+            for key in polyhedra:
                 cur_vol = polyhedra[key]["volume"]
-                if cur_vol > max_voronoi_polyhedra_vol:
-                    max_voronoi_polyhedra_vol = cur_vol
+                max_voronoi_polyhedra_vol = max(max_voronoi_polyhedra_vol, cur_vol)
         return max_voronoi_polyhedra_vol
 
     max_voronoi_polyhedra_vol = 0
@@ -60,7 +59,7 @@ def check_for_excess_empty_space(structure):
 
         if "infinite vertex in the Voronoi construction".lower() in str(e).lower():
             print(
-                f"{str(e)} As a result, this structure is marked as having excess empty space."
+                f"{e!s} As a result, this structure is marked as having excess empty space."
             )
             max_voronoi_polyhedra_vol = np.inf
 

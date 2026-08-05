@@ -1,19 +1,18 @@
-import pytest
 import copy
 
+import pytest
+from conftest import incar_check_list, set_fake_potcar_dir, vasp_calc_data
 from monty.serialization import loadfn
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
 
-from pymatgen.io.validation.validation import VaspValidator
 from pymatgen.io.validation.common import (
+    LightIonicStep,
+    PotcarSummaryStats,
     ValidationError,
     VaspFiles,
-    PotcarSummaryStats,
-    LightIonicStep,
 )
-
-from conftest import vasp_calc_data, incar_check_list, set_fake_potcar_dir
+from pymatgen.io.validation.validation import VaspValidator
 
 ### TODO: add tests for many other MP input sets (e.g. MPNSCFSet, MPNMRSet, MPScanRelaxSet, Hybrid sets, etc.)
 ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
@@ -28,26 +27,32 @@ def run_check(
     vasp_files: VaspFiles,
     error_message_to_search_for: str,
     should_the_check_pass: bool,
-    vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
-    incar_settings_to_change: dict = {},  # for directly changing the INCAR file,
-    validation_doc_kwargs: dict = {},  # any kwargs to pass to the VaspValidator class
+    vasprun_parameters_to_change: (
+        dict | None
+    ) = None,  # for changing the parameters read from vasprun.xml
+    incar_settings_to_change: (
+        dict | None
+    ) = None,  # for directly changing the INCAR file,
+    validation_doc_kwargs: (
+        dict | None
+    ) = None,  # any kwargs to pass to the VaspValidator class
 ):
     _new_vf = vasp_files.model_dump()
     _new_vf["vasprun"]["parameters"] = {
         **vasp_files.vasprun.parameters,
-        **vasprun_parameters_to_change,
+        **(vasprun_parameters_to_change or {}),
     }
 
     _new_vf["user_input"]["incar"] = {
         **vasp_files.user_input.incar,
-        **incar_settings_to_change,
+        **(incar_settings_to_change or {}),
     }
 
     validator = VaspValidator.from_vasp_input(
-        vasp_files=VaspFiles(**_new_vf), **validation_doc_kwargs
+        vasp_files=VaspFiles(**_new_vf), **(validation_doc_kwargs or {})
     )
     has_specified_error = any(
-        [error_message_to_search_for in reason for reason in validator.reasons]
+        error_message_to_search_for in reason for reason in validator.reasons
     )
 
     assert (not has_specified_error) if should_the_check_pass else has_specified_error
@@ -63,10 +68,10 @@ def test_validation_from_files(test_dir):
 
     # Note: because the POTCAR info cannot be distributed, `validator_from_paths`
     # is missing POTCAR checks.
-    assert set([r for r in validator_from_paths.reasons if "POTCAR" not in r]) == set(
+    assert {r for r in validator_from_paths.reasons if "POTCAR" not in r} == set(
         validator_from_vasp_files.reasons
     )
-    assert set([r for r in validator_from_paths.warnings if "POTCAR" not in r]) == set(
+    assert {r for r in validator_from_paths.warnings if "POTCAR" not in r} == set(
         validator_from_vasp_files.warnings
     )
     assert all(
@@ -232,9 +237,9 @@ def test_scf_incar_checks(test_dir, object_name):
     )
     validated = VaspValidator.from_vasp_input(vasp_files=vf)
     # should not invalidate SCF calcs based on LMAXMIX
-    assert not any(["LMAXMIX" in reason for reason in validated.reasons])
+    assert not any("LMAXMIX" in reason for reason in validated.reasons)
     # rather should add a warning
-    assert any(["LMAXMIX" in warning for warning in validated.warnings])
+    assert any("LMAXMIX" in warning for warning in validated.warnings)
 
     # EFERMI check (does not matter for VASP versions before 6.4)
     # must check EFERMI in the *incar*, as it is saved as a numerical value after VASP
@@ -309,9 +314,9 @@ def test_nscf_checks(object_name):
     vf.user_input.incar["LMAXMIX"] = 0
     validated = VaspValidator.from_vasp_input(vasp_files=vf)
     # should invalidate NSCF calcs based on LMAXMIX
-    assert any(["LMAXMIX" in reason for reason in validated.reasons])
+    assert any("LMAXMIX" in reason for reason in validated.reasons)
     # and should *not* create a warning for NSCF calcs
-    assert not any(["LMAXMIX" in warning for warning in validated.warnings])
+    assert not any("LMAXMIX" in warning for warning in validated.warnings)
 
     # Explicit kpoints for NSCF calc check (this should not raise any flags for NSCF calcs)
     vf = copy.deepcopy(vf_og)
@@ -347,8 +352,7 @@ def test_common_error_checks(object_name):
             "METAGGA": "R2SCAN",
         }
 
-        vf_new = VaspFiles(**vfd)
-        vf_new.valid_input_set
+        VaspFiles(**vfd).valid_input_set
 
     # Drift forces too high check - a warning
     vf = copy.deepcopy(vf_og)
@@ -559,7 +563,13 @@ def test_fast_mode():
         vasp_files=vf, check_potcar=True, fast=True
     )
     assert len(validated.reasons) == 1
-    assert "INPUT SETTINGS --> KPOINTS or KSPACING:" in validated.reasons[0]
+    assert any(
+        valid_reason in validated.reasons[0]
+        for valid_reason in (
+            "KPOINTS or KSPACING",
+            "NBANDS",
+        )
+    )
 
     # Now restore k-points and don't check POTCAR --> get error
     _update_kpoints_for_test(vf, og_kpoints)

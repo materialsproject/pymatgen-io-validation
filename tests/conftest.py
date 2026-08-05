@@ -1,6 +1,6 @@
 from pathlib import Path
-import pytest
 
+import pytest
 from monty.serialization import loadfn
 from pymatgen.core import SETTINGS as PMG_SETTINGS
 

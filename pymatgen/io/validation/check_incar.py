@@ -1,16 +1,18 @@
 """Validate VASP INCAR files."""
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 from pydantic import Field
 
 from pymatgen.io.validation.common import SETTINGS, BaseValidator
 from pymatgen.io.validation.vasp_defaults import InputCategory, VaspParam
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from typing import Any
+
     from pymatgen.io.validation.common import VaspFiles
 
 # TODO: fix ISIF getting overwritten by MP input set.
@@ -362,7 +364,7 @@ class CheckIncar(BaseValidator):
 
         grid_keys = {"NGX", "NGXF", "NGY", "NGYF", "NGZ", "NGZF"}
         # NGX/Y/Z and NGXF/YF/ZF. Not checked if not in INCAR file (as this means the VASP default was used).
-        if any(i for i in grid_keys if i in user_incar.keys()):
+        if any(i for i in grid_keys if i in user_incar):
             enmaxs = [user_incar["ENMAX"], ref_incar["ENMAX"]]
             ref_incar["ENMAX"] = max([v for v in enmaxs if v < float("inf")])
 
@@ -581,7 +583,7 @@ class CheckIncar(BaseValidator):
                     f"This causes the structure to have a charge of {user_incar['NELECT']}. "
                     f"NELECT should be set to {nelect + user_incar['NELECT']} instead."
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001
                 self.vasp_defaults["NELECT"] = VaspParam(
                     name="NELECT",
                     value=None,
