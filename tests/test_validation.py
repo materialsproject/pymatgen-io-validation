@@ -608,3 +608,43 @@ def test_site_properties(test_dir):
     )
     vd = VaspValidator.from_vasp_input(vasp_files=vf)
     assert any("non-zero velocities" in warning.lower() for warning in vd.warnings)
+
+
+@pytest.mark.parametrize(
+    "run_type,expected_set",
+    [("relax", "MP24RelaxSet"), ("static", "MP24StaticSet")],
+)
+def test_r2scan_uses_mp24_input_set(run_type, expected_set):
+    """r2SCAN calcs must validate against the MP24 sets, not the legacy MPScan sets.
+
+    Regression test for the GGA_COMPAT false-positive: the MP24 input sets set
+    GGA_COMPAT=False, but MPScanRelaxSet/MPScanStaticSet leave it unset (default
+    True), so an MP24 r2SCAN calc was spuriously flagged. VASP_DEFAULT_INPUT_SETS
+    already maps the r2SCAN calc types to the MP24 sets; the resolver must agree.
+    """
+    from pymatgen.io.validation.common import VaspFiles
+
+    vf = VaspFiles.model_construct(functional="r2scan", run_type=run_type)
+    assert vf.set_valid_input_set_name() == expected_set
+
+
+def test_r2scan_relax_passes_gga_compat_check():
+    """An MP24RelaxSet-generated r2SCAN relax must not fail the GGA_COMPAT check."""
+    from pymatgen.core import Lattice
+    from pymatgen.io.vasp.sets import MP24RelaxSet
+
+    from pymatgen.io.validation.common import VaspFiles, VaspInputSafe
+
+    si = Structure.from_spacegroup(
+        "Fd-3m", Lattice.cubic(5.468), ["Si"], [[0.0, 0.0, 0.0]]
+    ).get_primitive_structure()
+    vf = VaspFiles(
+        user_input=VaspInputSafe.from_vasp_input_set(MP24RelaxSet(structure=si))
+    )
+
+    assert vf.functional == "r2scan"
+    assert vf.run_type == "relax"
+    assert vf.valid_input_set_name == "MP24RelaxSet"
+
+    reasons, _ = VaspValidator.run_checks(vf, fast=False)
+    assert not any("GGA_COMPAT" in reason for reason in reasons), reasons
