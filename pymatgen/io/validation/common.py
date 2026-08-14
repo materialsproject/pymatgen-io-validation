@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, TypeAlias, TypeVar
 
 import numpy as np
-from monty.serialization import loadfn
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -23,7 +22,6 @@ from pydantic import (
 )
 from pymatgen.core import Structure
 from pymatgen.io.vasp.inputs import (
-    POTCAR_STATS_PATH,
     Incar,
     Kpoints,
     PmgVaspPspDirError,
@@ -246,31 +244,16 @@ class VaspInputSafe(BaseModel):
             potcar_functional = vis.potcar_functional
 
         except (FileNotFoundError, PmgVaspPspDirError):
-            # Fall back to pregenerated POTCAR meta
-            # Note that multiple POTCARs may use the same symbol / TITEL
-            # within a given release of VASP.
-
-            potcar_stats = loadfn(POTCAR_STATS_PATH)
+            # No local POTCAR library (PMG_VASP_PSP_DIR unset). Leave ``potcar``
+            # unset so CheckPotcar validates against the pregenerated summary
+            # stats keyed by TITEL, rather than reference POTCARs reconstructed
+            # here. The previous reconstruction rebuilt the reference TITEL via
+            # ``titel_no_spc.split(potcar_symb)``, which mangles any symbol whose
+            # letters recur in the TITEL (e.g. B/P/S/Se, where "PAW_PBE"/"Sep"
+            # contain the symbol), producing a garbled TITEL that never matches
+            # and flagging valid POTCARs as incorrect.
+            potcar = None
             potcar_functional = vis._config_dict["POTCAR_FUNCTIONAL"]
-            potcar = []
-            for ele in vis.structure.elements:
-                if potcar_symb := vis._config_dict["POTCAR"].get(ele.name):
-                    for titel_no_spc, potcars in potcar_stats[
-                        potcar_functional
-                    ].items():
-                        for entry in potcars:
-                            if entry["symbol"] == potcar_symb:
-                                titel_comp = titel_no_spc.split(potcar_symb)
-
-                                potcar += [
-                                    PotcarSummaryStats(
-                                        titel=" ".join(
-                                            [titel_comp[0], potcar_symb, titel_comp[1]]
-                                        ),
-                                        lexch=entry.get("LEXCH"),
-                                        **entry,
-                                    )
-                                ]
 
         cls_config.update(
             potcar=potcar,
